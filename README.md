@@ -11,4 +11,4 @@ _**School :**_ École de Technologie Supérieure
 - Arms in the back
 - Compatibility with Ubuntu 17 and 18
 - LibTactic (libCodeRelease) : Changing roles
-- Team Description Paper 2019 : [TDP.pdf](TDP_2019.pdf)
+- Team Description Paper 2019 : [TDP-2019](https://clubnaova.ca/static/media/TDP-2019.811d421c.pdf)
