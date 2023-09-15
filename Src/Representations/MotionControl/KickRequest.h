@@ -50,7 +50,7 @@ STREAMABLE(KickRequest,
   {,
     kickForward,
     none,
-newKick,
+    newKick,
   });
 
   static KickMotionID getKickMotionFromName(const char* name),

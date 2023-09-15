@@ -365,7 +365,7 @@ void PlotWidget::exportAsGnuplot()
   // ask for destination files
   QSettings& settings = RoboCupCtrl::application->getSettings();
   QString fileName = QFileDialog::getSaveFileName(this,
-                                                  tr("Export as Gnuplot"), settings.value("ExportDirectory", "").toString(), tr("Gnuplot (*.plt)"));
+                                                  tr("Export as Gnuplot"), settings.value("ExportDirectory", "").toString(), tr("Gnuplot (*.plt)"),nullptr,  QFileDialog::DontUseNativeDialog);
   if(fileName.isEmpty())
     return;
   settings.setValue("ExportDirectory", QFileInfo(fileName).dir().path());
@@ -395,7 +395,7 @@ void PlotWidget::exportAsGnuplot()
   {
     const std::list<RobotConsole::Layer>& plotList = plotView.console.plotViews[plotView.name];
     int currentPlot = 0;
-    for(const RobotConsole::Layer layer : plotList)
+    for(const RobotConsole::Layer &layer : plotList)
     {
       const std::list<float>& list = plotView.console.plots[layer.layer].points;
       std::list<float>::const_reverse_iterator k = list.rbegin();
@@ -433,7 +433,7 @@ void PlotWidget::exportAsGnuplot()
   out << "set output \"" << fileInfo.baseName() << ".eps\"\n";
   const std::list<RobotConsole::Layer>& plotList(plotView.console.plotViews[plotView.name]);
   int currentPlot = 0;
-  for(const RobotConsole::Layer layer : plotList)
+  for(const RobotConsole::Layer &layer : plotList)
   {
     if(currentPlot == 0)
       out << "plot ";

@@ -20,7 +20,7 @@
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Streams/InStreams.h"
 #include "Tools/Streams/StreamHandler.h"
-
+ #include <unistd.h>
 STREAMABLE(Robots,
 {
   STREAMABLE(RobotId,
@@ -45,17 +45,21 @@ Settings::Settings(bool master)
 
 Settings::Settings()
 {
+
   static_assert(TEAM_BLUE == blue && TEAM_RED == red && TEAM_YELLOW == yellow && TEAM_BLACK == black
                 && TEAM_WHITE == white && TEAM_GREEN == green && TEAM_ORANGE == orange
                 && TEAM_PURPLE == purple && TEAM_BROWN == brown && TEAM_GRAY == gray,
                 "These macros and enums have to match!");
+
+  usleep(1000000);
   if(!loaded)
   {
+  
     VERIFY(settings.load());
     loaded = true;
   }
   *this = settings;
-
+  usleep(1000000);
 #ifdef TARGET_SIM
   if(SystemCall::getMode() == SystemCall::simulatedRobot)
   {
@@ -63,8 +67,8 @@ Settings::Settings()
     teamNumber = index < 6 ? 1 : 2;
     teamPort = 10000 + teamNumber;
     teamColor = index < 6
-                ? TeamColor(RoboCupCtrl::controller->gameController.teamInfos[0].teamColor)
-                : TeamColor(RoboCupCtrl::controller->gameController.teamInfos[1].teamColor);
+                ? TeamColor(RoboCupCtrl::controller->gameController.teamInfos[0].fieldPlayerColour)
+                : TeamColor(RoboCupCtrl::controller->gameController.teamInfos[1].fieldPlayerColour);
     playerNumber = index % 6 + 1;
   }
 
@@ -113,7 +117,6 @@ bool Settings::load()
     static StreamHandler streamHandler;
     Global::theStreamHandler = &streamHandler;
   }
-
 #ifdef TARGET_ROBOT
   headName = SystemCall::getHostName();
 
@@ -126,6 +129,8 @@ bool Settings::load()
   }
   else
   {
+    
+    
     Robots robots;
     robotsStream >> robots;
     std::string bodyId = NaoBody().getBodyId();
@@ -148,6 +153,7 @@ bool Settings::load()
   bodyName = "Nao";
 #endif
 
+  
   InMapFile stream("settings.cfg");
   if(stream.exists())
     stream >> *this;

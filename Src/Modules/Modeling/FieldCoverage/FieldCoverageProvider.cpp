@@ -45,7 +45,7 @@ void FieldCoverageProvider::update(FieldCoverage& fieldCoverage)
     nextLineToCalculate = (nextLineToCalculate + 1) % numOfCellsY;
   }
 
-  if(theBHumanMessageOutputGenerator.sendThisFrame)
+  if(theNaovaMessageOutputGenerator.sendThisFrame)
     fieldCoverage.lineToSendNext = (fieldCoverage.lineToSendNext + 1) % fieldCoverage.lines.size();
 
   draw();

@@ -61,17 +61,8 @@ defines = {
 }
 
 if (host == "Linux") {
-  "vers = lsb_release -a 2>/dev/null | grep Release | awk '{print $2}') } | cut -d. -f1"
-
-  if ("vers == 18")
-  {
-    cppCompiler = {
-      "env CCACHE_CPP2=yes $(utilDirRoot)/Buildchain/Linux/bin/ccache clang++-4.0 -D__extern_always_inline=inline"
-    }
-  } else {
-    cppCompiler = {
-      "env CCACHE_CPP2=yes $(utilDirRoot)/Buildchain/Linux/bin/ccache clang++ -D__extern_always_inline=inline"
-    }
+  cppCompiler = {
+    "env CCACHE_CPP2=yes $(utilDirRoot)/Buildchain/Linux/bin/ccache clang++ -D__extern_always_inline=inline"
   }
 }
 
@@ -98,6 +89,10 @@ cppFlags = {
     "-Wliteral-conversion"
     "-Wno-unused-parameter"
     "-Wunreachable-code"
+    "-Wno-misleading-indentation" // warning Eigen
+    "-Wno-int-in-bool-context" // warning  Eigen
+    "-Wno-deprecated-copy" // warning Eigen
+    "-Wno-deprecated-declarations" // warning QT5
     if (configuration == "Debug") {
       "-g"
     } else {

@@ -1,6 +1,6 @@
 /**
  * @file PlayersPerceptor.cpp
- * @ author Michel Bartsch, Vitali Gutsch
+ * @ author Florent Duchesne, Catherine Ouimet
  */
 
 #include "PlayersPerceptor.h"
@@ -9,12 +9,23 @@
 #include "Tools/Math/Geometry.h"
 #include "Tools/Math/Transformation.h"
 #include "Tools/ImageProcessing/ColorModelConversions.h"
+#include "Tools/ImageProcessing/YoloDetector/YoloPlayerDetector.h"
 #include <algorithm>
+
+MAKE_MODULE(PlayersPerceptor, perception)
+PlayersPerceptor::PlayersPerceptor()
+:detector{YoloPlayerDetector(
+  #ifdef TARGET_ROBOT
+    minConfidenceRobotUpper, minConfidenceRobotLower
+  #else
+    minConfidenceSimulationUpper, minConfidenceSimulationLower
+  #endif
+)}
+{}
 
 void PlayersPerceptor::update(PlayersImagePercept& playersPercept)
 {
   DECLARE_DEBUG_DRAWING("module:PlayersPerceptor", "drawingOnImage");
-
   playersPercept.players.clear();
 
   if(theGameInfo.gamePhase == GAME_PHASE_PENALTYSHOOT)
@@ -22,18 +33,34 @@ void PlayersPerceptor::update(PlayersImagePercept& playersPercept)
 
   if(!theCameraMatrix.isValid || !calcRealWorldSizes())
     return;
-
-  ASSERT(theCameraInfo.width == theECImage.grayscaled.width);
-  for(int i = 0, x = 0, xEnd = theCameraInfo.width - xStep; x < xEnd; i++, x += xStep)
-  {
-    scanVerticalLine(i, x);
-    if(verticalLines[i].y != 0)
+  
+  bool is_upper = !(theCameraInfo.camera == CameraInfo::lower);
+  int horizon = (int)theImageCoordinateSystem.origin.y();
+  if(is_upper) {
+    detector.searchPlayersOnImage(theImage, playersPercept.players, horizon, is_upper);
+    /* //juste pour la camera du bas
+    for(uint i = 0; i < playersPercept.players.size(); ++i) {
+      PlayersImagePercept::PlayerInImage player = playersPercept.players[i];
+      Vector2i point(player.realCenterX, player.y2);
+      if(!theBodyContour.isValidPoint(point)) {
+        playersPercept.players.erase(playersPercept.players.begin() + i);
+        --i;
+      }
+    }*/
+  } else {
+    ASSERT(theCameraInfo.width == theECImage.grayscaled.width);
+    for(int i = 0, x = 0, xEnd = theCameraInfo.width - xStep; x < xEnd; i++, x += xStep)
     {
-      CROSS("module:PlayersPerceptor", x, verticalLines[i].y, 1, 1, Drawings::solidPen, ColorRGBA::orange);
+      scanVerticalLine(i, x);
+      if(verticalLines[i].y != 0)
+      {
+        CROSS("module:PlayersPerceptor", x, verticalLines[i].y, 1, 1, Drawings::solidPen, ColorRGBA::orange);
+      }
     }
+    while(combineVerticalLines(playersPercept));
   }
 
-  while(combineVerticalLines(playersPercept));
+  ASSERT(theCameraInfo.width == theECImage.grayscaled.width);
 
   for(auto i = playersPercept.players.begin(); i != playersPercept.players.end();)
   {
@@ -41,11 +68,10 @@ void PlayersPerceptor::update(PlayersImagePercept& playersPercept)
       scanJersey(*i, 0, true);
     else if(i->fallen)
       scanJersey(*i, 0.5, true);
-    else if(theOwnTeamInfo.teamColor == TEAM_BLACK || theOpponentTeamInfo.teamColor == TEAM_BLACK)
+    else if(theOwnTeamInfo.fieldPlayerColour == TEAM_BLACK || theOpponentTeamInfo.fieldPlayerColour == TEAM_BLACK)
       scanJersey(*i, refereeY, false) || scanJersey(*i, jerseyYFirst, true) || scanJersey(*i, jerseyYSecond, true) || scanJersey(*i, jerseyYThird, true);
     else
       scanJersey(*i, jerseyYFirst, true) || scanJersey(*i, jerseyYSecond, true) || scanJersey(*i, jerseyYThird, true);
-
     ++i;
   }
 }
@@ -120,6 +146,7 @@ bool PlayersPerceptor::calcRealWorldSizes()
 
   return true;
 }
+
 
 void PlayersPerceptor::scanVerticalLine(int index, int x)
 {
@@ -375,11 +402,11 @@ bool PlayersPerceptor::scanJersey(PlayersImagePercept::PlayerInImage& obstacle, 
   int teammate = 0;
   int white = 0;
 
-  bool ownJerseyIsBlack = theOwnTeamInfo.teamColor == TEAM_BLACK;
-  bool opponentJerseyIsBlack = theOpponentTeamInfo.teamColor == TEAM_BLACK;
-  ASSERT(theOwnTeamInfo.teamColor < 10 && theOpponentTeamInfo.teamColor < 10);
-  Image::Pixel ownColor = colors[theOwnTeamInfo.teamColor];
-  Image::Pixel opponentColor = colors[theOpponentTeamInfo.teamColor];
+  bool ownJerseyIsBlack = theOwnTeamInfo.fieldPlayerColour == TEAM_BLACK;
+  bool opponentJerseyIsBlack = theOpponentTeamInfo.fieldPlayerColour == TEAM_BLACK;
+  ASSERT(theOwnTeamInfo.fieldPlayerColour < 10 && theOpponentTeamInfo.fieldPlayerColour < 10);
+  Image::Pixel ownColor = colors[theOwnTeamInfo.fieldPlayerColour];
+  Image::Pixel opponentColor = colors[theOpponentTeamInfo.fieldPlayerColour];
 
   int colorNeeded = std::max(1, (int)(jerseyNeeded * jerseyScanConcentration));
 
@@ -505,4 +532,3 @@ Vector2f PlayersPerceptor::computeVanishingPointZ() const
   return vanishingPoint;
 }
 
-MAKE_MODULE(PlayersPerceptor, perception)

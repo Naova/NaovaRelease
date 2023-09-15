@@ -19,8 +19,8 @@ STREAMABLE(PathPlanner,
    * The parameters of the function are:
    * target The target to reach in field coordinates.
    * speed The speed to walk with in ratios of the maximum speeds.
-   * excludePenaltyArea Avoid the own penalty area?
+   * excludeGoalArea Avoid the own goal area?
    * The function returns the motion request that should be executed.
    */
-  FUNCTION(MotionRequest(const Pose2f& target, const Pose2f& speed, bool excludePenaltyArea)) plan,
+  FUNCTION(MotionRequest(const Pose2f& target, const Pose2f& speed, bool excludeGoalArea)) plan,
 });

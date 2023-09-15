@@ -52,6 +52,7 @@
 #include "Representations/Sensing/FootSupport.h"
 #include "Representations/Sensing/RobotModel.h"
 #include "Tools/Module/Module.h"
+#include "Representations/MotionControl/DynamicTesting.h"
 
 MODULE(Walk2014Generator,
 {,
@@ -61,6 +62,7 @@ MODULE(Walk2014Generator,
   REQUIRES(InertialSensorData),
   REQUIRES(JointAngles),
   USES(JointRequest),
+  REQUIRES(DynamicTesting),
   REQUIRES(MassCalibration),
   REQUIRES(RobotDimensions),
   PROVIDES(WalkGenerator),

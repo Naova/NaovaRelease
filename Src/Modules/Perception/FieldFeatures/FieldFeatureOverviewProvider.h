@@ -14,7 +14,7 @@
 #include "Representations/Perception/FieldFeatures/MidCircle.h"
 #include "Representations/Perception/FieldFeatures/MidCorner.h"
 #include "Representations/Perception/FieldFeatures/OuterCorner.h"
-#include "Representations/Perception/FieldFeatures/PenaltyArea.h"
+#include "Representations/Perception/FieldFeatures/GoalArea.h"
 
 MODULE(FieldFeatureOverviewProvider,
 {,
@@ -24,7 +24,7 @@ MODULE(FieldFeatureOverviewProvider,
   REQUIRES(MidCircle),
   REQUIRES(MidCorner),
   REQUIRES(OuterCorner),
-  REQUIRES(PenaltyArea),
+  REQUIRES(GoalArea),
 
   PROVIDES(FieldFeatureOverview),
   DEFINES_PARAMETERS(

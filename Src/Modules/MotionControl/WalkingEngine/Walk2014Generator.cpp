@@ -59,6 +59,7 @@
 #include "Tools/Motion/InverseKinematic.h"
 #include "Tools/Range.h"
 #include <algorithm>
+#include "cstdio"
 
 MAKE_MODULE(Walk2014Generator, motionControl);
 
@@ -348,8 +349,17 @@ void Walk2014Generator::calcJoints(WalkGenerator& generator,
   if(getKickFootOffset)
     (generator.isLeftPhase ? leftFoot : rightFoot).conc(getKickFootOffset(std::min(generator.t / generator.stepDuration, 1.f)));
 
+  // OUTPUT_TEXT("Angle desiré walk 1 : " << generator.jointRequest.angles[Joints::rAnkleRoll]);
   // 9.3 Inverse kinematics
   VERIFY(InverseKinematic::calcLegJoints(leftFoot, rightFoot, Vector2f::Zero(), generator.jointRequest, theRobotDimensions) || SystemCall::getMode() == SystemCall::logfileReplay);
+
+  // OUTPUT_TEXT("Angle desiré walk 2 : " << generator.jointRequest.angles[Joints::rAnkleRoll]);
+    if(walkState != standing){
+        theDynamicTesting.init();
+        theDynamicTesting.addBalance(generator.jointRequest);
+    }
+
+  // OUTPUT_TEXT("Angle desiré walk 3 : " << generator.jointRequest.angles[Joints::rAnkleRoll]);
 
   // 10. Set joint values and stiffness
   int stiffness = walkState == standing ? StiffnessData::useDefault : walkStiffness;
@@ -515,11 +525,11 @@ void Walk2014Generator::compensateArmPosition(const Pose3f& leftFoot, const Pose
 {
   JointRequest temp = jointRequest;
   for(int joint = 0; joint < Joints::firstArmJoint; ++joint)
-    temp.angles[joint] = theJointRequest.angles[joint] != JointRequest::off
+    temp.angles[joint] = theJointRequest.angles[joint] != static_cast<float>(JointRequest::off)
                          ? theJointRequest.angles[joint] : theJointAngles.angles[joint];
   RobotModel withWalkGeneratorArms(temp, theRobotDimensions, theMassCalibration);
   for(int joint = Joints::firstArmJoint; joint < Joints::firstLegJoint; ++joint)
-    temp.angles[joint] = theJointRequest.angles[joint] != JointRequest::off
+    temp.angles[joint] = theJointRequest.angles[joint] != static_cast<float>(JointRequest::off)
                          ? theJointRequest.angles[joint] : theJointAngles.angles[joint];
   RobotModel balanced(temp, theRobotDimensions, theMassCalibration);
 

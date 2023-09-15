@@ -13,6 +13,10 @@
 #include "Tools/Streams/InStreams.h"
 #include "Tools/Debugging/Stopwatch.h"
 #include "Tools/Debugging/Annotation.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <string>
 
 thread_local CameraProvider* CameraProvider::theInstance = nullptr;
 
@@ -45,24 +49,42 @@ CameraProvider::~CameraProvider()
   theInstance = nullptr;
 }
 
+void CameraProvider::saveCurrentImageToFile(std::string filePath, const Image& image) const
+{
+    float * image_array;
+    image_array = new float[image.height * image.width * 3];
+    image.convertToYoloFormat(image_array);
+
+    std::fstream out_file = std::fstream(filePath.c_str(), std::ios::out | std::ios::binary);
+    out_file.write(reinterpret_cast<char *>(image_array), (image.height * image.width * 3) * sizeof(float));
+    out_file.close();
+    delete image_array;
+}
+
 void CameraProvider::update(Image& image)
 {
 #ifdef CAMERA_INCLUDED
   ASSERT(!currentImageCamera);
-  if(upperCamera->hasImage() && (!lowerCamera->hasImage() || upperCamera->getTimeStamp() < lowerCamera->getTimeStamp()))
-    useImage(true, std::max(lastImageTimeStamp + 1, (unsigned)(upperCamera->getTimeStamp() / 1000) - Time::getSystemTimeBase()), upperCameraInfo, image, upperCamera,
+
+  if(upperCamera->hasImage() && (!lowerCamera->hasImage() || upperCamera->getTimeStamp() < lowerCamera->getTimeStamp())){
+    useImage(true, std::max(lastImageTimeStamp + 1, static_cast<unsigned>(upperCamera->getTimeStamp() / 1000 - Time::getSystemTimeBase())), upperCameraInfo, image, upperCamera,
              const_cast<CameraSettings::CameraSettingsCollection&>(theCameraSettings.upper), const_cast<AutoExposureWeightTable&>(theAutoExposureWeightTable));
-  else
-    useImage(false, std::max(lastImageTimeStamp + 1, (unsigned)(lowerCamera->getTimeStamp() / 1000) - Time::getSystemTimeBase()), lowerCameraInfo, image, lowerCamera,
+  }
+  else{
+    useImage(false, std::max(lastImageTimeStamp + 1, static_cast<unsigned>(lowerCamera->getTimeStamp() / 1000 - Time::getSystemTimeBase())), lowerCameraInfo, image, lowerCamera,
              const_cast<CameraSettings::CameraSettingsCollection&>(theCameraSettings.lower), const_cast<AutoExposureWeightTable&>(theAutoExposureWeightTable));
+  }
+
   ASSERT(image.timeStamp >= lastImageTimeStamp);
   lastImageTimeStamp = image.timeStamp;
   MODIFY("module:CameraProvider:fullSize", image.isFullSize);
+
 #endif // CAMERA_INCLUDED
   STOPWATCH("compressJPEG")
   {
     DEBUG_RESPONSE("representation:JPEGImage") OUTPUT(idJPEGImage, bin, JPEGImage(image));
   }
+
 }
 
 void CameraProvider::update(CameraStatus& cameraStatus)
@@ -78,6 +100,7 @@ void CameraProvider::useImage(bool isUpper, unsigned timestamp, CameraInfo& came
 #ifdef CAMERA_INCLUDED
   image.setResolution(cameraInfo.width / 2, cameraInfo.height / 2, true);
   image.setImage(const_cast<unsigned char*>(naoCam->getImage()));
+
   image.timeStamp = timestamp;
 
   naoCam->setSettings(settings, autoExposureWeightTable);
@@ -96,6 +119,7 @@ void CameraProvider::useImage(bool isUpper, unsigned timestamp, CameraInfo& came
   autoExposureWeightTable = naoCam->getAutoWhiteBalanceTable();
   currentImageCamera = naoCam;
   lastImageTimeStampLL = naoCam->getTimeStamp();
+
 #endif // CAMERA_INCLUDED
 }
 
@@ -106,10 +130,13 @@ void CameraProvider::update(FrameInfo& frameInfo)
 
 void CameraProvider::update(CameraInfo& cameraInfo)
 {
-  if(currentImageCamera == upperCamera)
+
+  if(currentImageCamera == upperCamera){
     cameraInfo = upperCameraInfo;
-  else
+  }
+  else{
     cameraInfo = lowerCameraInfo;
+  }
 }
 
 void CameraProvider::update(CameraIntrinsics& cameraIntrinsics)
@@ -241,6 +268,7 @@ void CameraProvider::setupCameras()
       break;
     default:
       FAIL("Unknown resolution.");
+      
       break;
   }
 
@@ -259,16 +287,22 @@ void CameraProvider::setupCameras()
   lowerCameraInfo.updateFocalLength();
 #ifdef CAMERA_INCLUDED
   currentImageCamera = nullptr;
-  if(upperCamera == nullptr)
-    upperCamera = new NaoCamera("/dev/video0", upperCameraInfo.camera, upperCameraInfo.width, upperCameraInfo.height, true,
+  if(upperCamera == nullptr){
+    upperCamera = new NaoCamera("/dev/video-top", upperCameraInfo.camera, upperCameraInfo.width, upperCameraInfo.height, true,
                                 theCameraSettings.upper, theAutoExposureWeightTable);
-  else
+
+  }
+  else{
     upperCamera->changeResolution(upperCameraInfo.width, upperCameraInfo.height);
-  if(lowerCamera == nullptr)
-    lowerCamera = new NaoCamera("/dev/video1", lowerCameraInfo.camera, lowerCameraInfo.width, lowerCameraInfo.height, false,
+
+  }
+  if(lowerCamera == nullptr){
+    lowerCamera = new NaoCamera("/dev/video-bottom", lowerCameraInfo.camera, lowerCameraInfo.width, lowerCameraInfo.height, false,
                                 theCameraSettings.lower, theAutoExposureWeightTable);
-  else
+  }
+  else{
     lowerCamera->changeResolution(lowerCameraInfo.width, lowerCameraInfo.height);
+  }
 
   upperImageReceived = lowerImageReceived = Time::getRealSystemTime() + maxDelayAfterInit;
   ASSERT(upperCamera->getFrameRate() == lowerCamera->getFrameRate());
@@ -318,7 +352,6 @@ void CameraProvider::waitForFrameData2()
   // update resolution
   if(processResolutionRequest())
   {
-    setupCameras();
   }
 
   while(!upperCamera->hasImage() && !lowerCamera->hasImage())
@@ -348,8 +381,9 @@ void CameraProvider::waitForFrameData2()
     unsigned now = Time::getRealSystemTime();
     if(upperCamera->hasImage())
       upperImageReceived = now;
-    if(lowerCamera->hasImage())
+    if(lowerCamera->hasImage()){
       lowerImageReceived = now;
+    }
 
     if(!resetUpper && now >= upperImageReceived + maxWaitForImage)
     {
@@ -359,6 +393,7 @@ void CameraProvider::waitForFrameData2()
     }
     if(!resetLower && now >= lowerImageReceived + maxWaitForImage)
     {
+
       ANNOTATION("CameraProvider", "Capturing image timed out. Resetting lower camera.");
       OUTPUT_ERROR("CameraProvider: Capturing image timed out. Resetting lower camera." << now - lowerImageReceived << " ms delay");
       resetLower = true;
@@ -366,25 +401,32 @@ void CameraProvider::waitForFrameData2()
 
     DEBUG_RESPONSE_ONCE("module:CameraProvider:resetUpper") resetUpper = true;
     DEBUG_RESPONSE_ONCE("module:CameraProvider:resetLower") resetLower = true;
+    if(resetUpper) resetLower = true;
+    if(resetLower) resetUpper = true;
+
+    if (resetUpper || resetLower)
+    {
+      SystemCall::playSound("cameraReset.wav");
+      SystemCall::execute("/bin/bash /usr/libexec/reset-cameras.sh toggle");
+      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    }
 
     if(resetUpper)
     {
       delete upperCamera;
-      upperCamera = new NaoCamera("/dev/video0", upperCameraInfo.camera, upperCameraInfo.width, upperCameraInfo.height, true,
+      upperCamera = new NaoCamera("/dev/video-top", upperCameraInfo.camera, upperCameraInfo.width, upperCameraInfo.height, true,
                                   theCameraSettings.upper, theAutoExposureWeightTable);
       upperImageReceived = Time::getRealSystemTime() + maxDelayAfterInit;
       lastCameraReset = Time::getRealSystemTime();
-      SystemCall::playSound("cameraReset.wav");
     }
 
     if(resetLower)
     {
       delete lowerCamera;
-      lowerCamera = new NaoCamera("/dev/video1", lowerCameraInfo.camera, lowerCameraInfo.width, lowerCameraInfo.height, false,
+      lowerCamera = new NaoCamera("/dev/video-bottom", lowerCameraInfo.camera, lowerCameraInfo.width, lowerCameraInfo.height, false,
                                   theCameraSettings.lower, theAutoExposureWeightTable);
       lowerImageReceived = Time::getRealSystemTime() + maxDelayAfterInit;
       lastCameraReset = Time::getRealSystemTime();
-      SystemCall::playSound("cameraReset.wav");
     }
 
     if(now > lastCameraReset + maxWaitForImage)
@@ -397,6 +439,9 @@ void CameraProvider::waitForFrameData2()
   }
 
 #endif
+
+
+
 }
 
 void CameraProvider::waitForFrameData()

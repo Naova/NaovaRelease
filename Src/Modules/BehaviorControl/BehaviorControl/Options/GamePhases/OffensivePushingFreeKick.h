@@ -1,0 +1,10 @@
+option(OffensivePushingFreeKick)
+{
+    initial_state(start)
+    {
+        action
+        {
+            HandleTeamTactic();
+        }
+    }
+}

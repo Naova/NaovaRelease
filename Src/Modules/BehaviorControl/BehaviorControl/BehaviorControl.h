@@ -12,7 +12,9 @@
 #include "Representations/BehaviorControl/BehaviorStatus.h"
 #include "Representations/BehaviorControl/Libraries/LibDemo.h"
 #include "Representations/BehaviorControl/Libraries/LibCodeRelease.h"
+#include "Representations/BehaviorControl/Libraries/RoleChanges.h"
 #include "Representations/BehaviorControl/PathPlanner.h"
+#include "Representations/BehaviorControl/DribblingQLearning.h"
 #include "Representations/BehaviorControl/Role.h"
 #include "Representations/BehaviorControl/SPLStandardBehaviorStatus.h"
 #include "Representations/BehaviorControl/TimeToReachBall.h"
@@ -92,6 +94,8 @@ MODULE(BehaviorControl,
   REQUIRES(KickEngineOutput),
   REQUIRES(LibDemo),
   REQUIRES(LibCodeRelease),
+  REQUIRES(RoleChanges),
+  REQUIRES(DribblingQLearning),
   REQUIRES(MotionInfo),
   REQUIRES(WalkGenerator),
   REQUIRES(LegMotionSelection),

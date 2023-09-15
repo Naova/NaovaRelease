@@ -734,7 +734,7 @@ void ConsoleRoboCupCtrl::createCompletion()
     "vi image jpeg segmented",
     "vi image segmented",
     "vi image upper jpeg segmented",
-    "vi image upper segmented"
+    "vi image upper segmented",
     "vi image lower jpeg segmented",
     "vi image lower segmented"
   };

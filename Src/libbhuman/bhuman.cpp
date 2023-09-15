@@ -429,7 +429,6 @@ private:
     if(data != MAP_FAILED)
       munmap(data, sizeof(LBHData));
 
-    fprintf(stderr, "libbhuman: Stopped.\n");
   }
 
   /**

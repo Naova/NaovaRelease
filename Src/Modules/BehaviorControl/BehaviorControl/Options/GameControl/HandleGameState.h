@@ -28,16 +28,20 @@ option(HandleGameState)
   {
     action
     {
+      if(theBehaviorStatus.role == Role::undefined)
+      {
         if(theRobotInfo.number == 1)
             theBehaviorStatus.role = Role::keeper;
         else if(theRobotInfo.number == 2)
-            theBehaviorStatus.role = Role::striker;
+            theBehaviorStatus.role = Role::rightDefender;
         else if(theRobotInfo.number == 3)
-            theBehaviorStatus.role = Role::defender;
+            theBehaviorStatus.role = Role::leftDefender;
         else if(theRobotInfo.number == 4)
-            theBehaviorStatus.role = Role::defender;
-        else if(theRobotInfo.number == 5)
             theBehaviorStatus.role = Role::supporter;
+        else if(theRobotInfo.number == 5)
+            theBehaviorStatus.role = Role::striker;
+      }
+        
       SetHeadPanTilt(0.f, 0.f, 150_deg);
 
       SpecialAction(SpecialActionRequest::standHigh);
@@ -50,6 +54,7 @@ option(HandleGameState)
   {
     action
     {
+      SetHeadPanTilt(0, 0);
       theHeadControlMode = HeadControl::lookForward;
       Stand();
     }
@@ -69,6 +74,7 @@ option(HandleGameState)
   {
     action
     {
+      ArmInBack();
       ReadyState();
     }
   }
@@ -79,6 +85,8 @@ option(HandleGameState)
     action
     {
       Stand();
+      ArmInBack();
+      TrackBallSweep();
     }
   }
 
@@ -87,8 +95,8 @@ option(HandleGameState)
   {
     action
     {
+      ArmInBack();
       PlayingState();
-      //TrackBall();
     }
   }
 }

@@ -12,14 +12,16 @@ CognitionConfigurationDataProvider::CognitionConfigurationDataProvider()
 {
   theInstance = this;
 
-  read(theCameraSettings, ("cameraSettings" + std::string(RobotInfo::getName(theRobotInfo.headVersion)) + ".cfg").c_str());
+  //read(theCameraSettings, ("cameraSettings" + std::string(RobotInfo::getName(theRobotInfo.headVersion)) + ".cfg").c_str());
+  read(theCameraSettings, ("cameraSettings.cfg"));
 
   theFieldDimensions = std::make_unique<FieldDimensions>();
   theFieldDimensions->load();
   theIntersectionRelations = std::make_unique<IntersectionRelations>(*theFieldDimensions);
 
   read(theBallSpecification);
-  read(theFieldColors, ("fieldColorsCalibration" + std::string(RobotInfo::getName(theRobotInfo.headVersion)) + ".cfg").c_str());
+  //read(theFieldColors, ("fieldColorsCalibration" + std::string(RobotInfo::getName(theRobotInfo.headVersion)) + ".cfg").c_str());
+  read(theFieldColors, ("fieldColorsCalibration.cfg"));
   read(theCameraCalibration);
   read(theRobotDimensions);
   read(theBehaviorParameters);
@@ -36,7 +38,7 @@ CognitionConfigurationDataProvider::~CognitionConfigurationDataProvider()
 void CognitionConfigurationDataProvider::update(FieldDimensions& fieldDimensions)
 {
   update(fieldDimensions, theFieldDimensions);
-  fieldDimensions.drawPolygons(theOwnTeamInfo.teamColor);
+  fieldDimensions.drawPolygons(theOwnTeamInfo.fieldPlayerColour);
 }
 
 void CognitionConfigurationDataProvider::update(FieldColors& fieldColors)

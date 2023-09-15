@@ -51,6 +51,7 @@ SimulatedNao = cppDynamicLibrary + {
     "$(utilDirRoot)/SimRobot/Src/SimRobotCore2"
     "$(utilDirRoot)/SimRobot/Src/SimRobotEditor"
     "$(utilDirRoot)/snappy/include"
+
     if (host == "Win32") {
       "$(utilDirRoot)/SimRobot/Util/qt/Windows/include"
       "$(utilDirRoot)/SimRobot/Util/qt/Windows/include/QtCore"
@@ -129,6 +130,8 @@ SimulatedNao = cppDynamicLibrary + {
       "-Wconversion"
       "-Wno-sign-conversion"
       if (configuration == "Develop") {
+        "-Wno-implicit-int-float-conversion" // eigen, clang warning 
+        "-Wno-float-conversion" // warning liee a QT5 
         -"-O3 -fomit-frame-pointer", "-g"
       }
     }

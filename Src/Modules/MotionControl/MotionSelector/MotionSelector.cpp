@@ -140,7 +140,7 @@ void MotionSelector::update(ArmMotionSelection& armMotionSelection)
               theLegMotionSelection.specialActionRequest.specialAction != SpecialActionRequest::standHighLookUp)) //FIXME QUICKHACK
             requestedArmMotion = ArmMotionSelection::specialActionArms;
           else
-            requestedArmMotion = ArmMotionSelection::ArmMotion(ArmMotionSelection::firstNonBodyMotion + theArmMotionRequest.armMotion[arm] - 1);
+            requestedArmMotion = ArmMotionSelection::ArmMotion(static_cast<uint>(ArmMotionSelection::firstNonBodyMotion) + static_cast<uint>(theArmMotionRequest.armMotion[arm]) - 1);
         }
         break;
         case MotionRequest::walk:
@@ -148,7 +148,7 @@ void MotionSelector::update(ArmMotionSelection& armMotionSelection)
           if(isNone)
             requestedArmMotion = ArmMotionSelection::walkArms;
           else
-            requestedArmMotion = ArmMotionSelection::ArmMotion(ArmMotionSelection::firstNonBodyMotion + theArmMotionRequest.armMotion[arm] - 1);
+            requestedArmMotion = ArmMotionSelection::ArmMotion(static_cast<uint>(ArmMotionSelection::firstNonBodyMotion) + static_cast<uint>(theArmMotionRequest.armMotion[arm]) - 1);
           break;
         }
         case MotionRequest::stand:
@@ -156,7 +156,7 @@ void MotionSelector::update(ArmMotionSelection& armMotionSelection)
           if(isNone)
             requestedArmMotion = ArmMotionSelection::standArms;
           else
-            requestedArmMotion = ArmMotionSelection::ArmMotion(ArmMotionSelection::firstNonBodyMotion + theArmMotionRequest.armMotion[arm] - 1);
+            requestedArmMotion = ArmMotionSelection::ArmMotion(static_cast<uint>(ArmMotionSelection::firstNonBodyMotion) + static_cast<uint>(theArmMotionRequest.armMotion[arm]) - 1);
           break;
         }
         case MotionRequest::fall:

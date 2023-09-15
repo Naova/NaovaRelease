@@ -105,8 +105,10 @@ void WhistleRecognizer::update(Whistle& whistle)
     }
     numberOfNewAudioSamples = 0;
   }
-  if(theGameInfo.state != STATE_SET)
-    return;
+  if(theGameInfo.state != STATE_SET && theGameInfo.state != STATE_PLAYING){
+    currentWhistle.confidenceOfLastWhistleDetection = -1;
+    return;   //Disabled to allow whistle during game
+  }
 
   // Check input data:
   if(theAudioData.channels != 2)
@@ -114,9 +116,15 @@ void WhistleRecognizer::update(Whistle& whistle)
     OUTPUT_TEXT("Wrong number of channels! WhistleRecognizer expects 2 channels, but AudioData has " << theAudioData.channels << "!");
   }
   if(theAudioData.samples.size() == 0)
+  {
+    #ifdef TARGET_ROBOT
+      OUTPUT_TEXT("No Audio Samples");
+    #endif
     return;
-  else
+  }
+  else{
     whistle.lastTimeOfIncomingSound = theFrameInfo.time;
+  }
 
   // Add incoming audio data to the two buffers
   unsigned int i = 0;
@@ -163,6 +171,7 @@ void WhistleRecognizer::update(Whistle& whistle)
   {
     numberOfNewAudioSamples = 0;
     currentVolume  = computeCurrentVolume();
+    //OUTPUT_TEXT("Volume: " << currentVolume); //Use to debug: Robot hearing volume
     const bool vol = currentVolume > volumeThreshold;
 
     std::vector<float> correlationsC0;
@@ -178,10 +187,10 @@ void WhistleRecognizer::update(Whistle& whistle)
     bestWhistleIndex1 = listContainsValueHigherThan100(correlationsC1, bestCorrelationChannel1);
     bool w0 = bestWhistleIndex0 != -1;
     bool w1 = bestWhistleIndex1 != -1;
-    if(w0)
-      printCorrelationResults(0, correlationsC0);
-    if(w1)
-      printCorrelationResults(1, correlationsC1);
+    // if(w0)
+    //   printCorrelationResults(0, correlationsC0);
+    // if(w1)
+    //   printCorrelationResults(1, correlationsC1);
     int brokenFirst = (theDamageConfigurationHead.audioChannelsDefect[0] ? 1 : 0) + (theDamageConfigurationHead.audioChannelsDefect[1] ? 1 : 0);
     int brokenSecond = (theDamageConfigurationHead.audioChannelsDefect[2] ? 1 : 0) + (theDamageConfigurationHead.audioChannelsDefect[3] ? 1 : 0);
     int firstChannel = brokenFirst > brokenSecond ? 2 : 0;
@@ -191,14 +200,17 @@ void WhistleRecognizer::update(Whistle& whistle)
     // Best case: Everything is fine!
     if(w0 && w1 && vol && !audioChannel0Defect && !audioChannel1Defect)
     {
+      //OUTPUT_TEXT("CONFIDENCE: 100 ----------------------------------------------------------------------------------------------------------------------------------------------------------");
       lastTimeWhistleDetectedInBothChannels = theFrameInfo.time;
       currentWhistle.lastTimeWhistleDetected = theFrameInfo.time;
       currentWhistle.confidenceOfLastWhistleDetection = 100;
+      //SystemCall::playSound("theFlippingChicken.wav");    //Sound when testing detection
     }
     // One ear ist damaged but I can hear the sound on the other ear:
     else if((w0 && vol && !audioChannel0Defect && audioChannel1Defect) ||
             (w1 && vol && !audioChannel1Defect && audioChannel0Defect))
     {
+      //OUTPUT_TEXT("Confidence: 66 ----------------------------------------------------------------------------------------------------------------------------------------------------------");
       currentWhistle.lastTimeWhistleDetected = theFrameInfo.time;
       currentWhistle.confidenceOfLastWhistleDetection = 66;
     }
@@ -206,15 +218,20 @@ void WhistleRecognizer::update(Whistle& whistle)
     else if(!audioChannel0Defect && !audioChannel1Defect &&
             ((w0 && !w1) || (!w0 && w1)) && vol)
     {
+      //OUTPUT_TEXT("Confidence: 33 ----------------------------------------------------------------------------------------------------------------------------------------------------------");
       currentWhistle.lastTimeWhistleDetected = theFrameInfo.time;
       if(theFrameInfo.getTimeSince(lastTimeWhistleDetectedInBothChannels) > timeForOneChannelAcceptance)
         currentWhistle.confidenceOfLastWhistleDetection = 33;
-      else
+      else {
+        //OUTPUT_TEXT("Confidence: 100 (else) ----------------------------------------------------------------------------------------------------------------------------------------------------------");
         currentWhistle.confidenceOfLastWhistleDetection = 100;
+      }
+        
     }
     // Finally, a completely deaf robot has a negative confidence:
     else if(audioChannel0Defect && audioChannel1Defect)
     {
+      //OUTPUT_TEXT("Confidence: -1 ----------------------------------------------------------------------------------------------------------------------------------------------------------");
       whistle.confidenceOfLastWhistleDetection = -1; // Not a detection but other robots get the information to ignore me
     }
   }
@@ -318,7 +335,7 @@ void WhistleRecognizer::printCorrelationResults(int channelNumber, const std::ve
   {
     OUTPUT_TEXT("   " << whistleFiles[i] << ":    " << correlationList[i]);
   }
-  OUTPUT_TEXT("*********************************************************************");
+  OUTPUT_TEXT("*********************************************************************\n\n\n");
 }
 
 void WhistleRecognizer::recordNewReferenceWhistle()

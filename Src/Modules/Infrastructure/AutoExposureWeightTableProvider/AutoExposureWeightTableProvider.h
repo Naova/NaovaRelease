@@ -31,7 +31,7 @@ MODULE(AutoExposureWeightTableProvider,
   PROVIDES(AutoExposureWeightTable),
   LOADS_PARAMETERS(
   {,
-    (bool)(true) useStaticConfigValues,
+    (bool)(false) useStaticConfigValues,
     (AutoExposureWeightTable) configuredAutoExposureWeightTable,
     (AutoExposureWeightTable) resetAutoExposureWeightTable,
     (unsigned char) factorReduceAllBeforeApplyBallPrediction,

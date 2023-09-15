@@ -78,7 +78,7 @@ option(UpdateRequest)
       goto standing;
     }
     action
-    {
+    {  
       theWalkGenerator.reset();
       stand();
     }

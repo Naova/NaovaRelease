@@ -12,8 +12,10 @@ IntersectionRelations::IntersectionLineRelations::IntersectionLineRelations()
   lineMarkerOfDir1[MarkedIntersection::BT] = MarkedLine::midLine;
   lineMarkerOfDir2[MarkedIntersection::BT] = MarkedLine::sideLine;
   lineMarkerOfDir1[MarkedIntersection::STL] = MarkedLine::sidePenaltyL;
+  lineMarkerOfDir1[MarkedIntersection::STL] = MarkedLine::sideGoalL;
   lineMarkerOfDir2[MarkedIntersection::STL] = MarkedLine::groundLine;
   lineMarkerOfDir1[MarkedIntersection::STR] = MarkedLine::sidePenaltyR;
+  lineMarkerOfDir1[MarkedIntersection::STR] = MarkedLine::sideGoalR;
   lineMarkerOfDir2[MarkedIntersection::STR] = MarkedLine::groundLine;
   lineMarkerOfDir1[MarkedIntersection::BLL] = MarkedLine::sideLine;
   lineMarkerOfDir2[MarkedIntersection::BLL] = MarkedLine::groundLine;
@@ -21,6 +23,10 @@ IntersectionRelations::IntersectionLineRelations::IntersectionLineRelations()
   lineMarkerOfDir2[MarkedIntersection::SLL] = MarkedLine::sidePenaltyL;
   lineMarkerOfDir1[MarkedIntersection::SLR] = MarkedLine::sidePenaltyR;
   lineMarkerOfDir2[MarkedIntersection::SLR] = MarkedLine::groundPenalty;
+  lineMarkerOfDir1[MarkedIntersection::SLL] = MarkedLine::groundGoal;
+  lineMarkerOfDir2[MarkedIntersection::SLL] = MarkedLine::sideGoalL;
+  lineMarkerOfDir1[MarkedIntersection::SLR] = MarkedLine::sideGoalR;
+  lineMarkerOfDir2[MarkedIntersection::SLR] = MarkedLine::groundGoal;
   lineMarkerOfDir1[MarkedIntersection::BLR] = MarkedLine::groundLine;
   lineMarkerOfDir2[MarkedIntersection::BLR] = MarkedLine::otherSideLine;
 };
@@ -51,6 +57,18 @@ IntersectionRelations::LineIntersectionRelations::LineIntersectionRelations(cons
   intersections[MarkedLine::sidePenaltyR][1] = MarkedIntersection::STR;
   intersections[MarkedLine::sidePenaltyR][2] = MarkedIntersection::numOfIntersectionMarkers;
   intersections[MarkedLine::sidePenaltyR][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::groundGoal][0] = MarkedIntersection::SLL;
+  intersections[MarkedLine::groundGoal][1] = MarkedIntersection::SLR;
+  intersections[MarkedLine::groundGoal][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::groundGoal][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::sideGoalL][0] = MarkedIntersection::STL;
+  intersections[MarkedLine::sideGoalL][1] = MarkedIntersection::SLL;
+  intersections[MarkedLine::sideGoalL][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::sideGoalL][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::sideGoalR][0] = MarkedIntersection::SLR;
+  intersections[MarkedLine::sideGoalR][1] = MarkedIntersection::STR;
+  intersections[MarkedLine::sideGoalR][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersections[MarkedLine::sideGoalR][3] = MarkedIntersection::numOfIntersectionMarkers;
 
   intersectionPositions[MarkedLine::midLine][0] = theFieldDimensions.yPosLeftSideline;
   intersectionPositions[MarkedLine::midLine][1] = -intersectionPositions[MarkedLine::midLine][0];
@@ -58,8 +76,10 @@ IntersectionRelations::LineIntersectionRelations::LineIntersectionRelations(cons
   intersectionPositions[MarkedLine::midLine][3] = MarkedIntersection::numOfIntersectionMarkers;
   intersectionPositions[MarkedLine::groundLine][0] = theFieldDimensions.yPosLeftSideline;
   intersectionPositions[MarkedLine::groundLine][1] = theFieldDimensions.yPosLeftPenaltyArea;
-  intersectionPositions[MarkedLine::groundLine][2] = -intersectionPositions[MarkedLine::groundLine][1];
+  intersectionPositions[MarkedLine::groundLine][2] = theFieldDimensions.yPosLeftGoalArea;
   intersectionPositions[MarkedLine::groundLine][3] = -intersectionPositions[MarkedLine::groundLine][0];
+  intersectionPositions[MarkedLine::groundLine][4] = -intersectionPositions[MarkedLine::groundLine][1];
+  intersectionPositions[MarkedLine::groundLine][5] = -intersectionPositions[MarkedLine::groundLine][2];
   intersectionPositions[MarkedLine::sideLine][0] = theFieldDimensions.xPosOpponentGroundline;
   intersectionPositions[MarkedLine::sideLine][1] = theFieldDimensions.xPosHalfWayLine;
   intersectionPositions[MarkedLine::sideLine][2] = -intersectionPositions[MarkedLine::sideLine][0];
@@ -76,6 +96,18 @@ IntersectionRelations::LineIntersectionRelations::LineIntersectionRelations(cons
   intersectionPositions[MarkedLine::sidePenaltyR][1] = theFieldDimensions.xPosOpponentGroundline;
   intersectionPositions[MarkedLine::sidePenaltyR][2] = MarkedIntersection::numOfIntersectionMarkers;
   intersectionPositions[MarkedLine::sidePenaltyR][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::groundGoal][0] = theFieldDimensions.yPosLeftGoalArea;
+  intersectionPositions[MarkedLine::groundGoal][1] = -intersectionPositions[MarkedLine::groundGoal][0];
+  intersectionPositions[MarkedLine::groundGoal][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::groundGoal][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::sideGoalL][0] = theFieldDimensions.xPosOpponentGroundline;
+  intersectionPositions[MarkedLine::sideGoalL][1] = theFieldDimensions.xPosOpponentGoalArea;
+  intersectionPositions[MarkedLine::sideGoalL][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::sideGoalL][3] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::sideGoalR][0] = theFieldDimensions.xPosOpponentGoalArea;
+  intersectionPositions[MarkedLine::sideGoalR][1] = theFieldDimensions.xPosOpponentGroundline;
+  intersectionPositions[MarkedLine::sideGoalR][2] = MarkedIntersection::numOfIntersectionMarkers;
+  intersectionPositions[MarkedLine::sideGoalR][3] = MarkedIntersection::numOfIntersectionMarkers;
 }
 
 void IntersectionRelations::LineIntersectionRelations::serialize(In* in, Out* out)

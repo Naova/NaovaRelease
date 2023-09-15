@@ -52,7 +52,8 @@ public:
    * Accesses the id of the robot's body.
    * @return The name.
    */
-  const char* getBodyId() const;
+  // static std::string getBodyId();
+  const char *getBodyId() const;
 
   RobotInfo::NaoVersion getHeadVersion();
   RobotInfo::NaoVersion getBodyVersion();

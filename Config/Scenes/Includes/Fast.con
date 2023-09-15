@@ -10,6 +10,9 @@ dr debugDrawing3d:representation:TeamInfo
 # in case we have more than a single robot
 robot all
 
+# robot info
+dr debugDrawing3d:representation:BehaviorStatus
+
 # Select modules for simulator
 mr GroundTruthWorldState CognitionLogDataProvider
 mr BallModel OracledWorldModelProvider
@@ -46,6 +49,7 @@ mr PenaltyMarkPercept default
 mr DebuggingOutput off
 mr OuterCorner default
 mr PenaltyArea default
+mr GoalArea default
 mr MidCorner default
 mr IntersectionsPercept off
 mr LinesPercept off

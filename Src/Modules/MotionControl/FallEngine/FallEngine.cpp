@@ -73,25 +73,14 @@ void FallEngine::calcDirection(FallEngineOutput& output)
 
 void FallEngine::safeFall(FallEngineOutput& output) const
 {
-  for(int i = 0; i < Joints::numOfJoints; i++)
-    output.stiffnessData.stiffnesses[i] = 30;
-
+for(int i = 0; i < Joints::numOfJoints; i++)
+    output.stiffnessData.stiffnesses[i] = 10;
   if(output.fallingBackwards)
   {
-    // Sit down to reduce the impact-force
-    output.angles[Joints::lKneePitch] = 180_deg;
-    output.angles[Joints::rKneePitch] = 180_deg;
-    output.angles[Joints::lHipPitch] = -90_deg;
-    output.angles[Joints::rHipPitch] = -90_deg;
-    output.angles[Joints::lHipRoll] = 0_deg;
-    output.angles[Joints::rHipRoll] = 0_deg;
-    output.angles[Joints::lAnklePitch] = -45_deg;
-    output.angles[Joints::rAnklePitch] = -45_deg;
-    output.angles[Joints::lAnkleRoll] = 0_deg;
-    output.angles[Joints::rAnkleRoll] = 0_deg;
+    MotionUtilities::sit(output);
   }
 
-  if(output.fallingForward)
+  else if(output.fallingForward)
   {
     MotionUtilities::stand(output);
   }
@@ -101,26 +90,27 @@ void FallEngine::safeArms(FallEngineOutput& output) const
 {
   if(output.fallingBackwards)
   {
+    //From B-Human 2019
     // Set angles
     if(theJointAngles.angles[Joints::lShoulderRoll] > 3_deg)
       output.angles[Joints::lShoulderPitch] = 90_deg;
     output.angles[Joints::lShoulderRoll] = 11_deg;
-    output.angles[Joints::lElbowYaw] = -180_deg;
+    output.angles[Joints::lElbowYaw] = 0_deg;
     output.angles[Joints::lElbowRoll] = 0_deg;
-    output.angles[Joints::lWristYaw] = -45_deg;
+    output.angles[Joints::lWristYaw] = -90_deg;
     if(theJointAngles.angles[Joints::rShoulderRoll] < -3_deg)
       output.angles[Joints::rShoulderPitch] = 90_deg;
     output.angles[Joints::rShoulderRoll] = -11_deg;
-    output.angles[Joints::rElbowYaw] = 180_deg;
+    output.angles[Joints::rElbowYaw] = 0_deg;
     output.angles[Joints::rElbowRoll] = 0_deg;
-    output.angles[Joints::rWristYaw] = 45_deg;
+    output.angles[Joints::rWristYaw] = 90_deg;
   }
 }
 
 void FallEngine::centerHead(FallEngineOutput& output)
 {
-  if(output.angles[Joints::headYaw] == JointAngles::off &&
-     output.angles[Joints::headPitch] == JointAngles::off)
+  if(output.angles[Joints::headYaw] == static_cast<float>(JointAngles::off) &&
+     output.angles[Joints::headPitch] == static_cast<float>(JointAngles::off))
     return;
 
   output.angles[Joints::headYaw] = 0;
@@ -151,6 +141,9 @@ void FallEngine::centerHead(FallEngineOutput& output)
  */
 bool FallEngine::specialActionFall() const
 {
+  if (theMotionRequest.specialActionRequest.specialAction == SpecialActionRequest::diveLeft || theMotionRequest.specialActionRequest.specialAction == SpecialActionRequest::diveRight) {
+    return false;
+  }
   return theMotionRequest.motion != MotionRequest::specialAction ||
          (theFrameInfo.getTimeSince(theGameInfo.timeLastPackageReceived) < noGameControllerThreshold &&
           theMotionRequest.specialActionRequest.specialAction == SpecialActionRequest::standHigh);

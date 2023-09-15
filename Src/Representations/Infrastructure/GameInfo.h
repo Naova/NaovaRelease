@@ -8,7 +8,7 @@
 #pragma once
 
 #include "RoboCupGameControlData.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Streams/AutoStreamable.h"
 
 struct GameInfo : public RoboCup::RoboCupGameControlData, public Streamable
@@ -20,8 +20,9 @@ private:
 
 public:
   unsigned timeLastPackageReceived = 0;
+  int secsInHalf;
 
-  bool isMixedTeamCompetition() const { return competitionType == COMPETITION_TYPE_MIXEDTEAM || competitionPhase == COMPETITION_PHASE_PLAYOFF; }
+  bool isMixedTeamCompetition() const { return competitionPhase == COMPETITION_PHASE_PLAYOFF; }
 
   GameInfo();
 
@@ -42,14 +43,14 @@ protected:
 };
 
 /** The game info as sent by the GameController */
-STREAMABLE_WITH_BASE(RawGameInfo, GameInfo, COMMA public BHumanMessageParticle<idGameInfo>
+STREAMABLE_WITH_BASE(RawGameInfo, GameInfo, COMMA public NaovaMessageParticule<idGameInfo>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override,
+  /** NaovaMessageParticule functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override,
 });
 
 namespace RoboCup
 {
-  void operator<< (RoboCupGameControlData r, const B_HULKs::OwnTeamInfo& bhOti);
+  void operator<< (RoboCupGameControlData r, const Naova::OwnTeamInfo& bhOti);
 }

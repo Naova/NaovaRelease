@@ -58,7 +58,7 @@ private:
   static const int numOfFieldPlayers = numOfRobots / 2 - 2; // Keeper, Substitute
   static const int durationOfHalf = 600;
   static const float footLength; /**< foot length for position check and manual placement at center circle. */
-  static const float safeDistance; /**< safe distance from penalty areas for manual placement. */
+  static const float safeDistance; /**< safe distance from goal areas for manual placement. */
   static const float dropHeight; /**< height at which robots are manually placed so the fall a little bit and recognize it. */
   static Pose2f lastBallContactPose; /**< Position were the last ball contact of a robot took place, orientation is toward opponent goal (0/180 degress). */
   static FieldDimensions fieldDimensions;
@@ -173,7 +173,7 @@ private:
    * @param robot The number of the robot to check [0 ... numOfRobots-1].
    * @return Is it?
    */
-  bool inOwnPenaltyArea(int robot) const;
+  bool inOwnGoalArea(int robot) const;
 
   /**
    * Finds a free place for a (un)penalized robot.
@@ -212,11 +212,11 @@ private:
   void placeDefensivePlayers(int minRobot);
 
   /**
-   * Remove all but one field players from the penalty area.
+   * Remove all but one field players from the goal area.
    * @param minRobot The number of the first field player in the team (1 or numOfRobots/2+1).
    * @param poses Possible placement poses robots.
    */
-  void freePenaltyArea(int minRobot, const Pose2f* poses);
+  void freeGoalArea(int minRobot, const Pose2f* poses);
 
   /** Execute the manual placements decided before. */
   void executePlacement();

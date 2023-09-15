@@ -76,12 +76,12 @@ namespace Joints
   inline Joint combine(const Arms::Arm arm, const JointArmVarieties jointV)
   {
     static const unsigned offset[2] = { 0u, firstRightArmJoint - firstLeftArmJoint };
-    return Joint(firstArmJoint + jointV + offset[arm]);
+    return Joint(static_cast<uint>(firstArmJoint) + static_cast<uint>(jointV) + offset[arm]);
   }
 
   inline Joint combine(const Legs::Leg leg, const JointLegVarieties jointV)
   {
     static const unsigned offset[2] = { 0u, firstRightLegJoint - firstLeftLegJoint };
-    return Joint(firstLeftLegJoint + jointV + offset[leg]);
+    return Joint(static_cast<uint>(firstLeftLegJoint) + static_cast<uint>(jointV) + offset[leg]);
   }
 }

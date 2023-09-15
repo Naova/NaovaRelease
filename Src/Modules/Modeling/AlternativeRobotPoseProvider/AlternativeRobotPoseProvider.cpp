@@ -33,6 +33,7 @@ void AlternativeRobotPoseProvider::update(AlternativeRobotPoseHypothesis& altern
     addFieldFeatureToBuffer(&theMidCorner);
     addFieldFeatureToBuffer(&theOuterCorner);
     addFieldFeatureToBuffer(&thePenaltyArea);
+    addFieldFeatureToBuffer(&theGoalArea);
   }
   drawObservations();
   if(observations.empty())
@@ -79,8 +80,6 @@ void AlternativeRobotPoseProvider::addFieldFeatureToBuffer(const FieldFeature* f
 void AlternativeRobotPoseProvider::removeOldObservations()
 {
   int timeToKeepObservation = maxTimeToKeepObservation;
-  if(!theRobotInfo.hasFeature(RobotInfo::zGyro))
-    timeToKeepObservation /= 2;
   while(!observations.empty())
   {
     if(theFrameInfo.getTimeSince(observations.back().timeOfObservation) > timeToKeepObservation)
@@ -110,8 +109,8 @@ void AlternativeRobotPoseProvider::clusterObservations()
       {
         c.numOfPoses++;
         c.pose.translation += oPose.translation;
-        angleX += cos(oPose.rotation);
-        angleY += sin(oPose.rotation);
+        angleX += (float)cos(oPose.rotation);
+        angleY += (float)sin(oPose.rotation);
         if(observations[j].timeOfObservation > c.timeOfNewestObservation)
           c.timeOfNewestObservation = observations[j].timeOfObservation;
         if(observations[j].stillInOwnHalf)

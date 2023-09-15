@@ -151,40 +151,25 @@ void LEDHandler::setRightEye(LEDRequest& ledRequest)
 {
   if(theSystemSensorData.batteryCharging && !theRobotInfo.hasFeature(RobotInfo::headLEDs))
     return setEyeColor(ledRequest, false, magenta, LEDRequest::on);
-
+  
   switch(theBehaviorStatus.role)
   {
     case Role::keeper:
       setEyeColor(ledRequest, false, blue, LEDRequest::on);
       break;
-    case Role::attackingKeeper:
-    case Role::penaltyKeeper:
-    {
-      if(theBehaviorStatus.activity == BehaviorStatus::goToBall
-         || theBehaviorStatus.activity == BehaviorStatus::kick
-         || theBehaviorStatus.activity == BehaviorStatus::dribble)
-        setEyeColor(ledRequest, false, red, LEDRequest::on);
-      else
-        setEyeColor(ledRequest, false, blue, LEDRequest::on);
+    case Role::rightDefender:
+      setEyeColor(ledRequest, false, magenta, LEDRequest::on);
       break;
-    }
-    case Role::defender:
+    case Role::leftDefender:
       setEyeColor(ledRequest, false, green, LEDRequest::on);
       break;
     case Role::striker:
       setEyeColor(ledRequest, false, red, LEDRequest::on);
       break;
-    case Role::penaltyStriker:
-      setEyeColor(ledRequest, false, red, LEDRequest::on);
-      break;
     case Role::supporter:
-      setEyeColor(ledRequest, false, white, LEDRequest::on);
-      break;
-    case Role::bishop:
       setEyeColor(ledRequest, false, yellow, LEDRequest::on);
       break;
     case Role::undefined:
-    case Role::none:
       break;
     default:
       FAIL("Unknown role.");
@@ -226,8 +211,22 @@ void LEDHandler::setChestButton(LEDRequest& ledRequest)
   // was recognized. This is to override the yellow (red + green) chestbutton
   // that is set by the libGameCtrl in SET state. In addition we have to check
   // for the penalty status of the robot to not deactivate the red penalty light.
-  if(theGameInfo.state == STATE_SET || theRobotInfo.penalty != PENALTY_NONE)
+  if (theRobotInfo.mode == RobotInfo::unstiff)
+    ledRequest.ledStates[LEDRequest::chestBlue] = LEDRequest::blinking;
+  else if(theRobotInfo.penalty != PENALTY_NONE)
     ledRequest.ledStates[LEDRequest::chestRed] = LEDRequest::on;
+  else if(theGameInfo.state == STATE_INITIAL)
+    ledRequest.ledStates[LEDRequest::chestRed] = LEDRequest::off;
+  else if(theGameInfo.state == STATE_READY)
+    ledRequest.ledStates[LEDRequest::chestBlue] = LEDRequest::on;
+  else if(theGameInfo.state == STATE_SET){
+    ledRequest.ledStates[LEDRequest::chestGreen] = LEDRequest::on;
+    ledRequest.ledStates[LEDRequest::chestRed] = LEDRequest::on;
+  }
+  else if(theGameInfo.state == STATE_PLAYING)
+    ledRequest.ledStates[LEDRequest::chestGreen] = LEDRequest::on;
+  else if(theGameInfo.state == STATE_FINISHED)
+    ledRequest.ledStates[LEDRequest::chestBlue] = LEDRequest::off;
 }
 
 MAKE_MODULE(LEDHandler, behaviorControl)

@@ -10,6 +10,9 @@ dr debugDrawing3d:representation:TeamInfo
 # in case we have more than a single robot
 robot all
 
+# robot info
+dr debugDrawing3d:representation:BehaviorStatus
+
 # Select modules for simulator
 mr Image CognitionLogDataProvider
 mr CameraInfo CognitionLogDataProvider

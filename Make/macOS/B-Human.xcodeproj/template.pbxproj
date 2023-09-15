@@ -2030,7 +2030,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",
@@ -2080,7 +2080,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",
@@ -2133,7 +2133,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",
@@ -2196,7 +2196,7 @@
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-target",
 					"i686-pc-linux-gnu",
 				);
@@ -2262,7 +2262,7 @@
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-target",
 					"i686-pc-linux-gnu",
 				);
@@ -2328,7 +2328,7 @@
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-target",
 					"i686-pc-linux-gnu",
 				);
@@ -2388,7 +2388,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",
@@ -2438,7 +2438,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",
@@ -2491,7 +2491,7 @@
 				MACH_O_TYPE = mh_execute;
 				OTHER_CFLAGS = (
 					"-Qunused-arguments",
-					"-march=atom",
+					"-march=silvermont -mtune=silvermont",
 					"-fPIC",
 					"-target",
 					"i686-pc-linux-gnu",

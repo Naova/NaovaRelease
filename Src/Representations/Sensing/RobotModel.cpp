@@ -51,6 +51,6 @@ void RobotModel::draw() const
   SPHERE3D("representation:RobotModel:centerOfMass", centerOfMass.x(), centerOfMass.y(), centerOfMass.z(), 10, ColorRGBA::red);
 
   PLOT("representation:RobotModel:centerOfMass:x", centerOfMass.x());
-  PLOT("representation:RobotModel:centerOfMass:x", centerOfMass.y());
+  PLOT("representation:RobotModel:centerOfMass:y", centerOfMass.y());
   PLOT("representation:RobotModel:centerOfMass:z", centerOfMass.z());
 }

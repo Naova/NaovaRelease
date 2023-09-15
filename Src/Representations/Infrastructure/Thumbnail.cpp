@@ -45,7 +45,7 @@ void Thumbnail::toImage(Image& dest) const
 
 void Thumbnail::serialize(In* in, Out* out)
 {
-  char grayscale = static_cast<char>(this->grayscale) | (this->grayscale && hasGrayscaleColorData ? 0xF0 : 0); //< this is done for compatibility reasons
+  char grayscale = static_cast<char>(this->grayscale) | (char)(this->grayscale && hasGrayscaleColorData ? 0xF0 : 0); //< this is done for compatibility reasons
   STREAM_REGISTER_BEGIN;
   STREAM(grayscale);
   STREAM(scale);

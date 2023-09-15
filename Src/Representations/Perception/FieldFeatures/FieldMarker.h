@@ -17,12 +17,13 @@
 STREAMABLE(MarkedLine,
 {
   /*
-    ___________3__________
-   |      4|______|5      |
-   |           6          |
-   |2                     |
-   |                      |
-   |___________1__________|
+    ___________3_____________
+   |    |   4|______|5  |    |
+   |   7|        6      |8   |
+   |2   |_______________|    |
+   |             9           |
+   |                         |
+   |____ _______1____________|
 
    */
   ENUM(LineMarker,
@@ -30,9 +31,12 @@ STREAMABLE(MarkedLine,
     midLine, // --> 1
     sideLine, // --> 2
     groundLine, // --> 3
-    sidePenaltyL, // --> 4
-    sidePenaltyR, // --> 5
-    groundPenalty, // --> 6
+    sideGoalL, // --> 4
+    sideGoalR, // --> 5
+    groundGoal, // --> 6
+    sidePenaltyL, // --> 7
+    sidePenaltyR, // --> 8
+    groundPenalty, // --> 9
 
     firstLineMarkerOther,
     otherSideLine = firstLineMarkerOther,
@@ -40,6 +44,9 @@ STREAMABLE(MarkedLine,
     otherSidePenaltyL,
     otherSidePenaltyR,
     otherGroundPenalty,
+    otherSideGoalL,
+    otherSideGoalR,
+    otherGroundGoal,
   });
   static LineMarker mirror(const LineMarker marker);
   LineMarker mirror() const;

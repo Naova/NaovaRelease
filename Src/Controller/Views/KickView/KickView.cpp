@@ -222,7 +222,7 @@ void KickViewHeaderedWidget::loadButtonClicked()
 {
   char dirname[260];
   sprintf(dirname, "%s/Config/KickEngine/", File::getBHDir());
-  fileName = QFileDialog::getOpenFileName(this, tr("Open Kick Motion"), dirname, tr("Kick Motion Config Files (*.kmc)"));
+  fileName = QFileDialog::getOpenFileName(this, tr("Open Kick Motion"), dirname, tr("Kick Motion Config Files (*.kmc)"),nullptr,  QFileDialog::DontUseNativeDialog);
   QString name;
   name = fileName.remove(0, fileName.lastIndexOf("/", fileName.lastIndexOf("/") - 1) + 1);
 
@@ -247,7 +247,7 @@ void KickViewHeaderedWidget::saveAsButtonClicked()
 {
   char dirname[260];
   sprintf(dirname, "%s/Config/KickEngine/", File::getBHDir());
-  fileName = QFileDialog::getSaveFileName(this, tr("Save Kick Motion as..."), dirname, tr("Kick Motion Config Files (*.kmc)"));
+  fileName = QFileDialog::getSaveFileName(this, tr("Save Kick Motion as..."), dirname, tr("Kick Motion Config Files (*.kmc)"),nullptr,  QFileDialog::DontUseNativeDialog);
 
   if(fileName.begin() != fileName.end())
   {

@@ -8,26 +8,26 @@
 #include "Tools/Modeling/Obstacle.h"
 #include "Tools/Module/Blackboard.h"
 
-void ObstacleModel::operator >> (BHumanMessage& m) const
+void ObstacleModel::operator >> (NaovaMessage& m) const
 {
-  static_assert(BHULKS_STANDARD_MESSAGE_STRUCT_VERSION == 8, "This method is not adjusted for the current message version");
+  static_assert(NAOVA_STANDARD_MESSAGE_STRUCT_VERSION == 2, "This method is not adjusted for the current message version");
 
-  m.theBHULKsStandardMessage.obstacles.clear();
+  // m.theNaovaStandardMessage.obstacles.clear();
 
   std::sort(const_cast<std::vector<Obstacle>&>(obstacles).begin(), const_cast<std::vector<Obstacle>&>(obstacles).end(), [](const Obstacle& a, const Obstacle& b) {return a.center.squaredNorm() < b.center.squaredNorm(); });
 
-  const int numOfObstacle = std::min(BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_OBSTACLES, static_cast<int>(obstacles.size()));
+  const int numOfObstacle = std::min(NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_OBSTACLES, static_cast<int>(obstacles.size()));
   for(int i = 0; i < numOfObstacle; ++i)
   {
     const Obstacle& o = obstacles[i];
-    B_HULKs::Obstacle bhObstacle;
+    Naova::Obstacle bhObstacle;
 
     bhObstacle.center[0] = o.center.x();
     bhObstacle.center[1] = o.center.y();
     bhObstacle.timestampLastSeen = o.lastSeen;
-    bhObstacle.type = B_HULKs::ObstacleType(o.type);
+    bhObstacle.type = Naova::ObstacleType(o.type);
 
-    m.theBHULKsStandardMessage.obstacles.emplace_back(bhObstacle);
+    // m.theNaovaStandardMessage.obstacles.emplace_back(bhObstacle);
     m.theBHumanArbitraryMessage.queue.out.bin << o.covariance(0, 0);
     m.theBHumanArbitraryMessage.queue.out.bin << o.covariance(0, 1);
     m.theBHumanArbitraryMessage.queue.out.bin << o.covariance(1, 1);
@@ -39,7 +39,7 @@ void ObstacleModel::operator >> (BHumanMessage& m) const
     m.theBHumanArbitraryMessage.queue.out.finishMessage(id());
 }
 
-void ObstacleModel::operator << (const BHumanMessage& m)
+void ObstacleModel::operator << (const NaovaMessage& m)
 {
   obstacles.clear();
 
@@ -53,19 +53,19 @@ void ObstacleModel::operator << (const BHumanMessage& m)
     obstacleArbitrarySize << o.right;
   }
 
-  for(const B_HULKs::Obstacle& bhObstacle : m.theBHULKsStandardMessage.obstacles)
-  {
-    obstacles.emplace_back();
-    Obstacle& o = obstacles.back();
-    o.center.x() = bhObstacle.center[0];
-    o.center.y() = bhObstacle.center[1];
-    o.lastSeen = m.toLocalTimestamp(bhObstacle.timestampLastSeen);
-    o.type = Obstacle::Type(bhObstacle.type);
+  // for(const Naova::Obstacle& bhObstacle : m.theNaovaStandardMessage.obstacles)
+  // {
+  //   obstacles.emplace_back();
+  //   Obstacle& o = obstacles.back();
+  //   o.center.x() = bhObstacle.center[0];
+  //   o.center.y() = bhObstacle.center[1];
+  //   o.lastSeen = m.toLocalTimestamp(bhObstacle.timestampLastSeen);
+  //   o.type = Obstacle::Type(bhObstacle.type);
 
-    //Fill with default (if we get arbitrary part, it will overwrite later)
-    o.covariance << 1000.f, 0.f, 0.f, 1000.f;
-    o.setLeftRight(Obstacle::getRobotDepth());
-  }
+  //   //Fill with default (if we get arbitrary part, it will overwrite later)
+  //   o.covariance << 1000.f, 0.f, 0.f, 1000.f;
+  //   o.setLeftRight(Obstacle::getRobotDepth());
+  // }
 }
 
 bool ObstacleModel::handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp)
@@ -135,10 +135,10 @@ void ObstacleModel::draw() const
   };
 
   const ColorRGBA ownColor = colors[Blackboard::getInstance().exists("OwnTeamInfo") ?
-      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).teamColor : TEAM_BLACK];
+      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).fieldPlayerColour : TEAM_BLACK];
 
   const ColorRGBA opponentColor = colors[Blackboard::getInstance().exists("OpponentTeamInfo") ?
-      static_cast<const OpponentTeamInfo&>(Blackboard::getInstance()["OpponentTeamInfo"]).teamColor : TEAM_RED];
+      static_cast<const OpponentTeamInfo&>(Blackboard::getInstance()["OpponentTeamInfo"]).fieldPlayerColour : TEAM_RED];
 
   ColorRGBA color;
   for(const auto& obstacle : obstacles)

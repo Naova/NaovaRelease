@@ -63,7 +63,7 @@ void TeamInfo::serialize(In* in, Out* out)
 
   STREAM_REGISTER_BEGIN;
   STREAM(teamNumber); // unique team number
-  STREAM(teamColor); // TEAM_BLUE, TEAM_RED, TEAM_YELLOW, TEAM_BLACK, ...
+  STREAM(fieldPlayerColour); // TEAM_BLUE, TEAM_RED, TEAM_YELLOW, TEAM_BLACK, ...
   STREAM(score); // team's score
   //STREAM(coachMessage); // last coach message received
   //STREAM(coach); // team's coach
@@ -128,21 +128,21 @@ void TeamInfo::draw() const
   DECLARE_DEBUG_DRAWING3D("representation:TeamInfo", "field");
   {
     float x = teamNumber == 1 ? -1535.f : 1465.f;
-    drawDigit(score / 10, Vector3f(x, 3500, 1000), 200, teamColor);
-    drawDigit(score % 10, Vector3f(x + 270, 3500, 1000), 200, teamColor);
+    drawDigit(score / 10, Vector3f(x, 3500, 1000), 200, fieldPlayerColour);
+    drawDigit(score % 10, Vector3f(x + 270, 3500, 1000), 200, fieldPlayerColour);
   };
 }
 
 OwnTeamInfo::OwnTeamInfo()
 {
-  teamColor = Global::settingsExist() ? Global::getSettings().teamColor : TEAM_BLACK;
+  fieldPlayerColour = Global::settingsExist() ? Global::getSettings().teamColor : TEAM_BLACK;
 }
 
-void OwnTeamInfo::operator >> (BHumanMessage& m) const
+void OwnTeamInfo::operator >> (NaovaMessage& m) const 
 {
-  m.theBHULKsStandardMessage.gameControlData.score = score;
-  for(int i = 0; i < BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; ++i)
-    m.theBHULKsStandardMessage.gameControlData.playersArePenalized[i] = players[i].penalty != PENALTY_NONE;
+  // m.theNaovaStandardMessage.gameControlData.score = score;
+  // for(int i = 0; i < NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; ++i)
+  //   m.theNaovaStandardMessage.gameControlData.playersArePenalized[i] = players[i].penalty != PENALTY_NONE;
 }
 
 void OwnTeamInfo::draw() const
@@ -152,11 +152,11 @@ void OwnTeamInfo::draw() const
 
   DEBUG_DRAWING("representation:OwnTeamInfo", "drawingOnField")
   {
-    DRAWTEXT("representation:OwnTeamInfo", -5000, -3800, 140, ColorRGBA::red, Settings::getName((Settings::TeamColor) teamColor));
+    DRAWTEXT("representation:OwnTeamInfo", -5000, -3800, 140, ColorRGBA::red, Settings::getName((Settings::TeamColor) fieldPlayerColour));
   }
 }
 
 OpponentTeamInfo::OpponentTeamInfo()
 {
-  teamColor = 1 ^ (Global::settingsExist() ? Global::getSettings().teamColor : TEAM_RED);
+  fieldPlayerColour = 1 ^ (Global::settingsExist() ? Global::getSettings().teamColor : TEAM_RED);
 }

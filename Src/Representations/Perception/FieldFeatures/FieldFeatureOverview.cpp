@@ -16,7 +16,7 @@ void FieldFeatureOverview::draw() const
   {
     const FrameInfo& theFrameInfo = (const FrameInfo&)Blackboard::getInstance()["FrameInfo"];
 
-    PLOT_SINGE_TSL(PenaltyArea);
+    PLOT_SINGE_TSL(GoalArea);
     PLOT_SINGE_TSL(MidCircle);
     PLOT_SINGE_TSL(MidCorner);
     PLOT_SINGE_TSL(OuterCorner);
@@ -27,7 +27,7 @@ void FieldFeatureOverview::draw() const
   }
 }
 
-void FieldFeatureOverview::operator >> (BHumanMessage& m) const
+void FieldFeatureOverview::operator >> (NaovaMessage& m) const
 {
   static_assert(numOfFeatures <= 8, "The container is to small. Ajust it!");
   uint8_t isRightSidedContainer = 0;
@@ -42,7 +42,7 @@ void FieldFeatureOverview::operator >> (BHumanMessage& m) const
     m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(status.rotation / 180_deg * 127.f);
     m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(static_cast<int>(status.translation.x()) >> 6);
     m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(static_cast<int>(status.translation.y()) >> 6);
-    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<uint8_t>(std::min((m.theBHULKsStandardMessage.timestamp - status.lastSeen) >> 3, 0xFFu));
+    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<uint8_t>(std::min((m.theNaovaStandardMessage.timestamp - status.lastSeen) >> 3, 0xFFu));
   }
 
   m.theBHumanArbitraryMessage.queue.out.finishMessage(this->id());

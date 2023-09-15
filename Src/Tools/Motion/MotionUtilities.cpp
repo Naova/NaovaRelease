@@ -12,9 +12,9 @@ void  MotionUtilities::copy(const JointRequest& source, JointRequest& target,
 {
   for(int i = startJoint; i <= endJoint; ++i)
   {
-    if(source.angles[i] != JointAngles::ignore)
+    if(source.angles[i] != static_cast<float>(JointAngles::ignore))
       target.angles[i] = source.angles[i];
-    target.stiffnessData.stiffnesses[i] = target.angles[i] != JointAngles::off ? source.stiffnessData.stiffnesses[i] : 0;
+    target.stiffnessData.stiffnesses[i] = target.angles[i] != static_cast<float>(JointAngles::off) ? source.stiffnessData.stiffnesses[i] : 0;
     if(target.stiffnessData.stiffnesses[i] == StiffnessData::useDefault)
       target.stiffnessData.stiffnesses[i] = theStiffnessSettings.stiffnesses[i];
   }
@@ -30,31 +30,31 @@ void  MotionUtilities::interpolate(const JointRequest& from, const JointRequest&
     float f = from.angles[i];
     float t = to.angles[i];
 
-    if(t == JointAngles::ignore && f == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore) && f == static_cast<float>(JointAngles::ignore))
       continue;
 
-    if(t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore))
       t = target.angles[i];
-    if(f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::ignore))
       f = target.angles[i];
 
-    int fStiffness = f != JointAngles::off ? from.stiffnessData.stiffnesses[i] : 0;
-    int tStiffness = t != JointAngles::off ? to.stiffnessData.stiffnesses[i] : 0;
+    int fStiffness = f != static_cast<float>(JointAngles::off) ? from.stiffnessData.stiffnesses[i] : 0;
+    int tStiffness = t != static_cast<float>(JointAngles::off) ? to.stiffnessData.stiffnesses[i] : 0;
     if(fStiffness == StiffnessData::useDefault)
       fStiffness = theStiffnessSettings.stiffnesses[i];
     if(tStiffness == StiffnessData::useDefault)
       tStiffness = theStiffnessSettings.stiffnesses[i];
 
-    if(t == JointAngles::off || t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::off) || t == static_cast<float>(JointAngles::ignore))
       t = lastJointAngles.angles[i];
-    if(f == JointAngles::off || f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::off) || f == static_cast<float>(JointAngles::ignore))
       f = lastJointAngles.angles[i];
-    if(target.angles[i] == JointAngles::off || target.angles[i] == JointAngles::ignore)
+    if(target.angles[i] == static_cast<float>(JointAngles::off) || target.angles[i] == static_cast<float>(JointAngles::ignore))
       target.angles[i] = lastJointAngles.angles[i];
 
-    ASSERT(target.angles[i] != JointAngles::off && target.angles[i] != JointAngles::ignore);
-    ASSERT(t != JointAngles::off && t != JointAngles::ignore);
-    ASSERT(f != JointAngles::off && f != JointAngles::ignore);
+    ASSERT(target.angles[i] != static_cast<float>(JointAngles::off) && target.angles[i] != static_cast<float>(JointAngles::ignore));
+    ASSERT(t != static_cast<float>(JointAngles::off) && t != static_cast<float>(JointAngles::ignore));
+    ASSERT(f != static_cast<float>(JointAngles::off) && f != static_cast<float>(JointAngles::ignore));
 
     target.angles[i] += -fromRatio * t + fromRatio * f;
     if(interpolateStiffness)
@@ -72,10 +72,10 @@ bool MotionUtilities::interpolate(JointRequest& joints, const float alpha, const
 
   for(int j = 0; j < Joints::numOfJoints; j++)
   {
-    if(lastAngles.angles[j] == JointAngles::off || lastAngles.angles[j] == JointAngles::ignore)
+    if(lastAngles.angles[j] == static_cast<float>(JointAngles::off) || lastAngles.angles[j] == static_cast<float>(JointAngles::ignore))
       lastAngles.angles[j] = theJointAngles.angles[j];
 
-    if(theStandLegRequest.angles[j] == JointAngles::off || theStandLegRequest.angles[j] == JointAngles::ignore)
+    if(theStandLegRequest.angles[j] == static_cast<float>(JointAngles::off) || theStandLegRequest.angles[j] == static_cast<float>(JointAngles::ignore))
       joints.angles[j] = lastAngles.angles[j];
     else
     {
@@ -84,7 +84,7 @@ bool MotionUtilities::interpolate(JointRequest& joints, const float alpha, const
     }
     joints.stiffnessData.stiffnesses[j] = 100;
   }
-  diff /= Joints::numOfJoints;
+  diff /= static_cast<float>(Joints::numOfJoints);
   return diff < threshold;
 }
 
@@ -95,17 +95,17 @@ void MotionUtilities::interpolate(const JointAngles& from, const JointRequest& t
     float f = from.angles[i];
     float t = to.angles[i];
 
-    if(t == JointAngles::ignore && f == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore) && f == static_cast<float>(JointAngles::ignore))
       continue;
 
-    if(t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore))
       t = target.angles[i];
-    if(f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::ignore))
       f = target.angles[i];
 
-    if(t == JointAngles::off || t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::off) || t == static_cast<float>(JointAngles::ignore))
       t = theJointAngles.angles[i];
-    if(f == JointAngles::off || f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::off) || f == static_cast<float>(JointAngles::ignore))
       f = theJointAngles.angles[i];
 
     target.angles[i] = ratio * (t - f) + f;
@@ -135,6 +135,24 @@ void MotionUtilities::stand(JointRequest& output)
   output.angles[Joints::lElbowYaw] = 0_deg;
   output.angles[Joints::lElbowRoll] = 0_deg;
   output.angles[Joints::rElbowRoll] = 0_deg;
-  output.angles[Joints::rWristYaw] = 0_deg;
-  output.angles[Joints::lWristYaw] = 0_deg;
+  output.angles[Joints::rWristYaw] = 90_deg;
+  output.angles[Joints::lWristYaw] = -90_deg;
 }
+
+
+void MotionUtilities::sit(JointRequest& output)
+{
+  //From B-Human 2019
+  // Sit down to reduce the impact-force
+  output.angles[Joints::lKneePitch] = 123_deg;
+  output.angles[Joints::rKneePitch] = 123_deg;
+  output.angles[Joints::lHipPitch] = -90_deg;
+  output.angles[Joints::rHipPitch] = -90_deg;
+  output.angles[Joints::lHipRoll] = 0_deg;
+  output.angles[Joints::rHipRoll] = 0_deg;
+  output.angles[Joints::lAnklePitch] = -45_deg;
+  output.angles[Joints::rAnklePitch] = -45_deg;
+  output.angles[Joints::lAnkleRoll] = 0_deg;
+  output.angles[Joints::rAnkleRoll] = 0_deg;
+}
+

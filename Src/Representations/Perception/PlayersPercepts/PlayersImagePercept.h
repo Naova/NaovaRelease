@@ -24,6 +24,7 @@ STREAMABLE(PlayersImagePercept,
     (bool) detectedFeet, // true, if the bottom of the obstacle was visible; never calculate position on field without detectedFeet!
     (bool) ownTeam, // true, if a detected jersey was red
     (bool) fallen, // true, if the obstacle seems to lay on the field
+    (float) confidence,
   });
 
   STREAMABLE(PlayerSpot,

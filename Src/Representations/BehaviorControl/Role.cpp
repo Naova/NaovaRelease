@@ -17,56 +17,9 @@
 #include "Tools/Math/Eigen.h"
 #include "Tools/Module/Blackboard.h"
 
-B_HULKs::Role Role::toBHulksRole(const Role::RoleType type)
-{
-  switch(type)
-  {
-    case Role::keeper:
-    case Role::attackingKeeper:
-    case Role::penaltyKeeper:
-      return B_HULKs::Role::King;
-    case Role::striker:
-    case Role::penaltyStriker:
-      return B_HULKs::Role::Queen;
-    case Role::defender:
-      return B_HULKs::Role::Rook;
-    case Role::supporter:
-      return B_HULKs::Role::Knight;
-    case Role::bishop:
-      return B_HULKs::Role::Bishop;
-    case Role::none:
-    case Role::undefined:
-    case Role::numOfRoleTypes:
-    default:
-      return B_HULKs::Role::beatenPieces;
-  }
-}
-
-Role::RoleType Role::fromBHulksRole(const B_HULKs::Role role)
-{
-  switch(role)
-  {
-    case B_HULKs::Role::King:
-      return Role::keeper;
-    case B_HULKs::Role::Rook:
-      return Role::defender;
-    case B_HULKs::Role::Queen:
-      return Role::striker;
-    case B_HULKs::Role::Knight:
-      return Role::supporter;
-    case B_HULKs::Role::Bishop:
-      return Role::bishop;
-    case B_HULKs::Role::beatenPieces:
-    default:
-      return Role::undefined;
-  }
-}
-
 bool Role::isGoalkeeper() const
 {
-  const bool goalKeeper = role == Role::keeper
-                          || role == Role::attackingKeeper
-                          || role == Role::penaltyKeeper;
+  const bool goalKeeper = role == Role::keeper;
 #ifndef NDEBUG
   if(goalKeeper
      && Blackboard::getInstance().exists("RobotInfo")
@@ -98,12 +51,9 @@ void Role::draw() const
     {
       ColorRGBA::black,
       ColorRGBA::blue,
-      ColorRGBA::blue,
       ColorRGBA::red,
       ColorRGBA::white,
       ColorRGBA::green,
-      ColorRGBA::red,
-      ColorRGBA::blue,
       ColorRGBA::black
     };
 
@@ -116,17 +66,17 @@ void Role::draw() const
   }
 }
 
-void TeammateRoles::operator >> (BHumanMessage& m) const
+void TeammateRoles::operator >> (NaovaMessage& m) const
 {
-  for(size_t i = 0; i < sizeof(m.theBHULKsStandardMessage.roleAssignments); ++i)
-    m.theBHULKsStandardMessage.roleAssignments[i] = Role::toBHulksRole((*this)[i + 1]);
+  // for(size_t i = 0; i < sizeof(m.theNaovaStandardMessage.roleAssignments); ++i)
+  //   m.theNaovaStandardMessage.roleAssignments[i] = (*this)[i + 1];
 }
 
-void TeammateRoles::operator<< (const BHumanMessage& m)
+void TeammateRoles::operator<< (const NaovaMessage& m)
 {
-  for(size_t i = 0; i < sizeof(m.theBHULKsStandardMessage.roleAssignments); ++i)
-    if(m.theBHULKsStandardMessage.roleAssignments[i] != B_HULKs::Role::beatenPieces)
-      (*this)[i + 1] = Role::fromBHulksRole(m.theBHULKsStandardMessage.roleAssignments[i]);
+  // for(size_t i = 0; i < sizeof(m.theNaovaStandardMessage.roleAssignments); ++i)
+  //   if(m.theNaovaStandardMessage.roleAssignments[i] != Role::undefined)
+  //     (*this)[i + 1] = m.theNaovaStandardMessage.roleAssignments[i];
 }
 
 Role::RoleType& TeammateRoles::operator[](const size_t i)

@@ -123,7 +123,7 @@ void TimingManager::prepareData()
 
   // now write the data of all watches
   out << (unsigned short)prvt->timing.size();
-  for(const pair<const char*, unsigned long long>& it : prvt->timing)
+  for(const pair<const char*, unsigned long long> it : prvt->timing)
   {
     out << prvt->idTable[it.first];
     out << (unsigned)it.second; // the cast is ok because the time between start and stop will never be bigger than an int...

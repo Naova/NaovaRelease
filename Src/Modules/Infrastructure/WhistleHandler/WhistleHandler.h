@@ -12,6 +12,20 @@
 #include "Representations/Infrastructure/GameInfo.h"
 #include "Representations/Infrastructure/TeamInfo.h"
 #include "Representations/Modeling/TeamBallModel.h"
+#include "Representations/Modeling/Whistle.h"/**
+ * @file WhistleHandler.h
+ * Modifies the GameInfo to factor in if a whistle was
+ * heard by the teammates to set the state to playing.
+ * @author Andreas Stolpmann
+ */
+
+#pragma once
+
+#include "Representations/Communication/TeamData.h"
+#include "Representations/Infrastructure/FrameInfo.h"
+#include "Representations/Infrastructure/GameInfo.h"
+#include "Representations/Infrastructure/TeamInfo.h"
+#include "Representations/Modeling/TeamBallModel.h"
 #include "Representations/Modeling/Whistle.h"
 #include "Tools/Module/Module.h"
 
@@ -24,12 +38,14 @@ MODULE(WhistleHandler,
   REQUIRES(TeamBallModel),
   REQUIRES(Whistle),
   PROVIDES(GameInfo),
+  USES(RobotInfo),
+
   DEFINES_PARAMETERS(
   {,
     (unsigned)(500) maxTimeDifference,
     (bool)(false) useBallPosition,
     (float)(300.f) maxBallToMiddleDistance,
-    (float)(48.f) minAvgConfidence,
+    (float)(36.f) minAvgConfidence,
   }),
 });
 

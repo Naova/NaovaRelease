@@ -7,18 +7,18 @@
 #pragma once
 
 #include "FieldFeature.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Streams/EnumIndexedArray.h"
 
-STREAMABLE(FieldFeatureOverview, COMMA public PureBHumanArbitraryMessageParticle<idFieldFeatureOverview>
+STREAMABLE(FieldFeatureOverview, COMMA public PureNaovaArbitraryMessageParticle<idFieldFeatureOverview>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
 
   ENUM(Feature,
   {,
-    PenaltyArea,
+    GoalArea,
     MidCircle,
     MidCorner,
     OuterCorner,

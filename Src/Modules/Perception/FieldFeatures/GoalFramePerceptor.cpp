@@ -32,7 +32,7 @@ bool GoalFramePerceptor::searchByBigT(GoalFrame& goalFrame) const
   for(const IntersectionsPercept::Intersection* intersection : useBigTIntersections)
   {
     const Pose2f prePose(intersection->dir1.angle() + pi_2, intersection->pos);
-    if(GoalFramePerceptor::calcGoalFrame(prePose, theFieldDimensions.yPosLeftPenaltyArea, goalFrame))
+    if(GoalFramePerceptor::calcGoalFrame(prePose, theFieldDimensions.yPosLeftGoalArea, goalFrame))
       goalFrame.isGroundLineValid = true;
   }
 
@@ -62,7 +62,7 @@ bool GoalFramePerceptor::searchByBigX(GoalFrame& goalFrame) const
 
   const Pose2f prePose(bigX.dir1.angle() + pi_2, bigX.pos);
 
-  return GoalFramePerceptor::calcGoalFrame(prePose, theFieldDimensions.yPosLeftPenaltyArea, goalFrame);
+  return GoalFramePerceptor::calcGoalFrame(prePose, theFieldDimensions.yPosLeftGoalArea, goalFrame);
   //goalFrame.markedIntersections.push_back(MarkedIntersection(bigX, goalFrame.inverse().translation.y() > 0.f ? MarkedIntersection::STL : MarkedIntersection::STR));
 }
 
@@ -73,7 +73,7 @@ bool GoalFramePerceptor::searchByTT(GoalFrame& goalFrame) const
     if(intersection.type == IntersectionsPercept::Intersection::T)
       useTIntersections.push_back(&intersection);
 
-  static const float diffTT = theFieldDimensions.yPosLeftPenaltyArea - theFieldDimensions.yPosLeftGoal;
+  static const float diffTT = theFieldDimensions.yPosLeftGoalArea - theFieldDimensions.yPosLeftGoal;
   static const float yTTPos = diffTT / 2.f + theFieldDimensions.yPosLeftGoal;
 
   for(unsigned i = 0u; i < useTIntersections.size(); i++)

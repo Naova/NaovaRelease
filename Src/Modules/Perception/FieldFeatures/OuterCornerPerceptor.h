@@ -12,7 +12,7 @@
 #include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
 #include "Representations/Perception/FieldFeatures/FieldRelations.h"
 #include "Representations/Perception/FieldFeatures/OuterCorner.h"
-#include "Representations/Perception/FieldFeatures/PenaltyArea.h"
+#include "Representations/Perception/FieldFeatures/GoalArea.h"
 #include "Tools/Math/BHMath.h"
 
 MODULE(OuterCornerPerceptor,
@@ -21,7 +21,7 @@ MODULE(OuterCornerPerceptor,
   REQUIRES(IntersectionRelations),
   REQUIRES(FieldDimensions),
   REQUIRES(FieldLines),
-  REQUIRES(PenaltyArea),
+  REQUIRES(GoalArea),
   PROVIDES(OuterCorner),
   DEFINES_PARAMETERS(
   {,

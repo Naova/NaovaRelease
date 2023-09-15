@@ -21,7 +21,7 @@
 #include "Representations/Perception/FieldFeatures/MidCircle.h"
 #include "Representations/Perception/FieldFeatures/MidCorner.h"
 #include "Representations/Perception/FieldFeatures/OuterCorner.h"
-#include "Representations/Perception/FieldFeatures/PenaltyArea.h"
+#include "Representations/Perception/FieldFeatures/GoalArea.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
 #include "Representations/Perception/FieldPercepts/FieldLines.h"
@@ -106,7 +106,7 @@ private:
   const MidCircle& theMidCircle;
   const MidCorner& theMidCorner;
   const OuterCorner& theOuterCorner;
-  const PenaltyArea& thePenaltyArea;
+  const GoalArea& theGoalArea;
   const PenaltyMarkPercept& thePenaltyMarkPercept;
   const GoalPostPercept& theGoalPostPercept;
 
@@ -128,7 +128,7 @@ private:
     Vector2f end; /**< The ending point of the line. */
     Vector2f dir; /**< The normalized direction of the line (from starting point). */
     float length; /**< The length of the line. */
-    bool isLong;  /**< The line is longer than the penalty area width */
+    bool isLong;  /**< The line is longer than the goal area width */
     bool vertical; /**< Whether this is a vertical or horizontal line. */
   };
 
@@ -141,7 +141,7 @@ private:
   Vector2f goalPosts[4];  /**< The positions of the goal posts. */
   Vector2f ownPenaltyMark;
   Vector2f opponentPenaltyMark;
-  float penaltyAreaWidth;
+  float goalAreaWidth;
 
   std::vector< Vector2f > xIntersections;
   std::vector< Vector2f > lIntersections;
@@ -211,7 +211,7 @@ public:
                       const MidCircle& midCircle,
                       const MidCorner& midCorner,
                       const OuterCorner& outerCorner,
-                      const PenaltyArea& penaltyArea,
+                      const GoalArea& goalArea,
                       const PenaltyMarkPercept& penaltyMarkPercept,
                       const GoalPostPercept& theGoalPostPercept,
                       bool         goalFrameIsPerceivedAsLines,

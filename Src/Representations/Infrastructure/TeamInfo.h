@@ -9,7 +9,7 @@
 
 #include "RoboCupGameControlData.h"
 #include "Tools/Streams/Streamable.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 
 struct TeamInfo : public RoboCup::TeamInfo, public Streamable
 {
@@ -32,10 +32,10 @@ protected:
   virtual void serialize(In* in, Out* out);
 };
 
-STREAMABLE_WITH_BASE(OwnTeamInfo, TeamInfo, COMMA public BHumanMessageParticle<idOwnTeamInfo>
+STREAMABLE_WITH_BASE(OwnTeamInfo, TeamInfo, COMMA public NaovaMessageParticule<idOwnTeamInfo>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
 
   OwnTeamInfo();
   void draw() const,

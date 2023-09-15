@@ -148,6 +148,24 @@
 3.875 -1.125 0
 3.925 -1.125 0
 3.925 1.125 0
+
+# outer keeper line left
+2.825 2.025 0
+2.825 1.975 0
+4.475 1.975 0
+4.475 2.025 0
+
+# outer keeper line right
+4.475 -2.025 0
+4.475 -1.975 0
+2.825 -1.975 0
+2.825 -2.025 0
+
+# outer keeper line front
+2.825 2.025 0
+2.825 -2.025 0
+2.875 -2.025 0
+2.875 2.025 0
   </Vertices>
 
   <Vertices name="fieldCross">
@@ -378,6 +396,9 @@
 12 13 14 15
 16 17 18 19
 20 21 22 23
+24 25 26 27
+28 29 30 31
+32 33 34 35
     </Quads>
     <ComplexAppearance ref="fieldCross">
       <Translation x="3.2" y="0" z="0"/>

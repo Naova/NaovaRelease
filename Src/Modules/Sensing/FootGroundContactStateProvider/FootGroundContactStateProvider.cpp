@@ -22,14 +22,14 @@ void FootGroundContactStateProvider::update(FootGroundContactState& footGroundCo
 {
   for(unsigned i = 0; i < FsrSensors::numOfFsrSensors; ++i)
   {
-    if(!theDamageConfigurationBody.sides[Legs::left].brokenFsrs[i] && theFsrSensorData.pressures[Legs::left][i] != SensorData::off)
+    if(!theDamageConfigurationBody.sides[Legs::left].brokenFsrs[i] && theFsrSensorData.pressures[Legs::left][i] != static_cast<float>(SensorData::off))
     {
       leftZeroOffset[i] = std::min(leftZeroOffset[i], theFsrSensorData.pressures[Legs::left][i]);
       leftCalibrated[i] = theFsrSensorData.pressures[Legs::left][i] - leftZeroOffset[i];
       leftMax[i] = std::min(std::max(leftMax[i], leftCalibrated[i]), theMassCalibration.totalMass * 0.001f);
     }
 
-    if(!theDamageConfigurationBody.sides[Legs::right].brokenFsrs[i] && theFsrSensorData.pressures[Legs::right][i] != SensorData::off)
+    if(!theDamageConfigurationBody.sides[Legs::right].brokenFsrs[i] && theFsrSensorData.pressures[Legs::right][i] != static_cast<float>(SensorData::off))
     {
       rightZeroOffset[i] = std::min(rightZeroOffset[i], theFsrSensorData.pressures[Legs::right][i]);
       rightCalibrated[i] = theFsrSensorData.pressures[Legs::right][i] - rightZeroOffset[i];
@@ -45,7 +45,7 @@ void FootGroundContactStateProvider::update(FootGroundContactState& footGroundCo
 
   for(unsigned i = 0; i < FsrSensors::numOfFsrSensors; ++i)
   {
-    if(!theDamageConfigurationBody.sides[Legs::left].brokenFsrs[i] && theFsrSensorData.pressures[Legs::left][i] != SensorData::off)
+    if(!theDamageConfigurationBody.sides[Legs::left].brokenFsrs[i] && theFsrSensorData.pressures[Legs::left][i] != static_cast<float>(SensorData::off))
     {
       footGroundContactState.leftSensorContacts[i] = leftCalibrated[i] > leftMax[i] * noContactMargin;
       contactLeft |= footGroundContactState.leftSensorContacts[i];
@@ -55,7 +55,7 @@ void FootGroundContactStateProvider::update(FootGroundContactState& footGroundCo
     else
       footGroundContactState.leftSensorContacts[i] = false;
 
-    if(!theDamageConfigurationBody.sides[Legs::right].brokenFsrs[i] && theFsrSensorData.pressures[Legs::right][i] != SensorData::off)
+    if(!theDamageConfigurationBody.sides[Legs::right].brokenFsrs[i] && theFsrSensorData.pressures[Legs::right][i] != static_cast<float>(SensorData::off))
     {
       footGroundContactState.rightSensorContacts[i] = rightCalibrated[i] > rightMax[i] * noContactMargin;
       contactRight |= footGroundContactState.rightSensorContacts[i];

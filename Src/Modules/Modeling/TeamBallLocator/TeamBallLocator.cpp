@@ -9,6 +9,7 @@
 
 #include "TeamBallLocator.h"
 #include "Tools/Modeling/BallPhysics.h"
+#include <fstream>
 
 MAKE_MODULE(TeamBallLocator, modeling)
 
@@ -24,9 +25,17 @@ void TeamBallLocator::update(TeamBallModel& teamBallModel)
   mergedBalls.clear();
   weightingsOfMergedBalls.clear();
   unsigned timeWhenLastSeen = computeTeamBallModel(teamBallModel.position, teamBallModel.velocity);
-  teamBallModel.isValid = timeWhenLastSeen != 0;
+  teamBallModel.isValid = mergedBalls.size() > 0;
+  
+  #ifdef TARGET_ROBOT
+	if ((theFrameInfo.getTimeSince(lastLogFrame) > logInterval) || lastLogFrame == -1) {
+    saveLocationToFile(teamBallModel);
+    lastLogFrame = theFrameInfo.time;
+  }
+  #endif
+
   if(teamBallModel.isValid)
-  {
+  {  
     teamBallModel.timeWhenLastValid = theFrameInfo.time;
     teamBallModel.timeWhenLastSeen = timeWhenLastSeen;
     if(numberOfBallsByMe > 0) // My ball model is involved ...
@@ -72,6 +81,36 @@ void TeamBallLocator::update(TeamBallModel& teamBallModel)
     teamBallModel.standardDeviationOfWeightedBalls = 0.f;
   }
 }
+void TeamBallLocator::saveLocationToFile(TeamBallModel& teamBallModel)
+{
+	std::string filePath = "/var/volatile";
+  
+	//create folders if they don't exist
+	std::string s = "mkdir -p " + filePath + "/TeamBallLocator";
+	std::system(s.c_str());
+
+	filePath += "/TeamBallLocator/test_";
+  filePath += std::to_string(theRobotInfo.number);
+
+	std::fstream out_file = std::fstream(filePath.c_str(), std::ios::out | std::ios::app);
+
+  std::string timeLine = ("time: " + std::to_string(theFrameInfo.time) + "\n");
+  std::string gameStateLine = ("game state: " + std::to_string(theGameInfo.state) + "\n");
+  std::string secsRemainingLine = ("secs remaining: " + std::to_string(theGameInfo.secsRemaining) + "\n");
+  std::string validityLine = ("valid: " + std::to_string(teamBallModel.isValid) + "\n");
+  std::string contributorsLine = "";
+  std::string positionXLine = "";
+  std::string positionYLine = "";
+  if (teamBallModel.isValid) {
+    contributorsLine = ("contr: " + std::to_string(teamBallModel.contributors) + "\n");
+    positionXLine = ("x: " + std::to_string(teamBallModel.position.x()) + "\n");
+    positionYLine = ("y: " + std::to_string(teamBallModel.position.y()) + "\n");
+  }
+  
+  std::string finalOutput = timeLine+gameStateLine+secsRemainingLine+validityLine+contributorsLine+positionXLine+positionYLine + "\n\n";
+	out_file.write((finalOutput).c_str(), finalOutput.size());
+  out_file.close();
+}
 
 void TeamBallLocator::updateBalls()
 {
@@ -106,9 +145,10 @@ void TeamBallLocator::updateBalls()
       newBall.valid = true;
       balls[teammate.number].push_front(newBall);
     }
-  }
+   }
   // If any teammate is not PLAYING anymore, invalidate the observations that happened during the time
   // before the status changed:
+
   for(auto const& teammate : theTeamData.teammates)
   {
     if(teammate.status != Teammate::PLAYING)
@@ -116,10 +156,8 @@ void TeamBallLocator::updateBalls()
       unsigned n = teammate.number;
       for(Ball& ball : balls[n])
       {
-        if(theFrameInfo.getTimeSince(ball.time) <= inactivityInvalidationTimeSpan)
+        if(theFrameInfo.getTimeSince(ball.time) <= inactivityInvalidationTimeSpan && ball.pos.norm() <= invalidDistanceBall)
           ball.valid = false;
-        else
-          break;
       }
     }
   }
@@ -158,15 +196,18 @@ unsigned TeamBallLocator::computeTeamBallModel(Vector2f& pos, Vector2f& vel)
   float weightSum = 0.f;
   Vector2f avgPos(0.f, 0.f);
   Vector2f avgVel(0.f, 0.f);
+
   for(unsigned int robot = 0; robot < balls.size(); ++robot)
   {
-    if(balls[robot].size() > 2) // We want more than just the initial entry
+    if(balls[robot].size() > 0) // cette condition ne change rien car le size de balls pour chaque robot est tjr egal a 10 (voir BALL_BUFFER_LENGTH)
     {
       size_t i = 0;
       while(i < balls[robot].size())
       {
         if(balls[robot][i].valid)
+        {
           break;
+        }
         else
           ++i;
       }
@@ -191,7 +232,9 @@ unsigned TeamBallLocator::computeTeamBallModel(Vector2f& pos, Vector2f& vel)
             avgVel += absVel * weighting;
             weightSum += weighting;
             if(ball.time > timeWhenLastSeen)
+            {
               timeWhenLastSeen = ball.time;
+            }
             TeamBallModel::ConsideredBall consideredBall;
             consideredBall.position = absPos;
             consideredBall.playerNumber = static_cast<unsigned char>(robot);

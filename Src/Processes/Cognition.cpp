@@ -12,7 +12,7 @@
 #include "Platform/Time.h"
 
 #include "Representations/Communication/TeamData.h"
-#include "Representations/Communication/BHumanMessage.h"
+#include "Representations/Communication/NaovaMessage.h"
 
 Cognition::Cognition() :
   Process(theDebugReceiver, theDebugSender),
@@ -56,11 +56,12 @@ bool Cognition::main()
 {
   // read from team comm udp socket
   static_cast<void>(theSPLMessageHandler.receive());
-
   if(CognitionLogDataProvider::isFrameDataComplete() && CameraProvider::isFrameDataComplete())
   {
+
     timingManager.signalProcessStart();
     annotationManager.signalProcessStart();
+
 
     BH_TRACE_MSG("before TeamData");
     // push teammate data in our system
@@ -68,9 +69,9 @@ bool Cognition::main()
        static_cast<const TeamData&>(Blackboard::getInstance()["TeamData"]).generate.operator bool())
       while(!inTeamMessages.empty())
         static_cast<const TeamData&>(Blackboard::getInstance()["TeamData"]).generate(inTeamMessages.takeBack());
-
     // Reset coordinate system for debug field drawing
     DECLARE_DEBUG_DRAWING("origin:Reset", "drawingOnField"); // Set the origin to the (0,0,0)
+
     ORIGIN("origin:Reset", 0.0f, 0.0f, 0.0f);
 
     STOPWATCH_WITH_PLOT("Cognition") moduleManager.execute();
@@ -83,19 +84,18 @@ bool Cognition::main()
     BH_TRACE_MSG("before theMotionSender.send()");
     theMotionSender.send();
 
-    if(Blackboard::getInstance().exists("BHumanMessageOutputGenerator")
-       && static_cast<const BHumanMessageOutputGenerator&>(Blackboard::getInstance()["BHumanMessageOutputGenerator"]).generate.operator bool()
-       && static_cast<const BHumanMessageOutputGenerator&>(Blackboard::getInstance()["BHumanMessageOutputGenerator"]).sendThisFrame)
+    if(Blackboard::getInstance().exists("NaovaMessageOutputGenerator")
+       && static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"]).generate.operator bool()
+       && static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"]).sendThisFrame)
     {
-      static_cast<const BHumanMessageOutputGenerator&>(Blackboard::getInstance()["BHumanMessageOutputGenerator"]).generate(&outTeamMessage);
-
+      static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"]).generate(&outTeamMessage);
       BH_TRACE_MSG("before theTeamHandler.send()");
+      // printInfo(static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"]));
       theSPLMessageHandler.send();
     }
 
     timingManager.signalProcessStop();
     logger.execute();
-
     DEBUG_RESPONSE("timing") timingManager.getData().copyAllMessages(theDebugSender);
 
     DEBUG_RESPONSE("annotation") annotationManager.getOut().copyAllMessages(theDebugSender);
@@ -138,11 +138,13 @@ bool Cognition::main()
     Thread::sleep(1);
     BH_TRACE_MSG("before waitForFrameData");
     CameraProvider::waitForFrameData();
+
     if(SystemCall::getMode() == SystemCall::physicalRobot)
       setPriority(0);
   }
   else
     Thread::sleep(33);
+
 
   return SystemCall::getMode() != SystemCall::physicalRobot;
 }
@@ -164,6 +166,104 @@ bool Cognition::handleMessage(InMessage& message)
              CognitionConfigurationDataProvider::handleMessage(message) ||
              Process::handleMessage(message);
   }
+}
+
+// printInfo(static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"])); a utiliser avant envoie de paquet
+void Cognition::printInfo(const NaovaMessageOutputGenerator& outTeamMessage){
+  fprintf(stderr,
+     "-----------------------------------------------------------------------------\n\nNaovaSPLStandardMessage : \n version : %d\n playerNum : %d\n teamNum : %d\n fallen : %d\n pose : %f %f %f\n ball : %f %f\n",
+     outTeamMessage.theNaovaSPLStandardMessage.version,
+     outTeamMessage.theNaovaSPLStandardMessage.playerNum,
+     outTeamMessage.theNaovaSPLStandardMessage.teamNum,
+     outTeamMessage.theNaovaSPLStandardMessage.fallen,
+     outTeamMessage.theNaovaSPLStandardMessage.pose[0],outTeamMessage.theNaovaSPLStandardMessage.pose[1], outTeamMessage.theNaovaSPLStandardMessage.pose[2],
+    //  outTeamMessage.theNaovaSPLStandardMessage.ballAge,
+     outTeamMessage.theNaovaSPLStandardMessage.ball[0], outTeamMessage.theNaovaSPLStandardMessage.ball[1]);
+
+  fprintf(stderr,
+     "NaovaStandardMessage : \n magicNumber : %d\n ballLastPerceptX : %d\n ballLastPerceptY : %d\n ballLastPerceptY : %d\n ballCovariance : %f %f %f\n robotPoseDeviation: %f\n",
+    //  outTeamMessage.theNaovaStandardMessage.version,
+     outTeamMessage.theNaovaStandardMessage.magicNumber,
+    //  outTeamMessage.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage,
+     outTeamMessage.theNaovaStandardMessage.ballLastPerceptX,
+     outTeamMessage.theNaovaStandardMessage.ballLastPerceptY,
+     outTeamMessage.theNaovaStandardMessage.ballCovariance[0], outTeamMessage.theNaovaStandardMessage.ballCovariance[1], outTeamMessage.theNaovaStandardMessage.ballCovariance[2],
+     outTeamMessage.theNaovaStandardMessage.robotPoseDeviation);
+
+  fprintf(stderr,
+     " robotPoseValidity : %d\n isPenalized : %s\n isUpright : %s\n hasGroundContact : %s\n timestamp : %d\n",
+    //  outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[0], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[1], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[2], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[3], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[4], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[5],
+     outTeamMessage.theNaovaStandardMessage.robotPoseValidity,
+     outTeamMessage.theNaovaStandardMessage.isPenalized ? "true" : "false",
+     outTeamMessage.theNaovaStandardMessage.isUpright ? "true" : "false",
+     outTeamMessage.theNaovaStandardMessage.hasGroundContact ? "true" : "false",
+     outTeamMessage.theNaovaStandardMessage.timestamp);
+    //  outTeamMessage.theNaovaStandardMessage.keeperIsPlaying ? "true" : "false",
+    //  outTeamMessage.theNaovaStandardMessage.passTarget,
+    //  outTeamMessage.theNaovaStandardMessage.timeWhenReachBall,
+    //  outTeamMessage.theNaovaStandardMessage.timeWhenReachBallStriker);
+
+  fprintf(stderr,
+     " timestampLastJumped :  %d\n ballTimeWhenLastSeen : %d\n--------------------------------------------------\n\n",
+     outTeamMessage.theNaovaStandardMessage.timestampLastJumped,
+     outTeamMessage.theNaovaStandardMessage.ballTimeWhenLastSeen
+    //  outTeamMessage.theNaovaStandardMessage.lastTimeWhistleDetected,
+    //  outTeamMessage.theNaovaStandardMessage.requestsNTPMessage ? "true" : "false"
+    );
+
+  // fprintf(stderr,
+  //    " OwnTeamInfo :\n   timestampWhenReceived : %d\n   packetNumber : %d\n   competitionType : %d\n   competitionPhase : %d\n   state : %d\n   setPlay : %d\n   firstHalf : %d\n   kickingTeam : %d\n   gamePhase : %d\n   dropInTeam : %d\n   dropInTime : %d\n   secsRemaining : %d\n   secondaryTime : %d\n   score : %d\n\n",
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.timestampWhenReceived,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.packetNumber,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.competitionTyprintf(stderr,
+  //    "-----------------------------------------------------------------------------\n\nNaovaSPLStandardMessage : \n version : %d\n playerNum : %d\n teamNum : %d\n fallen : %d\n pose : %f %f %f\n ballAge : %f\n ball : %f %f\n",
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.version,
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.playerNum,
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.teamNum,
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.fallen,
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.pose[0],receivedMessageContainer.theNaovaSPLStandardMessage.pose[1], receivedMessageContainer.theNaovaSPLStandardMessage.pose[2],
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.ballAge,
+  //    receivedMessageContainer.theNaovaSPLStandardMessage.ball[0], receivedMessageContainer.theNaovaSPLStandardMessage.ball[1]);
+  // fprintf(stderr,
+  //    "NaovaStandardMessage : \n magicNumber : %d\n ballLastPerceptX : %d\n ballLastPerceptY : %d\n ballLastPerceptY : %d\n ballCovariance : %f %f %f\n robotPoseDeviation: %f\n",
+  //   //  receivedMessageContainer.theNaovaStandardMessage.version,
+  //    receivedMessageContainer.theNaovaStandardMessage.magicNumber,
+  //   //  receivedMessageContainer.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage,
+  //    receivedMessageContainer.theNaovaStandardMessage.ballLastPerceptX,
+  //    receivedMessageContainer.theNaovaStandardMessage.ballLastPerceptY,
+  //    receivedMessageContainer.theNaovaStandardMessage.ballCovariance[0], receivedMessageContainer.theNaovaStandardMessage.ballCovariance[1], receivedMessageContainer.theNaovaStandardMessage.ballCovariance[2],
+  //    receivedMessageContainer.theNaovaStandardMessage.robotPoseDeviation);
+  // fprintf(stderr,
+  //    " robotPoseValidity : %d\n isPenalized : %s\n isUpright : %s\n hasGroundContact : %s\n timestamp : %d\n",
+  //   //  outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[0], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[1], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[2], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[3], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[4], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[5],
+  //    receivedMessageContainer.theNaovaStandardMessage.robotPoseValidity,
+  //    receivedMessageContainer.theNaovaStandardMessage.isPenalized ? "true" : "false",
+  //    receivedMessageContainer.theNaovaStandardMessage.isUpright ? "true" : "false",
+  //    receivedMessageContainer.theNaovaStandardMessage.hasGroundContact ? "true" : "false",
+  //    receivedMessageContainer.theNaovaStandardMessage.timestamp);
+  //   //  outTeamMessage.theNaovaStandardMessage.keeperIsPlaying ? "true" : "false",
+  //   //  outTeamMessage.theNaovaStandardMessage.passTarget,
+  //   //  receivedMessageContainer.theNaovaStandardMessage.timeWhenReachBall,
+  //   //  receivedMessageContainer.theNaovaStandardMessage.timeWhenReachBallStriker);
+  //    fprintf(stderr,
+  //    " timestampLastJumped :  %d\n ballTimeWhenLastSeen : %d\n lastTimeWhistleDetected : %d\n--------------------------------------------------\n\n",
+  //    receivedMessageContainer.theNaovaStandardMessage.timestampLastJumped,
+  //    receivedMessageContainer.theNaovaStandardMessage.ballTimeWhenLastSeen,
+  //    receivedMessageContainer.theNaovaStandardMessage.lastTimeWhistleDetected
+  //   //  outTeamMessage.theNaovaStandardMessage.requestsNTPMessage ? "true" : "false"
+  //   );pe,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.competitionPhase,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.state,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.setPlay,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.firstHalf,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.kickingTeam,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.gamePhase,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.dropInTeam,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.dropInTime,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.secsRemaining,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.secondaryTime,
+  //    outTeamMessage.theNaovaStandardMessage.gameControlData.score
+  //    );
 }
 
 MAKE_PROCESS(Cognition);

@@ -12,14 +12,14 @@ bool Teammate::handleMessage(InMessage& message)
   {
       HANDLE_PARTICLE(RobotPose);
       HANDLE_PARTICLE(BallModel);
-      HANDLE_PARTICLE(ObstacleModel);
+      // HANDLE_PARTICLE(ObstacleModel);
       HANDLE_PARTICLE(BehaviorStatus);
-      HANDLE_PARTICLE(SPLStandardBehaviorStatus);
+      // HANDLE_PARTICLE(SPLStandardBehaviorStatus);
       HANDLE_PARTICLE(Whistle);
-      HANDLE_PARTICLE(TeammateRoles);
-      HANDLE_PARTICLE(SideConfidence);
+      // HANDLE_PARTICLE(TeammateRoles);
+      // HANDLE_PARTICLE(SideConfidence);
       HANDLE_PARTICLE(FieldCoverage);
-      HANDLE_PARTICLE(RobotHealth);
+      // HANDLE_PARTICLE(RobotHealth);
     default:
       return false;
   }

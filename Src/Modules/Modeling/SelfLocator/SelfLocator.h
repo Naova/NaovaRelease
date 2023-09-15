@@ -39,7 +39,7 @@
 #include "Representations/Perception/FieldFeatures/MidCircle.h"
 #include "Representations/Perception/FieldFeatures/MidCorner.h"
 #include "Representations/Perception/FieldFeatures/OuterCorner.h"
-#include "Representations/Perception/FieldFeatures/PenaltyArea.h"
+#include "Representations/Perception/FieldFeatures/GoalArea.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldPercepts/FieldLines.h"
 #include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
@@ -75,7 +75,7 @@ MODULE(SelfLocator,
   REQUIRES(BallModel),
   REQUIRES(FieldBoundary),
   REQUIRES(OuterCorner),
-  REQUIRES(PenaltyArea),
+  REQUIRES(GoalArea),
   REQUIRES(RobotPose),
   REQUIRES(SideConfidence),
   REQUIRES(PenaltyMarkPercept),
@@ -228,7 +228,7 @@ private:
    */
   Pose2f getNewPoseAtWalkInPosition();
 
-  /** Returns a pose on the manual placement line or inside the own penalty area (if the robot is the goalie)
+  /** Returns a pose on the manual placement line or inside the own goal area (if the robot is the goalie)
    * @return A robot pose
    */
   Pose2f getNewPoseAtManualPlacementPosition();

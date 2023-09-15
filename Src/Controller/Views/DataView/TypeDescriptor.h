@@ -130,7 +130,7 @@ namespace Type //The namespace is here to fix a VC-compiler bug
     QString toString(const QVariant& var) const
     {
       AngleWithUnity value = var.value<AngleWithUnity>();
-      return value == SensorData::off ? "off" : QString::number(value.deg ? value.toDegrees() : value) + " " + (value.deg ? "deg" : "rad");
+      return value == static_cast<float>(SensorData::off) ? "off" : QString::number(value.deg ? value.toDegrees() : value) + " " + (value.deg ? "deg" : "rad");
     }
 
     QVariant createDefault()

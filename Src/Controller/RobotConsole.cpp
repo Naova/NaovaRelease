@@ -2308,6 +2308,7 @@ bool RobotConsole::viewImage(In& stream)
 {
   std::string buffer;
   stream >> buffer;
+
   if(buffer == "?")
   {
     stream >> buffer;
@@ -2354,8 +2355,9 @@ bool RobotConsole::viewImage(In& stream)
       stream >> buffer2;
       if(!jpeg && buffer2 == "jpeg")
         jpeg = true;
-      else if(!segmented && buffer2 == "segmented")
+      else if(!segmented && buffer2 == "segmented"){
         segmented = true;
+      }
       else if(!camera && buffer2 == "upper")
         camera = 1;
       else if(!camera && buffer2 == "lower")
@@ -2363,10 +2365,12 @@ bool RobotConsole::viewImage(In& stream)
       else
         break;
     }
+    if(segmented) buffer2 = ""; 
 
     if(buffer == "image")
     {
       std::string name = buffer2 != "" ? buffer2 : segmented ? (camera == 1 ? "segmentedUpper" : "segmentedLower") : camera == 1 ? "upper" : "lower";
+
       if(imageViews.find(name) != imageViews.end())
       {
         ctrl->printLn("View already exists. Specify a (different) name.");
@@ -2916,7 +2920,8 @@ std::string RobotConsole::getPathForRepresentation(std::string representation)
 {
   string fileName;
   if(representation == "representation:CameraSettings")
-    fileName = "cameraSettings" + std::string(RobotInfo::getName(robotInfo.headVersion)) + ".cfg";
+    //
+    fileName = "cameraSettings.cfg";
   else
   {
     unordered_map<std::string, std::string>::const_iterator i = ctrl->representationToFile.find(representation);
@@ -2968,7 +2973,8 @@ bool RobotConsole::acceptCamera(In& stream)
 void RobotConsole::saveColorCalibration()
 {
   SYNC;
-  std::string name = "fieldColorsCalibration" + std::string(RobotInfo::getName(robotInfo.headVersion)) + ".cfg";
+  //std::string name = "fieldColorsCalibration" + std::string(RobotInfo::getName(robotInfo.headVersion)) + ".cfg";
+  std::string name = "fieldColorsCalibration.cfg";
   for(std::string& fullName : File::getFullNames(name))
   {
     File path(fullName, "r", false);

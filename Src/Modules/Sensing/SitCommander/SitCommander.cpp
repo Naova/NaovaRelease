@@ -11,7 +11,7 @@ MAKE_MODULE(SitCommander, sensing)
 
 void SitCommander::update(SitCommand& sitCommand)
 {
-  if(!(sitCommand.gettingCommanded = (theRobotInfo.hasFeature(RobotInfo::headLEDs) && theHeadAngleRequest.pan != SensorData::off)))
+  if(!(sitCommand.gettingCommanded = (theRobotInfo.hasFeature(RobotInfo::headLEDs) && theHeadAngleRequest.pan != static_cast<float>(SensorData::off))))
     return;
 
   if(theKeyStates.pressed[KeyStates::headMiddle] || theKeyStates.pressed[KeyStates::headRear] || theKeyStates.pressed[KeyStates::headFront])

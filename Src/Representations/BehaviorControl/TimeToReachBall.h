@@ -9,7 +9,7 @@
 #pragma once
 
 #include "Tools/Streams/AutoStreamable.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include <limits>
 #include <cmath>
 
@@ -17,24 +17,24 @@
  * @struct TimeToReachBall
  * Representation of the Time to reach the ball
  */
-STREAMABLE(TimeToReachBall, COMMA public BHumanMessageParticle<undefined>
+STREAMABLE(TimeToReachBall, COMMA public NaovaMessageParticule<undefined>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override,
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override,
 
   (unsigned)(std::numeric_limits<unsigned>::max()) timeWhenReachBall,         /**< The estimated time when reach the ball */
   (unsigned)(std::numeric_limits<unsigned>::max()) timeWhenReachBallStriker,
 });
 
-inline void TimeToReachBall::operator >> (BHumanMessage& m) const
+inline void TimeToReachBall::operator >> (NaovaMessage& m) const
 {
-  m.theBHULKsStandardMessage.timeWhenReachBall = timeWhenReachBall;
-  m.theBHULKsStandardMessage.timeWhenReachBallQueen = timeWhenReachBallStriker;
+  // m.theNaovaStandardMessage.timeWhenReachBall = timeWhenReachBall;
+  // m.theNaovaStandardMessage.timeWhenReachBallStriker = timeWhenReachBallStriker;
 }
 
-inline void TimeToReachBall::operator << (const BHumanMessage& m)
+inline void TimeToReachBall::operator << (const NaovaMessage& m)
 {
-  timeWhenReachBall = m.toLocalTimestamp(m.theBHULKsStandardMessage.timeWhenReachBall);
-  timeWhenReachBallStriker = m.toLocalTimestamp(m.theBHULKsStandardMessage.timeWhenReachBallQueen);
+  // timeWhenReachBall = m.toLocalTimestamp(m.theNaovaStandardMessage.timeWhenReachBall);
+  // timeWhenReachBallStriker = m.toLocalTimestamp(m.theNaovaStandardMessage.timeWhenReachBallStriker);
 }

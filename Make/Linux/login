@@ -13,7 +13,7 @@ else
 fi
 cp ../../Config/Keys/id_rsa_nao /tmp/id_rsa_nao
 chmod 600 /tmp/id_rsa_nao
-ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet nao@$1
+ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa nao@$1
 if [ $? == 255 ]; then
   echo "Error: Cannot connect to $1" >&2
 fi

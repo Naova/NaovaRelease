@@ -34,11 +34,11 @@ void PathPlannerProvider::update(PathPlanner& pathPlanner)
   DECLARE_DEBUG_DRAWING("module:PathPlannerProvider:expanded", "drawingOnField");
   DECLARE_DEBUG_DRAWING("module:PathPlannerProvider:path", "drawingOnField");
 
-  pathPlanner.plan = [this](const Pose2f& target, const Pose2f& speed, bool excludePenaltyArea) -> MotionRequest
+  pathPlanner.plan = [this](const Pose2f& target, const Pose2f& speed, bool excludeGoalArea) -> MotionRequest
   {
     MotionRequest motionRequest;
-    createBarriers(target, excludePenaltyArea);
-    createNodes(target, excludePenaltyArea);
+    createBarriers(target, excludeGoalArea);
+    createNodes(target, excludeGoalArea);
     plan(nodes[0], nodes[1], speed.translation.x() / speed.rotation);
 
     motionRequest.motion = MotionRequest::stand; // fall back if no path is found
@@ -76,10 +76,10 @@ void PathPlannerProvider::update(PathPlanner& pathPlanner)
   };
 }
 
-void PathPlannerProvider::createBarriers(const Pose2f& target, bool excludePenaltyArea)
+void PathPlannerProvider::createBarriers(const Pose2f& target, bool excludeGoalArea)
 {
   barriers.clear();
-  barriers.reserve(excludePenaltyArea ? 7 : 4);
+  barriers.reserve(excludeGoalArea ? 7 : 4);
 
   // Add sides of the goal nets
   barriers.emplace_back(theFieldDimensions.xPosOpponentGoalPost, theFieldDimensions.yPosLeftGoal,
@@ -91,29 +91,29 @@ void PathPlannerProvider::createBarriers(const Pose2f& target, bool excludePenal
   barriers.emplace_back(theFieldDimensions.xPosOwnGoalPost, theFieldDimensions.yPosRightGoal,
                         -20000.f, theFieldDimensions.yPosRightGoal);
 
-  if(excludePenaltyArea)
+  if(excludeGoalArea)
   {
-    float left = theFieldDimensions.yPosLeftPenaltyArea + penaltyAreaRadius - radiusControlOffset;
-    float right = theFieldDimensions.yPosRightPenaltyArea - penaltyAreaRadius + radiusControlOffset;
-    float front = theFieldDimensions.xPosOwnPenaltyArea + penaltyAreaRadius - radiusControlOffset;
+    float left = theFieldDimensions.yPosLeftGoalArea + goalAreaRadius - radiusControlOffset;
+    float right = theFieldDimensions.yPosRightGoalArea - goalAreaRadius + radiusControlOffset;
+    float front = theFieldDimensions.xPosOwnGoalArea + goalAreaRadius - radiusControlOffset;
 
-    clipPenaltyArea(theRobotPose.translation, left, right, front);
-    clipPenaltyArea(target.translation, left, right, front);
+    clipGoalArea(theRobotPose.translation, left, right, front);
+    clipGoalArea(target.translation, left, right, front);
 
-    barriers.emplace_back(theFieldDimensions.xPosOwnPenaltyArea, left,
+    barriers.emplace_back(theFieldDimensions.xPosOwnGoalArea, left,
                           theFieldDimensions.xPosOwnGroundline, left);
-    barriers.emplace_back(theFieldDimensions.xPosOwnPenaltyArea, right,
+    barriers.emplace_back(theFieldDimensions.xPosOwnGoalArea, right,
                           theFieldDimensions.xPosOwnGroundline, right);
-    barriers.emplace_back(front, theFieldDimensions.yPosLeftPenaltyArea,
-                          front, theFieldDimensions.yPosRightPenaltyArea);
+    barriers.emplace_back(front, theFieldDimensions.yPosLeftGoalArea,
+                          front, theFieldDimensions.yPosRightGoalArea);
   }
 }
 
-void PathPlannerProvider::clipPenaltyArea(const Vector2f& position, float& left, float& right, float& front) const
+void PathPlannerProvider::clipGoalArea(const Vector2f& position, float& left, float& right, float& front) const
 {
   if(position.x() <= front && position.y() >= right && position.y() <= left)
   {
-    // If the robot is inside the penalty area, move the closest barrier so the robot is still outside
+    // If the robot is inside the goal area, move the closest barrier so the robot is still outside
     const float distanceLeft = left - position.y();
     const float distanceRight = position.y() - right;
     const float distanceFront = front - position.x();
@@ -126,12 +126,12 @@ void PathPlannerProvider::clipPenaltyArea(const Vector2f& position, float& left,
   }
 }
 
-void PathPlannerProvider::createNodes(const Pose2f& target, bool excludePenaltyArea)
+void PathPlannerProvider::createNodes(const Pose2f& target, bool excludeGoalArea)
 {
   nodes.clear();
 
   // Reserve ennough space that prevents any reallocation, because the addresses of entries are used.
-  nodes.reserve(sqr((excludePenaltyArea ? 8 : 6) +
+  nodes.reserve(sqr((excludeGoalArea ? 8 : 6) +
                     (useObstacles ? theObstacleModel.obstacles.size() : theTeamPlayersModel.obstacles.size())));
 
   // Insert start and target
@@ -146,17 +146,17 @@ void PathPlannerProvider::createNodes(const Pose2f& target, bool excludePenaltyA
   nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGoalPost, theFieldDimensions.yPosLeftGoal), goalPostRadius - radiusControlOffset);
   nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGoalPost, theFieldDimensions.yPosRightGoal), goalPostRadius - radiusControlOffset);
 
-  if(excludePenaltyArea)
+  if(excludeGoalArea)
   {
-    // The nodes around the penalty area will be intersected by barriers. Therefore, they can
+    // The nodes around the goal area will be intersected by barriers. Therefore, they can
     // be reached from two sides and must be clonable once.
-    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea), penaltyAreaRadius - radiusControlOffset + epsilon);
+    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosLeftGoalArea), goalAreaRadius - radiusControlOffset + epsilon);
     nodes.back().allowedClones = 1;
-    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosRightPenaltyArea), penaltyAreaRadius - radiusControlOffset + epsilon);
+    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosRightGoalArea), goalAreaRadius - radiusControlOffset + epsilon);
     nodes.back().allowedClones = 1;
-    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosLeftPenaltyArea), penaltyAreaRadius - radiusControlOffset + epsilon);
+    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosLeftGoalArea), goalAreaRadius - radiusControlOffset + epsilon);
     nodes.back().allowedClones = 1;
-    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightPenaltyArea), penaltyAreaRadius - radiusControlOffset + epsilon);
+    nodes.emplace_back(Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightGoalArea), goalAreaRadius - radiusControlOffset + epsilon);
     nodes.back().allowedClones = 1;
   }
 

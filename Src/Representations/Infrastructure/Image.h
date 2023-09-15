@@ -9,6 +9,7 @@
 #include "Tools/Math/Eigen.h"
 #include "Tools/Streams/Streamable.h"
 #include "Representations/Infrastructure/CameraInfo.h"
+#include "Representations/Configuration/YoloBallModelsDefinitions.h"
 
 /**
  * The union defines a pixel in YCbCr space.
@@ -107,11 +108,28 @@ public:
   void getSubImage(int x1, int y1, int x2, int y2, Image& subImage) const;
 
   /**
+   * Gets a resized image using the nearest neighbour algorithm.
+   * @return the resized image.
+   */
+  void getResizedImage(int newWidth, int newHeight, Image& image) const;
+
+  /**
    * The method sets an external image.
    * @param buffer The image buffer.
    */
   void setImage(unsigned char* buffer);
+  
   void setImage(Pixel* image);
+
+  /**
+   * Returns the image as a tri-dimensional array to fit Yolo input shape.
+   * We assume that the present image shape is equal to the Yolo input shape.
+   * The correct shape is : [maxYoloResolutionWidth][maxYoloResolutionHeight][3]
+   * @return the image array
+   */
+  void convertToYoloFormat(float *image_array, bool is_grey = false) const;
+
+  void convertToFPNGformat(uint8_t *image_array) const;
 
   /**
    * Converts an YCbCr image into an RGB image.

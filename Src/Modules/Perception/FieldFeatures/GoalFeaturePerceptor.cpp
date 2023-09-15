@@ -17,7 +17,7 @@ bool GoalFeaturePerceptor::searchByGoalPostAndT(GoalFeature& goalFeature) const
   const Vector2f goalPostPosition = theGoalPostPercept.wasSeen ?
                                     theGoalPostPercept.positionOnField : theOdometer.odometryOffset * theLastGoalPostPercept.positionOnField;
 
-  const float fieldDistance = theFieldDimensions.yPosLeftPenaltyArea - theFieldDimensions.yPosLeftGoal;
+  const float fieldDistance = theFieldDimensions.yPosLeftGoalArea - theFieldDimensions.yPosLeftGoal;
 
   std::vector<const FieldLineIntersections::Intersection*> useNormalTIntersections;
   for(const FieldLineIntersections::Intersection& intersection : theFieldLineIntersections.intersections)

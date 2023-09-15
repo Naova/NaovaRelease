@@ -16,8 +16,10 @@ void WhistleHandler::update(GameInfo& gameInfo)
 
   if(gameInfo.state != STATE_SET)
     overrideGameState = false;
-  else if(!overrideGameState && gameInfo.gamePhase == GAME_PHASE_NORMAL)
+  else if(!overrideGameState && gameInfo.gamePhase == GAME_PHASE_NORMAL){
     overrideGameState = checkWhistle() && checkBall();
+  }
+    
 
   if(overrideGameState)
   {
@@ -35,43 +37,49 @@ void WhistleHandler::update(GameInfo& gameInfo)
 
 bool WhistleHandler::checkWhistle() const
 {
-  std::vector<const Whistle*> data;
-  int numOfHearingRobots = 0;
+  // std::vector<const Whistle*> data;
+  // int numOfHearingRobots = 0;
 
-  if(theWhistle.confidenceOfLastWhistleDetection >= 0)
-  {
-    ++numOfHearingRobots;
-    if(theWhistle.lastTimeWhistleDetected > timeOfLastSetState)
-      data.emplace_back(&theWhistle);
-  }
-  for(const Teammate& teammate : theTeamData.teammates)
-  {
-    if(teammate.theWhistle.confidenceOfLastWhistleDetection >= 0)
-    {
-      ++numOfHearingRobots;
-      if(teammate.theWhistle.lastTimeWhistleDetected > timeOfLastSetState)
-        data.emplace_back(&teammate.theWhistle);
-    }
-  }
+  // if(theWhistle.confidenceOfLastWhistleDetection >= 0)
+  // {
+  //   ++numOfHearingRobots;
+  //   if(theWhistle.lastTimeWhistleDetected > timeOfLastSetState)
+  //     data.emplace_back(&theWhistle);
+  // }
+  // for(const Teammate& teammate : theTeamData.teammates)
+  // {
+  //   if(teammate.theWhistle.confidenceOfLastWhistleDetection >= 0)
+  //   {
+  //     ++numOfHearingRobots;
+  //     if(teammate.theWhistle.lastTimeWhistleDetected > timeOfLastSetState)
+  //       data.emplace_back(&teammate.theWhistle);
+  //   }
+  // }
 
-  std::sort(data.begin(), data.end(),
-            [](const Whistle* w1, const Whistle* w2) -> bool
-  {
-    return w1->lastTimeWhistleDetected < w2->lastTimeWhistleDetected;
-  });
+  // std::sort(data.begin(), data.end(),
+  //           [](const Whistle* w1, const Whistle* w2) -> bool
+  // {
+  //   return w1->lastTimeWhistleDetected < w2->lastTimeWhistleDetected;
+  // });
 
-  for(size_t i = 0; i < data.size(); ++i)
-  {
-    float totalConfidence = 0.f;
-    for(size_t j = i; j < data.size(); ++j)
-    {
-      if(data[j]->lastTimeWhistleDetected - data[i]->lastTimeWhistleDetected > maxTimeDifference)
-        break;
+  // for(size_t i = 0; i < data.size(); ++i)
+  // {
+  //   float totalConfidence = 0.f;
+  //   for(size_t j = i; j < data.size(); ++j)
+  //   {
+  //     if(data[j]->lastTimeWhistleDetected - data[i]->lastTimeWhistleDetected > maxTimeDifference)
+  //       break;
 
-      totalConfidence += static_cast<float>(data[j]->confidenceOfLastWhistleDetection);
-      if(totalConfidence / numOfHearingRobots > minAvgConfidence)
-        return true;
-    }
+  //     totalConfidence += static_cast<float>(data[j]->confidenceOfLastWhistleDetection);
+  //     //OUTPUT_TEXT(theRobotInfo.number << "): totalConfidence: " << totalConfidence);
+  //     //OUTPUT_TEXT(theRobotInfo.number << "): numOfHearingRobots: " << numOfHearingRobots);
+  //     //OUTPUT_TEXT(theRobotInfo.number << "): totalConfidence / numOfHearingRobots: " << totalConfidence / numOfHearingRobots);
+  //     if(totalConfidence / numOfHearingRobots > minAvgConfidence)
+  //       return true;
+  //   }
+  // }
+  if (theWhistle.confidenceOfLastWhistleDetection > 33 && theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) < 500) {
+    return true;
   }
 
   return false;

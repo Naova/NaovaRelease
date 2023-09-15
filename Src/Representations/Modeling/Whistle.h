@@ -8,36 +8,47 @@
 
 #pragma once
 
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Platform/Time.h"
 
-STREAMABLE(Whistle, COMMA public BHumanMessageParticle<idWhistle>
+STREAMABLE(Whistle, COMMA public NaovaMessageParticule<idWhistle>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override,
 
-  (char)(0)         confidenceOfLastWhistleDetection, /**< Confidence based on hearing capability */
+  (int)(0)         confidenceOfLastWhistleDetection, /**< Confidence based on hearing capability */
   (unsigned int)(0) lastTimeWhistleDetected,          /**< Timestamp */
   (unsigned int)(0) lastTimeOfIncomingSound,          /**< The last point of time when the robot received audio data */
   (std::string)("") whistleName,                      /**< Name of the last detected whistle */
 });
 
-inline void Whistle::operator >> (BHumanMessage& m) const
+inline void Whistle::operator >> (NaovaMessage& m) const
 {
-  m.theBHULKsStandardMessage.lastTimeWhistleDetected = lastTimeWhistleDetected;
-  m.theBHULKsStandardMessage.confidenceOfLastWhistleDetection = B_HULKs::HearingConfidence(confidenceOfLastWhistleDetection < 0 ? static_cast<char>(-1) : confidenceOfLastWhistleDetection);
+  m.theNaovaStandardMessage.lastTimeWhistleDetected = lastTimeWhistleDetected;
+  m.theNaovaStandardMessage.confidenceOfLastWhistleDetection = Naova::HearingConfidence(confidenceOfLastWhistleDetection < 0 ? static_cast<int>(-1) : (int)confidenceOfLastWhistleDetection);
 
   m.theBHumanArbitraryMessage.queue.out.bin << lastTimeOfIncomingSound;
   m.theBHumanArbitraryMessage.queue.out.bin << whistleName;
   m.theBHumanArbitraryMessage.queue.out.finishMessage(id());
 }
 
-inline void Whistle::operator << (const BHumanMessage& m)
+inline void Whistle::operator << (const NaovaMessage& m)
 {
-  lastTimeWhistleDetected = m.toLocalTimestamp(m.theBHULKsStandardMessage.lastTimeWhistleDetected);
-  confidenceOfLastWhistleDetection = static_cast<char>(m.theBHULKsStandardMessage.confidenceOfLastWhistleDetection);
+  lastTimeWhistleDetected = m.toLocalTimestamp(m.theNaovaStandardMessage.lastTimeWhistleDetected);
+  if(static_cast<char>(m.theNaovaStandardMessage.confidenceOfLastWhistleDetection) == 1){
+    confidenceOfLastWhistleDetection = 33;
+  }
+  else if(static_cast<char>(m.theNaovaStandardMessage.confidenceOfLastWhistleDetection) == 2){
+    confidenceOfLastWhistleDetection = 66;
+  }
+  else if(static_cast<char>(m.theNaovaStandardMessage.confidenceOfLastWhistleDetection) == 3){
+    confidenceOfLastWhistleDetection = 100;
+  }
+  else {
+    confidenceOfLastWhistleDetection = static_cast<char>(m.theNaovaStandardMessage.confidenceOfLastWhistleDetection);
+  }
   lastTimeOfIncomingSound = Time::getCurrentSystemTime(); // does not matter anyway...
 }
 

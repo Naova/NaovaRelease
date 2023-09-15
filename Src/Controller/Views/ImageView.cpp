@@ -48,11 +48,6 @@ ImageView::ImageView(const QString& fullName, RobotConsole& console, const std::
   gain(gain)
 {}
 
-void ImageView::forwardLastImage()
-{
-  if(widget != nullptr)
-    widget->forwardLastImage();
-}
 
 SimRobot::Widget* ImageView::createWidget()
 {
@@ -608,15 +603,6 @@ QMenu* ImageWidget::createUserMenu() const
   menu->addAction(saveImgAct);
 
   return menu;
-}
-
-void ImageWidget::forwardLastImage()
-{
-  DebugImage* image = nullptr;
-  RobotConsole::Images& currentImages = imageView.upperCam ? imageView.console.upperCamImages : imageView.console.lowerCamImages;
-  RobotConsole::Images::const_iterator j = currentImages.find(imageView.background);
-  if(j != currentImages.end())
-    image = j->second.image;
 }
 
 void ImageWidget::saveImg()

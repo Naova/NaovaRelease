@@ -63,6 +63,8 @@ cppFlags = {
     //"-Wconversion" // Activate this again, as soon as qt get rid of its conversion warnings.
     "-Wliteral-conversion"
     "-Wsign-compare"
+    "-Wno-deprecated-declarations" // pour Qt5 et clang 
+    "-Wno-enum-enum-conversion" // warning Qt5
     if (configuration == "Debug") {
       "-g"
     } else {

@@ -23,6 +23,7 @@
 #include "Representations/Perception/FieldFeatures/MidCircle.h"
 #include "Representations/Perception/FieldFeatures/MidCorner.h"
 #include "Representations/Perception/FieldFeatures/OuterCorner.h"
+#include "Representations/Perception/FieldFeatures/GoalArea.h"
 #include "Representations/Perception/FieldFeatures/PenaltyArea.h"
 #include "Representations/Sensing/GroundContactState.h"
 #include "Tools/Debugging/DebugDrawings.h"
@@ -43,6 +44,7 @@ MODULE(AlternativeRobotPoseProvider,
   REQUIRES(Odometer),
   REQUIRES(OwnSideModel),
   REQUIRES(PenaltyArea),
+  REQUIRES(GoalArea),
   REQUIRES(RobotInfo),
   PROVIDES(AlternativeRobotPoseHypothesis),
   DEFINES_PARAMETERS(

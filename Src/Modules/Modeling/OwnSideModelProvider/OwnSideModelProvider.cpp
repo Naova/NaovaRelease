@@ -62,7 +62,7 @@ void OwnSideModelProvider::update(OwnSideModel& ownSideModel)
         else if(theGameInfo.kickingTeam == theOwnTeamInfo.teamNumber)
           largestXPossibleAtKnownPosition = -theFieldDimensions.centerCircleRadius - awayFromLineDistance;
         else
-          largestXPossibleAtKnownPosition = theFieldDimensions.xPosOwnPenaltyArea + awayFromLineDistance;
+          largestXPossibleAtKnownPosition = theFieldDimensions.xPosOwnGoalArea + awayFromLineDistance;
       }
       else
         largestXPossibleAtKnownPosition = -awayFromLineDistance;

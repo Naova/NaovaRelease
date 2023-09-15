@@ -95,7 +95,7 @@ bush = cppApplication + {
   libs = {
     if (platform == "Linux") {
       "Qt5Concurrent", "Qt5Gui", "Qt5Core", "Qt5Widgets"
-      "rt", "pthread"
+      "rt", "pthread", "stdc++"
     }
     if (host == "Win32") {
       if (configuration == "Debug") {

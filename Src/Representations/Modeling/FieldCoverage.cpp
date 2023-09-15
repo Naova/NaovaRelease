@@ -6,7 +6,7 @@
 #include "FieldCoverage.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 
-void FieldCoverage::operator >> (BHumanMessage& m) const
+void FieldCoverage::operator >> (NaovaMessage& m) const
 {
   const GridLine& line = lines[lineToSendNext];
 
@@ -16,7 +16,7 @@ void FieldCoverage::operator >> (BHumanMessage& m) const
   m.theBHumanArbitraryMessage.queue.out.finishMessage(id());
 }
 
-void FieldCoverage::operator << (const BHumanMessage& m)
+void FieldCoverage::operator << (const NaovaMessage& m)
 {
   lines.clear();
 }

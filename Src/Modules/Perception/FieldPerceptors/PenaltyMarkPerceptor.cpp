@@ -135,7 +135,7 @@ void PenaltyMarkPerceptor::update(PenaltyMarkPercept& thePenaltyMarkPercept)
     }
 
     std::sort(objects.begin(), objects.end(), MoreOnResponse());
-    for(const IsometryWithResponse object : objects)
+    for(const IsometryWithResponse &object : objects)
     {
       int nonWhitePoints = 0;
       double x, y;

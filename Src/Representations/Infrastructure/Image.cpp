@@ -99,6 +99,58 @@ void Image::getSubImage(int x1, int y1, int x2, int y2, Image& subImage) const
       }
 }
 
+//plus proche voisin
+void Image::getResizedImage(int newWidth, int newHeight, Image& image) const
+{
+  float x_scale = (width * 1.0f) / newWidth;
+  float y_scale = (height * 1.0f) / newHeight;
+  image.setResolution(newWidth, newHeight);
+  int x, y;
+  for(int i = 0; i < newHeight; ++i) {
+    x = static_cast<int>(std::floor(1.f + (i * y_scale)));
+    if(x >= width) x = width - 1;
+    for(int j = 0; j < newWidth; ++j) {
+      y = static_cast<int>(std::floor(1.f + (j * x_scale)));
+      if(x >= height) y = height - 1;
+      image[i][j].y = (*this)[x][y].y;
+      image[i][j].cb = (*this)[x][y].cb;
+      image[i][j].cr = (*this)[x][y].cr;
+    }
+  }
+}
+
+void Image::convertToYoloFormat(float * image_array, bool is_grey) const 
+{
+  if(!is_grey) {
+    for(int i = 0; i < height; ++i) {
+      for(int j = 0; j < width; ++j) {
+        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS] = (*this)[i][j].y/255.f;
+        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 1] = (*this)[i][j].cb/255.f;
+        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 2] = (*this)[i][j].cr/255.f;
+      }
+    }
+  }
+  else {
+    for(int i = 0; i < height; ++i) {
+      for(int j = 0; j < width; ++j) {
+        image_array[i * width + j] = (*this)[i][j].y/255.f;
+      }
+    }
+  }
+
+}
+
+void Image::convertToFPNGformat(uint8_t *image_array) const
+{
+  for(int i = 0; i < height; ++i) {
+    for(int j = 0; j < width; ++j) {
+      image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS] = (*this)[i][j].y;
+      image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 1] = (*this)[i][j].cb;
+      image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 2] = (*this)[i][j].cr;
+    }
+  }
+}
+
 void Image::convertFromYCbCrToRGB(const Image& ycbcrImage)
 {
   height = ycbcrImage.height;

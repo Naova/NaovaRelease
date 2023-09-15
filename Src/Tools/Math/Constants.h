@@ -26,7 +26,7 @@ namespace Constants
   ///@}
 
   constexpr float cognitionCycleTime = 1.f / 60.f;
-  constexpr float motionCycleTime = 1.f / 100.f;
+  constexpr float motionCycleTime = 0.012f;
 };
 
 using Constants::pi;

@@ -207,7 +207,7 @@ void OutTextRaw::writeDouble(double d, PhysicalOutStream& stream)
 
 void OutTextRaw::writeAngle(const Angle& d, PhysicalOutStream& stream)
 {
-  if(d == SensorData::off)
+  if(d == static_cast<float>(SensorData::off))
     sprintf(buf, "%g", static_cast<float>(d));
   else
     sprintf(buf, "%gdeg", d.toDegrees());

@@ -13,59 +13,41 @@
 #include "Tools/Modeling/BallPhysics.h"
 #include "Tools/Module/Blackboard.h"
 
-void BallModel::operator>> (BHumanMessage& m) const
+void BallModel::operator>> (NaovaMessage& m) const
 {
-  m.theBHumanStandardMessage.ballLastPerceptX = static_cast<int16_t>(lastPerception.x());
-  m.theBHumanStandardMessage.ballLastPerceptY = static_cast<int16_t>(lastPerception.y());
+  m.theNaovaStandardMessage.ballLastPerceptX = static_cast<int16_t>(lastPerception.x());
+  m.theNaovaStandardMessage.ballLastPerceptY = static_cast<int16_t>(lastPerception.y());
 
-  m.theBSPLStandardMessage.ball[0] = estimate.position.x();
-  m.theBSPLStandardMessage.ball[1] = estimate.position.y();
-//  m.theBSPLStandardMessage.ballVel[0] = estimate.velocity.x();
-//  m.theBSPLStandardMessage.ballVel[1] = estimate.velocity.y();
+  m.theNaovaSPLStandardMessage.ball[0] = estimate.position.x();
+  m.theNaovaSPLStandardMessage.ball[1] = estimate.position.y();
+ m.theNaovaStandardMessage.ballVel[0] = estimate.velocity.x();
+ m.theNaovaStandardMessage.ballVel[1] = estimate.velocity.y();
 
-  m.theBHULKsStandardMessage.ballTimeWhenLastSeen = timeWhenLastSeen;
-  m.theBHumanStandardMessage.ballTimeWhenDisappearedSeenPercentage = (timeWhenDisappeared & 0x00ffffff) | seenPercentage << 24;
+  // m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage = (timeWhenDisappeared & 0x00ffffff) | seenPercentage << 24;
+  m.theNaovaStandardMessage.ballTimeWhenLastSeen = timeWhenLastSeen;
+  m.theNaovaStandardMessage.ballCovariance[0] = estimate.covariance(0, 0);
+  m.theNaovaStandardMessage.ballCovariance[1] = estimate.covariance(1, 1);
+  m.theNaovaStandardMessage.ballCovariance[2] = (estimate.covariance(0, 1) + estimate.covariance(1, 0)) / 2.f;
 
-  m.theBHumanStandardMessage.ballCovariance[0] = estimate.covariance(0, 0);
-  m.theBHumanStandardMessage.ballCovariance[1] = estimate.covariance(1, 1);
-  m.theBHumanStandardMessage.ballCovariance[2] = (estimate.covariance(0, 1) + estimate.covariance(1, 0)) / 2.f;
-
-  if(timeWhenLastSeen && Blackboard::getInstance().exists("FrameInfo"))
-  {
-    const FrameInfo& theFrameInfo = static_cast<const FrameInfo&>(Blackboard::getInstance()["FrameInfo"]);
-    m.theBSPLStandardMessage.ballAge = theFrameInfo.getTimeSince(timeWhenLastSeen) / 1000.f;
-  }
-  else
-    m.theBSPLStandardMessage.ballAge = 1.f;
 }
 
-void BallModel::operator<< (const BHumanMessage& m)
+void BallModel::operator<< (const NaovaMessage& m)
 {
-  estimate.position.x() = m.theBSPLStandardMessage.ball[0];
-  estimate.position.y() = m.theBSPLStandardMessage.ball[1];
-//  estimate.velocity.x() = m.theBSPLStandardMessage.ballVel[0];
-//  estimate.velocity.y() = m.theBSPLStandardMessage.ballVel[1];
+  estimate.position.x() = m.theNaovaSPLStandardMessage.ball[0];
+  estimate.position.y() = m.theNaovaSPLStandardMessage.ball[1];
+  estimate.velocity.x() = m.theNaovaStandardMessage.ballVel[0];
+  estimate.velocity.y() = m.theNaovaStandardMessage.ballVel[1];
 
-  timeWhenLastSeen = m.toLocalTimestamp(m.theBHULKsStandardMessage.ballTimeWhenLastSeen);
+  timeWhenLastSeen = m.toLocalTimestamp(m.theNaovaStandardMessage.ballTimeWhenLastSeen);
 
-  if(m.theBHULKsStandardMessage.member == B_HUMAN_MEMBER)
-  {
-    timeWhenDisappeared = m.toLocalTimestamp(m.theBHumanStandardMessage.ballTimeWhenDisappearedSeenPercentage & 0x00ffffff);
-    seenPercentage = static_cast<unsigned char>(m.theBHumanStandardMessage.ballTimeWhenDisappearedSeenPercentage >> 24);
+  // timeWhenDisappeared = m.toLocalTimestamp(m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage & 0x00ffffff);
+  // seenPercentage = static_cast<unsigned char>(m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage >> 24);
 
-    lastPerception.x() = static_cast<float>(m.theBHumanStandardMessage.ballLastPerceptX);
-    lastPerception.y() = static_cast<float>(m.theBHumanStandardMessage.ballLastPerceptY);
+  lastPerception.x() = static_cast<float>(m.theNaovaStandardMessage.ballLastPerceptX);
+  lastPerception.y() = static_cast<float>(m.theNaovaStandardMessage.ballLastPerceptY);
 
-    estimate.covariance << m.theBHumanStandardMessage.ballCovariance[0], m.theBHumanStandardMessage.ballCovariance[2],
-                           m.theBHumanStandardMessage.ballCovariance[2], m.theBHumanStandardMessage.ballCovariance[1];
-  }
-  else
-  {
-    timeWhenDisappeared = timeWhenLastSeen;
-    seenPercentage = 40;
-    lastPerception = estimate.position;
-    estimate.covariance << 10000.f, 2000.f, 2000.f, 10000.f;
-  }
+  estimate.covariance << m.theNaovaStandardMessage.ballCovariance[0], m.theNaovaStandardMessage.ballCovariance[2],
+                          m.theNaovaStandardMessage.ballCovariance[2], m.theNaovaStandardMessage.ballCovariance[1];
 }
 
 void BallModel::verify() const

@@ -11,6 +11,8 @@ option(GetUpEngine)
     }
     action
     {
+		theArmMotionRequest.armMotion[Arms::left] = ArmMotionRequest::none;
+	theArmMotionRequest.armMotion[Arms::right] = ArmMotionRequest::none;
       theMotionRequest.motion = MotionRequest::getUp;
     }
   }

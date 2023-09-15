@@ -8,13 +8,13 @@
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Math/Eigen.h"
 #include <vector>
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 
-STREAMABLE(FieldCoverage, COMMA public BHumanMessageParticle<idFieldCoverage>
+STREAMABLE(FieldCoverage, COMMA public NaovaMessageParticule<idFieldCoverage>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
 
   STREAMABLE(GridLine,

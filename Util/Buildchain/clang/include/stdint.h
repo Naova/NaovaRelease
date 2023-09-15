@@ -1,35 +1,23 @@
 /*===---- stdint.h - Standard header for sized integer types --------------===*\
  *
- * Copyright (c) 2009 Chris Lattner
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+ * See https://llvm.org/LICENSE.txt for license information.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  *
 \*===----------------------------------------------------------------------===*/
 
 #ifndef __CLANG_STDINT_H
+// AIX system headers need stdint.h to be re-enterable while _STD_TYPES_T
+// is defined until an inclusion of it without _STD_TYPES_T occurs, in which
+// case the header guard macro is defined.
+#if !defined(_AIX) || !defined(_STD_TYPES_T) || !defined(__STDC_HOSTED__)
 #define __CLANG_STDINT_H
+#endif
 
 /* If we're hosted, fall back to the system's stdint.h, which might have
  * additional definitions.
  */
-#if __STDC_HOSTED__ && \
-    defined(__has_include_next) && __has_include_next(<stdint.h>)
+#if __STDC_HOSTED__ && __has_include_next(<stdint.h>)
 
 // C99 7.18.3 Limits of other integer types
 //
@@ -78,18 +66,18 @@
  * C99 7.18.1.2 Minimum-width integer types.
  * C99 7.18.1.3 Fastest minimum-width integer types.
  *
- * The standard requires that exact-width type be defined for 8-, 16-, 32-, and 
+ * The standard requires that exact-width type be defined for 8-, 16-, 32-, and
  * 64-bit types if they are implemented. Other exact width types are optional.
  * This implementation defines an exact-width types for every integer width
  * that is represented in the standard integer types.
  *
  * The standard also requires minimum-width types be defined for 8-, 16-, 32-,
  * and 64-bit widths regardless of whether there are corresponding exact-width
- * types. 
+ * types.
  *
  * To accommodate targets that are missing types that are exactly 8, 16, 32, or
  * 64 bits wide, this implementation takes an approach of cascading
- * redefintions, redefining __int_leastN_t to successively smaller exact-width
+ * redefinitions, redefining __int_leastN_t to successively smaller exact-width
  * types. It is therefore important that the types are defined in order of
  * descending widths.
  *
@@ -98,16 +86,16 @@
  * suboptimal.
  *
  * In violation of the standard, some targets do not implement a type that is
- * wide enough to represent all of the required widths (8-, 16-, 32-, 64-bit).  
+ * wide enough to represent all of the required widths (8-, 16-, 32-, 64-bit).
  * To accommodate these targets, a required minimum-width type is only
  * defined if there exists an exact-width type of equal or greater width.
  */
 
 #ifdef __INT64_TYPE__
 # ifndef __int8_t_defined /* glibc sys/types.h also defines int64_t*/
-typedef signed __INT64_TYPE__ int64_t;
+typedef __INT64_TYPE__ int64_t;
 # endif /* __int8_t_defined */
-typedef unsigned __INT64_TYPE__ uint64_t;
+typedef __UINT64_TYPE__ uint64_t;
 # define __int_least64_t int64_t
 # define __uint_least64_t uint64_t
 # define __int_least32_t int64_t
@@ -126,8 +114,8 @@ typedef __uint_least64_t uint_fast64_t;
 #endif /* __int_least64_t */
 
 #ifdef __INT56_TYPE__
-typedef signed __INT56_TYPE__ int56_t;
-typedef unsigned __INT56_TYPE__ uint56_t;
+typedef __INT56_TYPE__ int56_t;
+typedef __UINT56_TYPE__ uint56_t;
 typedef int56_t int_least56_t;
 typedef uint56_t uint_least56_t;
 typedef int56_t int_fast56_t;
@@ -142,8 +130,8 @@ typedef uint56_t uint_fast56_t;
 
 
 #ifdef __INT48_TYPE__
-typedef signed __INT48_TYPE__ int48_t;
-typedef unsigned __INT48_TYPE__ uint48_t;
+typedef __INT48_TYPE__ int48_t;
+typedef __UINT48_TYPE__ uint48_t;
 typedef int48_t int_least48_t;
 typedef uint48_t uint_least48_t;
 typedef int48_t int_fast48_t;
@@ -158,8 +146,8 @@ typedef uint48_t uint_fast48_t;
 
 
 #ifdef __INT40_TYPE__
-typedef signed __INT40_TYPE__ int40_t;
-typedef unsigned __INT40_TYPE__ uint40_t;
+typedef __INT40_TYPE__ int40_t;
+typedef __UINT40_TYPE__ uint40_t;
 typedef int40_t int_least40_t;
 typedef uint40_t uint_least40_t;
 typedef int40_t int_fast40_t;
@@ -176,12 +164,12 @@ typedef uint40_t uint_fast40_t;
 #ifdef __INT32_TYPE__
 
 # ifndef __int8_t_defined /* glibc sys/types.h also defines int32_t*/
-typedef signed __INT32_TYPE__ int32_t;
+typedef __INT32_TYPE__ int32_t;
 # endif /* __int8_t_defined */
 
 # ifndef __uint32_t_defined  /* more glibc compatibility */
 # define __uint32_t_defined
-typedef unsigned __INT32_TYPE__ uint32_t;
+typedef __UINT32_TYPE__ uint32_t;
 # endif /* __uint32_t_defined */
 
 # define __int_least32_t int32_t
@@ -200,8 +188,8 @@ typedef __uint_least32_t uint_fast32_t;
 #endif /* __int_least32_t */
 
 #ifdef __INT24_TYPE__
-typedef signed __INT24_TYPE__ int24_t;
-typedef unsigned __INT24_TYPE__ uint24_t;
+typedef __INT24_TYPE__ int24_t;
+typedef __UINT24_TYPE__ uint24_t;
 typedef int24_t int_least24_t;
 typedef uint24_t uint_least24_t;
 typedef int24_t int_fast24_t;
@@ -214,9 +202,9 @@ typedef uint24_t uint_fast24_t;
 
 #ifdef __INT16_TYPE__
 #ifndef __int8_t_defined /* glibc sys/types.h also defines int16_t*/
-typedef signed __INT16_TYPE__ int16_t;
+typedef __INT16_TYPE__ int16_t;
 #endif /* __int8_t_defined */
-typedef unsigned __INT16_TYPE__ uint16_t;
+typedef __UINT16_TYPE__ uint16_t;
 # define __int_least16_t int16_t
 # define __uint_least16_t uint16_t
 # define __int_least8_t int16_t
@@ -233,9 +221,9 @@ typedef __uint_least16_t uint_fast16_t;
 
 #ifdef __INT8_TYPE__
 #ifndef __int8_t_defined  /* glibc sys/types.h also defines int8_t*/
-typedef signed __INT8_TYPE__ int8_t;
+typedef __INT8_TYPE__ int8_t;
 #endif /* __int8_t_defined */
-typedef unsigned __INT8_TYPE__ uint8_t;
+typedef __UINT8_TYPE__ uint8_t;
 # define __int_least8_t int8_t
 # define __uint_least8_t uint8_t
 #endif /* __INT8_TYPE__ */
@@ -248,7 +236,7 @@ typedef __uint_least8_t uint_fast8_t;
 #endif /* __int_least8_t */
 
 /* prevent glibc sys/types.h from defining conflicting types */
-#ifndef __int8_t_defined  
+#ifndef __int8_t_defined
 # define __int8_t_defined
 #endif /* __int8_t_defined */
 
@@ -256,19 +244,16 @@ typedef __uint_least8_t uint_fast8_t;
  */
 #define __stdint_join3(a,b,c) a ## b ## c
 
-#define  __intn_t(n) __stdint_join3( int, n, _t)
-#define __uintn_t(n) __stdint_join3(uint, n, _t)
-
 #ifndef _INTPTR_T
 #ifndef __intptr_t_defined
-typedef  __intn_t(__INTPTR_WIDTH__)  intptr_t;
+typedef __INTPTR_TYPE__ intptr_t;
 #define __intptr_t_defined
 #define _INTPTR_T
 #endif
 #endif
 
 #ifndef _UINTPTR_T
-typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
+typedef __UINTPTR_TYPE__ uintptr_t;
 #define _UINTPTR_T
 #endif
 
@@ -281,9 +266,9 @@ typedef __UINTMAX_TYPE__ uintmax_t;
  *
  * The standard requires that integer constant macros be defined for all the
  * minimum-width types defined above. As 8-, 16-, 32-, and 64-bit minimum-width
- * types are required, the corresponding integer constant macros are defined 
+ * types are required, the corresponding integer constant macros are defined
  * here. This implementation also defines minimum-width types for every other
- * integer width that the target implements, so corresponding macros are 
+ * integer width that the target implements, so corresponding macros are
  * defined below, too.
  *
  * These macros are defined using the same successive-shrinking approach as
@@ -453,7 +438,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 #endif /* __int_least8_t */
 
 
-/* C99 7.18.2.1 Limits of exact-width integer types. 
+/* C99 7.18.2.1 Limits of exact-width integer types.
  * C99 7.18.2.2 Limits of minimum-width integer types.
  * C99 7.18.2.3 Limits of fastest minimum-width integer types.
  *
@@ -465,7 +450,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
  * As in the type definitions, this section takes an approach of
  * successive-shrinking to determine which limits to use for the standard (8,
  * 16, 32, 64) bit widths when they don't have exact representations. It is
- * therefore important that the defintions be kept in order of decending
+ * therefore important that the definitions be kept in order of decending
  * widths.
  *
  * Note that C++ should not check __STDC_LIMIT_MACROS here, contrary to the
@@ -476,6 +461,18 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT64_MAX           INT64_C( 9223372036854775807)
 # define INT64_MIN         (-INT64_C( 9223372036854775807)-1)
 # define UINT64_MAX         UINT64_C(18446744073709551615)
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT64_WIDTH         64
+# define INT64_WIDTH          UINT64_WIDTH
+
+# define __UINT_LEAST64_WIDTH UINT64_WIDTH
+# define __UINT_LEAST32_WIDTH UINT64_WIDTH
+# define __UINT_LEAST16_WIDTH UINT64_WIDTH
+# define __UINT_LEAST8_MAX UINT64_MAX
+#endif /* __STDC_VERSION__ */
+
 # define __INT_LEAST64_MIN   INT64_MIN
 # define __INT_LEAST64_MAX   INT64_MAX
 # define __UINT_LEAST64_MAX UINT64_MAX
@@ -497,6 +494,15 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST64_MIN    __INT_LEAST64_MIN
 # define INT_FAST64_MAX    __INT_LEAST64_MAX
 # define UINT_FAST64_MAX  __UINT_LEAST64_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT_LEAST64_WIDTH __UINT_LEAST64_WIDTH
+# define INT_LEAST64_WIDTH  UINT_LEAST64_WIDTH
+# define UINT_FAST64_WIDTH  __UINT_LEAST64_WIDTH
+# define INT_FAST64_WIDTH   UINT_FAST64_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT_LEAST64_MIN */
 
 
@@ -510,6 +516,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST56_MIN      INT56_MIN
 # define INT_FAST56_MAX      INT56_MAX
 # define UINT_FAST56_MAX    UINT56_MAX
+
 # define __INT_LEAST32_MIN   INT56_MIN
 # define __INT_LEAST32_MAX   INT56_MAX
 # define __UINT_LEAST32_MAX UINT56_MAX
@@ -519,6 +526,20 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define __INT_LEAST8_MIN    INT56_MIN
 # define __INT_LEAST8_MAX    INT56_MAX
 # define __UINT_LEAST8_MAX  UINT56_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT56_WIDTH         56
+# define INT56_WIDTH          UINT56_WIDTH
+# define UINT_LEAST56_WIDTH   UINT56_WIDTH
+# define INT_LEAST56_WIDTH    UINT_LEAST56_WIDTH
+# define UINT_FAST56_WIDTH    UINT56_WIDTH
+# define INT_FAST56_WIDTH     UINT_FAST56_WIDTH
+# define __UINT_LEAST32_WIDTH UINT56_WIDTH
+# define __UINT_LEAST16_WIDTH UINT56_WIDTH
+# define __UINT_LEAST8_WIDTH  UINT56_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT56_TYPE__ */
 
 
@@ -532,6 +553,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST48_MIN      INT48_MIN
 # define INT_FAST48_MAX      INT48_MAX
 # define UINT_FAST48_MAX    UINT48_MAX
+
 # define __INT_LEAST32_MIN   INT48_MIN
 # define __INT_LEAST32_MAX   INT48_MAX
 # define __UINT_LEAST32_MAX UINT48_MAX
@@ -541,6 +563,20 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define __INT_LEAST8_MIN    INT48_MIN
 # define __INT_LEAST8_MAX    INT48_MAX
 # define __UINT_LEAST8_MAX  UINT48_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+#define UINT48_WIDTH         48
+#define INT48_WIDTH          UINT48_WIDTH
+#define UINT_LEAST48_WIDTH   UINT48_WIDTH
+#define INT_LEAST48_WIDTH    UINT_LEAST48_WIDTH
+#define UINT_FAST48_WIDTH    UINT48_WIDTH
+#define INT_FAST48_WIDTH     UINT_FAST48_WIDTH
+#define __UINT_LEAST32_WIDTH UINT48_WIDTH
+#define __UINT_LEAST16_WIDTH UINT48_WIDTH
+#define __UINT_LEAST8_WIDTH  UINT48_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT48_TYPE__ */
 
 
@@ -554,6 +590,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST40_MIN      INT40_MIN
 # define INT_FAST40_MAX      INT40_MAX
 # define UINT_FAST40_MAX    UINT40_MAX
+
 # define __INT_LEAST32_MIN   INT40_MIN
 # define __INT_LEAST32_MAX   INT40_MAX
 # define __UINT_LEAST32_MAX UINT40_MAX
@@ -563,6 +600,20 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define __INT_LEAST8_MIN    INT40_MIN
 # define __INT_LEAST8_MAX    INT40_MAX
 # define __UINT_LEAST8_MAX  UINT40_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT40_WIDTH         40
+# define INT40_WIDTH          UINT40_WIDTH
+# define UINT_LEAST40_WIDTH   UINT40_WIDTH
+# define INT_LEAST40_WIDTH    UINT_LEAST40_WIDTH
+# define UINT_FAST40_WIDTH    UINT40_WIDTH
+# define INT_FAST40_WIDTH     UINT_FAST40_WIDTH
+# define __UINT_LEAST32_WIDTH UINT40_WIDTH
+# define __UINT_LEAST16_WIDTH UINT40_WIDTH
+# define __UINT_LEAST8_WIDTH  UINT40_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT40_TYPE__ */
 
 
@@ -570,6 +621,7 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT32_MAX           INT32_C(2147483647)
 # define INT32_MIN         (-INT32_C(2147483647)-1)
 # define UINT32_MAX         UINT32_C(4294967295)
+
 # define __INT_LEAST32_MIN   INT32_MIN
 # define __INT_LEAST32_MAX   INT32_MAX
 # define __UINT_LEAST32_MAX UINT32_MAX
@@ -579,6 +631,16 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define __INT_LEAST8_MIN    INT32_MIN
 # define __INT_LEAST8_MAX    INT32_MAX
 # define __UINT_LEAST8_MAX  UINT32_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT32_WIDTH         32
+# define INT32_WIDTH          UINT32_WIDTH
+# define __UINT_LEAST32_WIDTH UINT32_WIDTH
+# define __UINT_LEAST16_WIDTH UINT32_WIDTH
+# define __UINT_LEAST8_WIDTH  UINT32_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT32_TYPE__ */
 
 #ifdef __INT_LEAST32_MIN
@@ -588,6 +650,15 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST32_MIN    __INT_LEAST32_MIN
 # define INT_FAST32_MAX    __INT_LEAST32_MAX
 # define UINT_FAST32_MAX  __UINT_LEAST32_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT_LEAST32_WIDTH __UINT_LEAST32_WIDTH
+# define INT_LEAST32_WIDTH  UINT_LEAST32_WIDTH
+# define UINT_FAST32_WIDTH  __UINT_LEAST32_WIDTH
+# define INT_FAST32_WIDTH   UINT_FAST32_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT_LEAST32_MIN */
 
 
@@ -601,12 +672,26 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST24_MIN      INT24_MIN
 # define INT_FAST24_MAX      INT24_MAX
 # define UINT_FAST24_MAX    UINT24_MAX
+
 # define __INT_LEAST16_MIN   INT24_MIN
 # define __INT_LEAST16_MAX   INT24_MAX
 # define __UINT_LEAST16_MAX UINT24_MAX
 # define __INT_LEAST8_MIN    INT24_MIN
 # define __INT_LEAST8_MAX    INT24_MAX
 # define __UINT_LEAST8_MAX  UINT24_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT24_WIDTH         24
+# define INT24_WIDTH          UINT24_WIDTH
+# define UINT_LEAST24_WIDTH   UINT24_WIDTH
+# define INT_LEAST24_WIDTH    UINT_LEAST24_WIDTH
+# define UINT_FAST24_WIDTH    UINT24_WIDTH
+# define INT_FAST24_WIDTH     UINT_FAST24_WIDTH
+# define __UINT_LEAST16_WIDTH UINT24_WIDTH
+# define __UINT_LEAST8_WIDTH  UINT24_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT24_TYPE__ */
 
 
@@ -614,12 +699,22 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 #define INT16_MAX            INT16_C(32767)
 #define INT16_MIN          (-INT16_C(32767)-1)
 #define UINT16_MAX          UINT16_C(65535)
+
 # define __INT_LEAST16_MIN   INT16_MIN
 # define __INT_LEAST16_MAX   INT16_MAX
 # define __UINT_LEAST16_MAX UINT16_MAX
 # define __INT_LEAST8_MIN    INT16_MIN
 # define __INT_LEAST8_MAX    INT16_MAX
 # define __UINT_LEAST8_MAX  UINT16_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT16_WIDTH         16
+# define INT16_WIDTH          UINT16_WIDTH
+# define __UINT_LEAST16_WIDTH UINT16_WIDTH
+# define __UINT_LEAST8_WIDTH  UINT16_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT16_TYPE__ */
 
 #ifdef __INT_LEAST16_MIN
@@ -629,6 +724,15 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST16_MIN    __INT_LEAST16_MIN
 # define INT_FAST16_MAX    __INT_LEAST16_MAX
 # define UINT_FAST16_MAX  __UINT_LEAST16_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT_LEAST16_WIDTH __UINT_LEAST16_WIDTH
+# define INT_LEAST16_WIDTH  UINT_LEAST16_WIDTH
+# define UINT_FAST16_WIDTH  __UINT_LEAST16_WIDTH
+# define INT_FAST16_WIDTH   UINT_FAST16_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT_LEAST16_MIN */
 
 
@@ -636,9 +740,18 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT8_MAX            INT8_C(127)
 # define INT8_MIN          (-INT8_C(127)-1)
 # define UINT8_MAX          UINT8_C(255)
+
 # define __INT_LEAST8_MIN    INT8_MIN
 # define __INT_LEAST8_MAX    INT8_MAX
 # define __UINT_LEAST8_MAX  UINT8_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT8_WIDTH         8
+# define INT8_WIDTH          UINT8_WIDTH
+# define __UINT_LEAST8_WIDTH UINT8_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT8_TYPE__ */
 
 #ifdef __INT_LEAST8_MIN
@@ -648,6 +761,15 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 # define INT_FAST8_MIN    __INT_LEAST8_MIN
 # define INT_FAST8_MAX    __INT_LEAST8_MAX
 # define UINT_FAST8_MAX  __UINT_LEAST8_MAX
+
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+# define UINT_LEAST8_WIDTH __UINT_LEAST8_WIDTH
+# define INT_LEAST8_WIDTH  UINT_LEAST8_WIDTH
+# define UINT_FAST8_WIDTH  __UINT_LEAST8_WIDTH
+# define INT_FAST8_WIDTH   UINT_FAST8_WIDTH
+#endif /* __STDC_VERSION__ */
 #endif /* __INT_LEAST8_MIN */
 
 /* Some utility macros */
@@ -660,12 +782,22 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 /* C99 7.18.2.4 Limits of integer types capable of holding object pointers. */
 /* C99 7.18.3 Limits of other integer types. */
 
-#define  INTPTR_MIN  __INTN_MIN(__INTPTR_WIDTH__)
-#define  INTPTR_MAX  __INTN_MAX(__INTPTR_WIDTH__)
-#define UINTPTR_MAX __UINTN_MAX(__INTPTR_WIDTH__)
-#define PTRDIFF_MIN  __INTN_MIN(__PTRDIFF_WIDTH__)
-#define PTRDIFF_MAX  __INTN_MAX(__PTRDIFF_WIDTH__)
-#define    SIZE_MAX __UINTN_MAX(__SIZE_WIDTH__)
+#define  INTPTR_MIN  (-__INTPTR_MAX__-1)
+#define  INTPTR_MAX    __INTPTR_MAX__
+#define UINTPTR_MAX   __UINTPTR_MAX__
+#define PTRDIFF_MIN (-__PTRDIFF_MAX__-1)
+#define PTRDIFF_MAX   __PTRDIFF_MAX__
+#define    SIZE_MAX      __SIZE_MAX__
+
+/* C2x 7.20.2.4 Width of integer types capable of holding object pointers. */
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+/* NB: The C standard requires that these be the same value, but the compiler
+   exposes separate internal width macros. */
+#define INTPTR_WIDTH  __INTPTR_WIDTH__
+#define UINTPTR_WIDTH __UINTPTR_WIDTH__
+#endif
 
 /* ISO9899:2011 7.20 (C11 Annex K): Define RSIZE_MAX if __STDC_WANT_LIB_EXT1__
  * is enabled. */
@@ -674,9 +806,19 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 #endif
 
 /* C99 7.18.2.5 Limits of greatest-width integer types. */
-#define INTMAX_MIN   __INTN_MIN(__INTMAX_WIDTH__)
-#define INTMAX_MAX   __INTN_MAX(__INTMAX_WIDTH__)
-#define UINTMAX_MAX __UINTN_MAX(__INTMAX_WIDTH__)
+#define  INTMAX_MIN (-__INTMAX_MAX__-1)
+#define  INTMAX_MAX   __INTMAX_MAX__
+#define UINTMAX_MAX  __UINTMAX_MAX__
+
+/* C2x 7.20.2.5 Width of greatest-width integer types. */
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+/* NB: The C standard requires that these be the same value, but the compiler
+   exposes separate internal width macros. */
+#define INTMAX_WIDTH __INTMAX_WIDTH__
+#define UINTMAX_WIDTH __UINTMAX_WIDTH__
+#endif
 
 /* C99 7.18.3 Limits of other integer types. */
 #define SIG_ATOMIC_MIN __INTN_MIN(__SIG_ATOMIC_WIDTH__)
@@ -701,8 +843,19 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 #endif
 
 /* 7.18.4.2 Macros for greatest-width integer constants. */
-#define INTMAX_C(v)   __INTN_C(__INTMAX_WIDTH__, v)
-#define UINTMAX_C(v) __UINTN_C(__INTMAX_WIDTH__, v)
+#define  INTMAX_C(v) __int_c(v,  __INTMAX_C_SUFFIX__)
+#define UINTMAX_C(v) __int_c(v, __UINTMAX_C_SUFFIX__)
+
+/* C2x 7.20.3.x Width of other integer types. */
+/* FIXME: This is using the placeholder dates Clang produces for these macros
+   in C2x mode; switch to the correct values once they've been published. */
+#if __STDC_VERSION__ >= 202000L
+#define PTRDIFF_WIDTH    __PTRDIFF_WIDTH__
+#define SIG_ATOMIC_WIDTH __SIG_ATOMIC_WIDTH__
+#define SIZE_WIDTH       __SIZE_WIDTH__
+#define WCHAR_WIDTH      __WCHAR_WIDTH__
+#define WINT_WIDTH       __WINT_WIDTH__
+#endif
 
 #endif /* __STDC_HOSTED__ */
 #endif /* __CLANG_STDINT_H */

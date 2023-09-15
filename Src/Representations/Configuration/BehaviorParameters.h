@@ -15,4 +15,8 @@ STREAMABLE(BehaviorParameters,
 {,
   (bool)(false) enableWalkStraight,
   (int)(7000) ballNotSeenTimeOut,
+  (float)(850.f) safeDistance,
+  //ArmInBack
+  (int)(500) maxObstacleDistanceArmsInBack,
+  (float)(0.25f) leftAngleArmsInBack,
 });

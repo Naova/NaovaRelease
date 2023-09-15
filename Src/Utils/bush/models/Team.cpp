@@ -32,7 +32,7 @@ Team::Team()
     wlanConfig(""),
     compile(true),
     buildConfig(""),
-    volume(100),
+    volume(10),
     deployDevice(""),
     magicNumber(-1)
 {
@@ -51,7 +51,7 @@ Team::Team(const std::string& name, unsigned short number)
     wlanConfig(""),
     compile(true),
     buildConfig(""),
-    volume(100),
+    volume(10),
     deployDevice(""),
     magicNumber(-1)
 {

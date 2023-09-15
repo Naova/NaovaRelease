@@ -21,7 +21,6 @@ void CirclePercept::draw() const
   CameraInfo* theCameraInfo = nullptr;
   CameraMatrix* theCameraMatrix = nullptr;
   ImageCoordinateSystem* theImageCoordinateSystem = nullptr;
-  Image* theImage = nullptr;
 
   if(Blackboard::getInstance().exists("FieldDimensions"))
     theFieldDimensions = static_cast<FieldDimensions*>(&(Blackboard::getInstance()["FieldDimensions"]));
@@ -31,8 +30,6 @@ void CirclePercept::draw() const
     theCameraMatrix = static_cast<CameraMatrix*>(&(Blackboard::getInstance()["CameraMatrix"]));
   if(Blackboard::getInstance().exists("ImageCoordinateSystem"))
     theImageCoordinateSystem =  static_cast<ImageCoordinateSystem*>(&(Blackboard::getInstance()["ImageCoordinateSystem"]));
-  if(Blackboard::getInstance().exists("Image"))
-    theImage = static_cast<Image*>(&(Blackboard::getInstance()["Image"]));
 
   if(theFieldDimensions == nullptr || theCameraInfo == nullptr || theCameraMatrix == nullptr || theImageCoordinateSystem == nullptr)
     return;

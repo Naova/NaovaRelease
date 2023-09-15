@@ -34,11 +34,11 @@ struct WarningSuppressor
 
 #define SEND_CASE(value) case WarningSuppressor::id##value: m.theBHumanArbitraryMessage.queue.out.bin << value; break
 #define SEND_CASE_ARRAY(value) case WarningSuppressor::id##value: for(size_t _i=0;_i<value.size();++_i) m.theBHumanArbitraryMessage.queue.out.bin << value[_i]; break
-void RobotHealth::operator >> (BHumanMessage& m) const
+void RobotHealth::operator>> (NaovaMessage& m) const
 {
   WarningSuppressor::RobotHealthMessageId idToSend = WarningSuppressor::idbatteryLevel;
   if(Blackboard::getInstance().exists("BHumanMessageOutputGenerator"))
-    idToSend = WarningSuppressor::RobotHealthMessageId(static_cast<const BHumanMessageOutputGenerator&>(Blackboard::getInstance()["BHumanMessageOutputGenerator"]).sentMessages % WarningSuppressor::numOfRobotHealthMessageIds);
+    idToSend = WarningSuppressor::RobotHealthMessageId(static_cast<const NaovaMessageOutputGenerator&>(Blackboard::getInstance()["NaovaMessageOutputGenerator"]).sentMessages % WarningSuppressor::numOfRobotHealthMessageIds);
 
   m.theBHumanArbitraryMessage.queue.out.bin << idToSend;
   switch(idToSend)

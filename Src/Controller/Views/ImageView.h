@@ -55,7 +55,6 @@ public:
    * @param gain The intensity is multiplied with this factor.
    */
   ImageView(const QString& fullName, RobotConsole& console, const std::string& background, const std::string& name, bool segmented, bool upperCam, float gain = 1.0f);
-  void forwardLastImage();
 
 private:
   const QString fullName; /**< The path to this view in the scene graph */
@@ -138,7 +137,6 @@ private:
     }
   }
 
-  void forwardLastImage();
 
   virtual QMenu* createUserMenu() const;
 

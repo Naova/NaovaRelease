@@ -13,8 +13,8 @@
 #include "Tools/RingBuffer.h"
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/MessageQueue/MessageIDs.h"
-#include "Representations/Communication/BHumanMessage.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaMessage.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Representations/Infrastructure/RobotInfo.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 
@@ -95,12 +95,12 @@ public:
  * @class NTP
  * Implementantion of the Network Time Protocol.
  */
-class BNTP : public BHumanMessageParticle<MessageID::undefined>
+class BNTP : public NaovaMessageParticule<MessageID::undefined>
 {
 public:
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
 
   const SynchronizationMeasurementsBuffer* operator[](unsigned number) const
   {

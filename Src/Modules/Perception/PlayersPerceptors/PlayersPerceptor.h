@@ -1,8 +1,7 @@
 /**
  * @file PlayersPerceptor.h
- * @author Michel Bartsch
- * @author Vitali Gutsch
- * @author Thomas Röfer
+ * @author Florent Duchesne
+ * @author Catherine Ouimet
  */
 
 #pragma once
@@ -17,6 +16,7 @@
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
 #include "Representations/Perception/ImagePreprocessing/FieldBoundary.h"
 #include "Representations/Perception/ImagePreprocessing/ECImage.h"
+#include "Tools/ImageProcessing/YoloDetector/YoloPlayerDetector.h"
 #include "Tools/Module/Module.h"
 
 STREAMABLE(HSI,
@@ -95,6 +95,10 @@ MODULE(PlayersPerceptor,
     (int) maxRangeS, // specifies how big the difference between the cb-channel of the found pixel and the searched color can be to count the pixel
     (int) maxRangeI, // specifies how big the difference between the cr-channel of the found pixel and the searched color can be to count the pixel
     (std::vector<HSI>) colors, // Prototypical HSI color values for all team colors
+    (float)(0.55f) minConfidenceSimulationUpper, // Niveau de confiance requis pour accepter une detection du modele
+    (float)(0.55f) minConfidenceSimulationLower,
+    (float)(0.55f) minConfidenceRobotUpper,
+    (float)(0.7f) minConfidenceRobotLower, // Niveau de confiance requis pour accepter une detection du modele
   }),
 });
 
@@ -102,7 +106,7 @@ MODULE(PlayersPerceptor,
  * @class PlayersPerceptor
  * This class finds indicators for players in the image.
  */
-class PlayersPerceptor: public PlayersPerceptorBase
+class PlayersPerceptor: public PlayersPerceptorBase 
 {
 private:
   /** Real world sizes in pixels. */
@@ -113,6 +117,7 @@ private:
   int nearestXGap; // same as farthestXGap for the nearest visible point
   int nearestYGap; // same as farthestYGap for the nearest visible point
   int nearestMinWidth; // same as farthestMinWidth for the nearest visible point
+  YoloPlayerDetector detector; 
 
   /** Updates the PlayersPercept. */
   void update(PlayersImagePercept& PlayersPercept);
@@ -133,4 +138,7 @@ private:
     bool noFeet; // true, if the bottom of the potential obstacle reached into the body contour or out of the image
   };
   scanLine verticalLines[Image::maxResolutionWidth];
+
+  public:
+    PlayersPerceptor();
 };

@@ -10,6 +10,7 @@
 #pragma once
 
 #include "Representations/BehaviorControl/BehaviorStatus.h"
+#include "Representations/Perception/BallPercepts/BallPercept.h"
 #include "Representations/BehaviorControl/Role.h"
 #include "Representations/BehaviorControl/SPLStandardBehaviorStatus.h"
 #include "Representations/Infrastructure/FrameInfo.h"
@@ -29,9 +30,11 @@
 #include "Representations/Sensing/FallDownState.h"
 #include "Representations/Sensing/GroundContactState.h"
 #include "Tools/Module/Module.h"
-#include "Representations/Communication/BHumanMessage.h"
 #include "Representations/Communication/TeamData.h"
 #include "Tools/Communication/BNTP.h"
+#include "Representations/Communication/NaovaMessage.h"
+
+#include <map>
 
 MODULE(TeamMessageHandler,
 {,
@@ -51,6 +54,7 @@ MODULE(TeamMessageHandler,
 
   // v- directly sliding into teamout
   USES(BallModel),
+  USES(BallPercept),
   USES(BehaviorStatus),
   USES(FieldCoverage),
   USES(FieldFeatureOverview),
@@ -59,18 +63,36 @@ MODULE(TeamMessageHandler,
   USES(RobotPose),
   USES(SideConfidence),
   USES(SPLStandardBehaviorStatus),
+  USES(TeamData),
   USES(TeammateRoles),
   USES(Whistle),
 
-  PROVIDES(BHumanMessageOutputGenerator),
+  PROVIDES(NaovaMessageOutputGenerator),
   PROVIDES(TeamData),
 
-  DEFINES_PARAMETERS(
+  LOADS_PARAMETERS(
   {,
-    (int)(334) sendInterval, /**<  Time in ms between two messages that are sent to the teammates */
-    (int)(4000) networkTimeout, /**< Time in ms after which teammates are considered as unconnected */
+    (int) minTimeBetween2RejectSounds, /*< Time in ms after which another sound output is allowed */
+    (int) limitMessages,
+    (int) securityMessage,
 
-    (int)(5000) minTimeBetween2RejectSounds, /*< Time in ms after which another sound output is allowed */
+    (int) ballMoved,
+    (int) robotMoved,
+    (int) fallen,
+    (int) whistle,
+    (int) maxFallenDistance,
+    (int) minDistanceRobot,
+    (int) maxDistanceRobot,
+    (int) minBallRadius,
+    (int) maxBallRadius,
+    (int) maxWhistleTime,
+    (int) minWhistleConfidence,
+    (int) minRoleChangedTime,
+    (int) minBallDetectedTime,
+    (int) minTimeBetweenMessages,
+    (int) scoreCeiling,
+    (int) scoreFloor,
+    (int) defaultMinScore,
   }),
 });
 
@@ -83,20 +105,29 @@ MODULE(TeamMessageHandler,
 class TeamMessageHandler : public TeamMessageHandlerBase
 {
 public:
-  TeamMessageHandler() : TeamMessageHandlerBase(), theBNTP(theFrameInfo, theRobotInfo) {}
+  TeamMessageHandler() : TeamMessageHandlerBase(), theBNTP(theFrameInfo, theRobotInfo) {
+    limitMessages = abs(limitMessages);
+    securityMessage = abs(securityMessage);
+  }
 
 private:
   BNTP theBNTP;
 
   // v- output stuff
   mutable unsigned timeLastSent = 0;
+  mutable unsigned int nbSentMessages = 0;
+  mutable unsigned int nbReceivedMessages = 0;
+  mutable int minScore = defaultMinScore;
+  bool loggingIsEnabled = false;
 
-  void update(BHumanMessageOutputGenerator& outputGenerator);
-  void generateMessage(BHumanMessageOutputGenerator& outputGenerator) const;
-  void writeMessage(BHumanMessageOutputGenerator& outputGenerator, RoboCup::SPLStandardMessage* const m) const;
+  void update(NaovaMessageOutputGenerator& outputGenerator);
+  void generateMessage(NaovaMessageOutputGenerator& outputGenerator) const;
+  void writeMessage(NaovaMessageOutputGenerator& outputGenerator, RoboCup::SPLStandardMessage* const m) const;
+  void log(std::map<std::string, std::string> values, std::string reasonForLogging);
+  void log(std::string value, std::string reasonForLogging);
 
   // v- input stuff
-  struct ReceivedBHumanMessage : public BHumanMessage
+  struct ReceivedBHumanMessage : public NaovaMessage
   {
     const SynchronizationMeasurementsBuffer* bSMB = nullptr;
     unsigned toLocalTimestamp(unsigned remoteTimestamp) const override
@@ -123,4 +154,35 @@ private:
   bool readSPLStandardMessage(const RoboCup::SPLStandardMessage* const m);
   Teammate& getBMate(TeamData& teamData) const;
   void parseMessageIntoBMate(Teammate& bMate);
+  int getRemainingMessages();
+  bool sendMessage(); 
+  bool eventBasedSystem(); // ici pour verifier si on envoie ou non (avec systeme de score)
+  bool timeBasedSystem();  // ici pour envoyer un message par seconde par robot
+
+  // Function for score system
+  // int getScoreBallDetected();
+  int getScoreRobotMoved();
+  int getScoreBallMoved();
+  int getScoreBallDetected();
+  int getScoreFallen();
+  int getScorePenalized();
+  int getScoreUnpenalized();
+  int getScoreRoleChanged();
+  int getScoreWhistle();
+  int getScoreWhistleSET();
+  void adjustScore();
+
+  // struct represente data state before sent
+  struct Snap{
+    bool firstMessage = true;
+    uint8_t lastGameState;
+    Vector2f lastPose;
+    uint32_t lastTimeSendMessage = 0;
+    int lastTimeRoleChanged = 0;
+    uint8_t lastPenaltyState;
+    Role::RoleType lastMessageRole;
+    int lastMessageTeammateNumber;
+    Vector2f lastBallPosition;
+    int lastTimeBallDetectedMessage;
+  } snap;
 };

@@ -56,8 +56,8 @@ void SpecialActions::MotionNetData::load(std::vector<float>& motionData)
         for(int j = 1; j < Joints::numOfJoints + 1; ++j)
         {
           nodeArray[i].d[j] = motionData[dataCounter++];
-          if(nodeArray[i].d[j] != JointAngles::off    &&
-             nodeArray[i].d[j] != JointAngles::ignore)
+          if(nodeArray[i].d[j] != static_cast<float>(JointAngles::off)    &&
+             nodeArray[i].d[j] != static_cast<float>(JointAngles::ignore))
             nodeArray[i].d[j] = Angle::fromDegrees(nodeArray[i].d[j]);
         }
         for(int k = Joints::numOfJoints + 1; k < Joints::numOfJoints + 4; ++k)
@@ -192,11 +192,11 @@ void SpecialActions::calculateJointRequest(JointRequest& jointRequest)
       else
         t = currentRequest.mirror(static_cast<Joints::Joint>(i));
       // if fromAngle is off or ignore use JointAngles for further calculation
-      if(f == JointAngles::off || f == JointAngles::ignore)
+      if(f == static_cast<float>(JointAngles::off) || f == static_cast<float>(JointAngles::ignore))
         f = theJointAngles.angles[i];
 
       // if toAngle is off or ignore -> turn joint off/ignore
-      if(t == JointAngles::off || t == JointAngles::ignore)
+      if(t == static_cast<float>(JointAngles::off) || t == static_cast<float>(JointAngles::ignore))
         jointRequest.angles[i] = t;
       //interpolate
       else

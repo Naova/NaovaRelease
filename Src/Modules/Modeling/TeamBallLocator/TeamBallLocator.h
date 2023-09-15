@@ -13,12 +13,15 @@
 #include "Representations/Configuration/BallSpecification.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/FrameInfo.h"
+#include "Representations/Infrastructure/GameInfo.h"
 #include "Representations/Infrastructure/RobotInfo.h"
+#include "Representations/Infrastructure/TeamInfo.h"
 #include "Representations/Modeling/BallModel.h"
 #include "Representations/Modeling/RobotPose.h"
 #include "Representations/Modeling/TeamBallModel.h"
 #include "Tools/RingBuffer.h"
 #include "Tools/Module/Module.h"
+#include "Representations/Perception/BallPercepts/BallPercept.h"
 
 const size_t BALL_BUFFER_LENGTH = 10;
 
@@ -28,17 +31,21 @@ MODULE(TeamBallLocator,
   REQUIRES(FieldDimensions),
   REQUIRES(FrameInfo),
   REQUIRES(BallModel),
+  REQUIRES(GameInfo),
   REQUIRES(RobotInfo),
   REQUIRES(RobotPose),
   REQUIRES(TeamData),
   PROVIDES(TeamBallModel),
+  USES(OwnTeamInfo),
   LOADS_PARAMETERS(
   {,
     (int) inactivityInvalidationTimeSpan,     /**< minimum time to go back in ball buffer (in case of a problem)*/
     (int) ballLastSeenTimeout,                /**< After this amount of time (in ms), a ball is not considered anymore*/
-    (int) ballDisappearedTimeout,             /**< After this amount of time (in ms), a ball is not considered anymore*/
     (float) scalingFactorBallSinceLastSeen,   /**< Parameter for sigmoid function */
     (float) robotBanRadius,                   /**< If a ball is closer to a robot than this, discard it! */
+    (float) invalidDistanceBall,
+    (int) timeWhenLastLog,
+    (int) logTimeout,
   }),
 });
 
@@ -65,6 +72,8 @@ private:
   int numberOfBallsByOthers;                               /**< Keep track of who has contributed to the current team ball */
   std::vector<TeamBallModel::ConsideredBall> mergedBalls;  /**< List of all merged balls, only filled if there are multiple contributors */
   std::vector<float> weightingsOfMergedBalls;              /**< Additional information, entries correspond to mergedBalls */
+  int logInterval = 1000;
+  int lastLogFrame = -1;
 
   /** Main method that triggers the model computation */
   void update(TeamBallModel& teamBallModel);
@@ -87,4 +96,6 @@ private:
    * @return A weighting that says how "good" the observation is
    */
   float computeWeighting(const Ball& ball) const;
+
+  void saveLocationToFile(TeamBallModel& teamBallModel);
 };

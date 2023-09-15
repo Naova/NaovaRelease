@@ -316,11 +316,13 @@ void ModuleManager::load()
 void ModuleManager::execute()
 {
   // Execute all providers in the given sequence
-  for(auto& p : providers)
+  for(auto& p : providers){
     if(p.moduleState->required)
     {
-      if(!p.moduleState->instance)
+      if(!p.moduleState->instance){
         p.moduleState->instance = p.moduleState->module->createNew();
+      }
+
 #ifdef TARGET_ROBOT
       unsigned timeStamp = Time::getCurrentSystemTime();
 #endif
@@ -332,13 +334,14 @@ void ModuleManager::execute()
          ((duration > 100 &&
            !Global::getDebugRequestTable().isActive("representation:JPEGImage") &&
            !Global::getDebugRequestTable().isActive("representation:Image")) ||
-          duration > 500))
+          duration > 500)){
         TRACE("TIMING: providing %s took %d ms at %d s after start",
               p.representation, duration, timeStamp / 1000 - 10);
+          }
 #endif
-    }
+  }
+  }
   BH_TRACE;
-
   if(!timeStamp) // Configuration changed recently?
   {
     // all representations must be constructed now, so we can receive data
@@ -350,7 +353,6 @@ void ModuleManager::execute()
     for(const auto& r : received)
       toReceive.push_back(&Blackboard::getInstance()[r]);
   }
-
   DEBUG_RESPONSE_ONCE("automated requests:ModuleTable")
   {
     Global::getDebugOut().bin << static_cast<unsigned>(modules.size());

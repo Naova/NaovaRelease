@@ -8,7 +8,6 @@
 
 #include "Tools/Module/Module.h"
 #include "Tools/RingBufferWithSum.h"
-#include "Representations/Communication/BHumanMessage.h"
 #include "Representations/Infrastructure/RobotHealth.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
@@ -25,7 +24,7 @@ MODULE(RobotHealthProvider,
   REQUIRES(JointSensorData),
   REQUIRES(MotionRobotHealth),
   REQUIRES(SystemSensorData),
-  USES(BHumanMessageOutputGenerator),
+  USES(NaovaMessageOutputGenerator),
   PROVIDES(RobotHealth),
   LOADS_PARAMETERS(
   {,

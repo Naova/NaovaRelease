@@ -289,4 +289,23 @@ namespace Geometry
   float distance(const LineSegment3D& segment1, const LineSegment3D& segment2, LineSegment3D& connectionSegment);
 
   bool isPointLeftOfLine(const Vector2f& start, const Vector2f& end, const Vector2f& point);
+
+  float getDistanceToLineSigned(const Line& line, const Vector2f& point);
+
+  /**
+   * Computes the projection of a point on a line
+   * @param base The base point of the line
+   * @param dir The direction vector of the line (has to be normalized to length 1)
+   * @param point The point that is projected
+   * @return A point on the line
+   */
+  Vector2f getOrthogonalProjectionOfPointOnLine(const Vector2f& base, const Vector2f& dir, const Vector2f& point);
+
+  /**
+   * Computes the projection of a point on a line
+   * @param line The line to project on
+   * @param point The point that is projected
+   * @return A point on the line
+   */
+  Vector2f getOrthogonalProjectionOfPointOnLine(const Line& line, const Vector2f& point);
 };

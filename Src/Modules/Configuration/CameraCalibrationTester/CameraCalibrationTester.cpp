@@ -130,7 +130,7 @@ void CameraCalibrationTester::update(CameraResolutionRequest& theCameraResolutio
   {
     if(!theCameraResolutionRequest.setRequest(nextUpper, nextLower))
     {
-      OUTPUT_TEXT("Changing the resolution is not permitted! Test aborted...");
+      OUTPUT_TEXT("Changing the resolution is not permitted! Test aborted...");\
       abort();
     }
   }

@@ -49,7 +49,6 @@ Nao = cppApplication + {
     "$(utilDirRoot)/libjpeg/src"
     "$(utilDirRoot)/snappy/include"
   }
-
   libPaths = {
     "$(utilDirRoot)/fftw-3.3/Linux32"
     "$(utilDirRoot)/libjpeg/lib/Linux"
@@ -64,8 +63,9 @@ Nao = cppApplication + {
   cppFlags += {
     "-Wconversion"
     "-Wno-sign-conversion"
-    "-nostdinc -march=atom -target i686-pc-linux-gnu"
+    "-nostdinc -march=silvermont -mtune=silvermont -target i686-pc-linux-gnu"
     "-mmmx -msse -msse2 -msse3 -mssse3"
+    "-Wno-implicit-int-float-conversion" // Eigen, clang warning
     if (host == "Win32") { "-x c++" }
     if (tool != "vcxproj") {
       "-Wno-switch" // deactivating this is a problem because of the ENUM macro, since numOf<ENUM>s is never used in switch.

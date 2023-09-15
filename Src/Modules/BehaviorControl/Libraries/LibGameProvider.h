@@ -42,7 +42,7 @@ private:
   unsigned timeWhenLastPenaltyEnded = 0;
   unsigned timeWhenBallWentOut = 0;
   unsigned char rawGameStateLastFrame;  /*< The raw game state that was active in the last frame */
-  unsigned short dropInTimeLastFrame;   /*< The time since the last ball drop in in the last frame */
+  //unsigned short dropInTimeLastFrame;   /*< The time since the last ball drop in in the last frame */
   short lastRawSecondsRemaining;
 
 public:

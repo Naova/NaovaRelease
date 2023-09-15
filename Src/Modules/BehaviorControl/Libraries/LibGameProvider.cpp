@@ -28,9 +28,6 @@ void LibGameProvider::update(LibGame& libGame)
   if(theBehaviorStatus.activity == BehaviorStatus::searchForBall)
     libGame.timeWhenLastSearchedBall = theFrameInfo.time;
 
-  if(theGameInfo.dropInTime == 0 && theGameInfo.dropInTime != dropInTimeLastFrame)
-    timeWhenBallWentOut = theFrameInfo.time;
-
   if(theCognitionStateChanges.lastPenalty != PENALTY_NONE && theRobotInfo.penalty == PENALTY_NONE)
     timeWhenLastPenaltyEnded = theFrameInfo.time;
 
@@ -49,6 +46,5 @@ void LibGameProvider::update(LibGame& libGame)
     previousGameState = gameStateLastFrame;
   gameStateLastFrame = theGameInfo.state;
   rawGameStateLastFrame = theRawGameInfo.state;
-  dropInTimeLastFrame = theGameInfo.dropInTime;
   lastRawSecondsRemaining = theRawGameInfo.secsRemaining;
 }

@@ -44,7 +44,7 @@ option(MakeTurn, (Angle) turnAngle)
         }
         action
         {
-            WalkToTarget(Pose2f(50.f, 50.f, 50.f), Pose2f(turnAngle, 0.f, 0.f));
+            WalkToTarget(Pose2f(25.f, 25.f, 25.f), Pose2f(turnAngle, 0.f, 0.f));
         }
     }
     
@@ -58,6 +58,9 @@ option(MakeTurn, (Angle) turnAngle)
                     goto turnCompleted;
             } else {
                 if(theRobotPose.rotation <= (currentAngle + theMotionRequest.walkRequest.target.rotation))
+                    goto turnCompleted;
+            }
+            if (state_time >= turnAngle*3500){
                     goto turnCompleted;
             }
         }
@@ -82,7 +85,7 @@ option(MakeTurn, (Angle) turnAngle)
         }
         action
         {
-            WalkToTarget(Pose2f(50.f, 50.f, 50.f), Pose2f(turnAngle, 0.f, 0.f));
+            WalkToTarget(Pose2f(25.f, 25.f, 25.f), Pose2f(turnAngle, 0.f, 0.f));
         }
     }
 
@@ -97,6 +100,9 @@ option(MakeTurn, (Angle) turnAngle)
             } else {
                 if(theRobotPose.rotation >= (currentAngle + theMotionRequest.walkRequest.target.rotation))
                     goto turnCompleted;
+            }
+            if (state_time >= turnAngle*3500){
+                goto turnCompleted;
             }
         }
     }

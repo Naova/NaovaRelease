@@ -30,8 +30,8 @@ GameController::GameController()
   gameInfo.playersPerTeam = numOfRobots / 2;
   gameInfo.firstHalf = 1;
   gameInfo.kickingTeam = 1;
-  gameInfo.dropInTime = -1;
   gameInfo.secsRemaining = durationOfHalf;
+  gameInfo.secsInHalf = durationOfHalf;
 }
 
 void GameController::registerSimulatedRobot(int robot, SimulatedRobot& simulatedRobot)
@@ -104,13 +104,11 @@ bool GameController::handleGlobalCommand(const std::string& command)
   }
   else if(command == "outByFirstTeam")
   {
-    gameInfo.dropInTeam = 1;
     timeOfLastDropIn = Time::getCurrentSystemTime();
     return true;
   }
   else if(command == "outBySecondTeam")
   {
-    gameInfo.dropInTeam = 2;
     timeOfLastDropIn = Time::getCurrentSystemTime();
     return true;
   }
@@ -128,13 +126,11 @@ bool GameController::handleGlobalCommand(const std::string& command)
   }
   else if(command == "gameMixedTeamPlayoff")
   {
-    gameInfo.competitionType = COMPETITION_TYPE_MIXEDTEAM;
     gameInfo.competitionPhase = COMPETITION_PHASE_PLAYOFF;
     return true;
   }
   else if(command == "gameMixedTeamRoundRobin")
   {
-    gameInfo.competitionType = COMPETITION_TYPE_MIXEDTEAM;
     gameInfo.competitionPhase = COMPETITION_PHASE_ROUNDROBIN;
     return true;
   }
@@ -209,20 +205,20 @@ void GameController::placeForPenalty(int robot, float x, float y, float rotation
   }
 }
 
-bool GameController::inOwnPenaltyArea(int robot) const
+bool GameController::inOwnGoalArea(int robot) const
 {
   const Robot& r = robots[robot];
-  if(r.lastPose.translation.y() < fieldDimensions.yPosRightPenaltyArea ||
-     r.lastPose.translation.y() > fieldDimensions.yPosLeftPenaltyArea)
+  if(r.lastPose.translation.y() < fieldDimensions.yPosRightGoalArea ||
+     r.lastPose.translation.y() > fieldDimensions.yPosLeftGoalArea)
     return false;
   else if(robot < numOfRobots / 2)
-    return r.lastPose.translation.x() >= fieldDimensions.xPosOpponentPenaltyArea &&
+    return r.lastPose.translation.x() >= fieldDimensions.xPosOpponentGoalArea &&
            (r.lastPose.translation.x() <= fieldDimensions.xPosOpponentGroundline ||
             (r.lastPose.translation.x() <= fieldDimensions.xPosOpponentGoal &&
              r.lastPose.translation.y() >= fieldDimensions.yPosRightGoal &&
              r.lastPose.translation.y() <= fieldDimensions.yPosLeftGoal));
   else
-    return r.lastPose.translation.x() <= fieldDimensions.xPosOwnPenaltyArea &&
+    return r.lastPose.translation.x() <= fieldDimensions.xPosOwnGoalArea &&
            (r.lastPose.translation.x() >= fieldDimensions.xPosOwnGroundline ||
             (r.lastPose.translation.x() >= fieldDimensions.xPosOwnGoal &&
              r.lastPose.translation.y() >= fieldDimensions.yPosRightGoal &&
@@ -281,16 +277,16 @@ void GameController::placeOffensivePlayers(int minRobot)
   static const Pose2f poses[2][numOfFieldPlayers] =
   {
     {
-      Pose2f(0, -fieldDimensions.centerCircleRadius - footLength, 0),
-      Pose2f(0, fieldDimensions.xPosOwnPenaltyMark, fieldDimensions.yPosRightGoal),
-      Pose2f(0, fieldDimensions.xPosOwnPenaltyArea + safeDistance, fieldDimensions.yPosLeftPenaltyArea),
-      Pose2f(0, fieldDimensions.xPosOwnPenaltyArea + safeDistance, fieldDimensions.yPosRightPenaltyArea)
+      Pose2f(0, footLength - 200, 0.f), //Striker position
+      Pose2f(0, footLength - 500, fieldDimensions.yPosRightGoal), //Supporter position
+      Pose2f(0, fieldDimensions.xPosOwnGoalArea + safeDistance, fieldDimensions.yPosLeftGoalArea / 2.f), //Left defender position
+      Pose2f(0, fieldDimensions.xPosOwnGoalArea + safeDistance, fieldDimensions.yPosRightGoalArea / 2.f) //Right defender position
     },
     {
-      Pose2f(-pi, fieldDimensions.centerCircleRadius + footLength, 0),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyMark, fieldDimensions.yPosLeftGoal),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, fieldDimensions.yPosLeftPenaltyArea),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, fieldDimensions.yPosRightPenaltyArea)
+      Pose2f(-pi, footLength + 200, 0.f),//Striker position
+      Pose2f(-pi, footLength + 500, fieldDimensions.yPosLeftGoal), //Supporter position
+      Pose2f(-pi, fieldDimensions.xPosOpponentGoalArea - safeDistance, fieldDimensions.yPosLeftGoalArea / 2.f), //Left defender position
+      Pose2f(-pi, fieldDimensions.xPosOpponentGoalArea - safeDistance, fieldDimensions.yPosRightGoalArea / 2.f) //Right defender position
     }
   };
 
@@ -309,7 +305,7 @@ void GameController::placeOffensivePlayers(int minRobot)
       placeFromSet(i, minRobot, poses[i < numOfRobots / 2 ? 1 : 0]);
   }
 
-  freePenaltyArea(minRobot, poses[minRobot < numOfRobots / 2 ? 1 : 0]);
+  freeGoalArea(minRobot, poses[minRobot < numOfRobots / 2 ? 1 : 0]);
 }
 
 void GameController::placeDefensivePlayers(int minRobot)
@@ -317,26 +313,25 @@ void GameController::placeDefensivePlayers(int minRobot)
   static const Pose2f poses[2][numOfFieldPlayers] =
   {
     {
-      Pose2f(0.f, fieldDimensions.xPosOwnPenaltyArea + safeDistance, fieldDimensions.yPosLeftGoal / 2.f),
-      Pose2f(0.f, fieldDimensions.xPosOwnPenaltyArea + safeDistance, fieldDimensions.yPosRightGoal / 2.f),
-      Pose2f(0.f, fieldDimensions.xPosOwnPenaltyArea + safeDistance, (fieldDimensions.yPosLeftPenaltyArea + fieldDimensions.yPosLeftSideline) / 2.f),
-      Pose2f(0.f, fieldDimensions.xPosOwnPenaltyArea + safeDistance, (fieldDimensions.yPosRightPenaltyArea + fieldDimensions.yPosRightSideline) / 2.f)
+      Pose2f(0, fieldDimensions.xPosHalfWayLine + (fieldDimensions.xPosHalfWayLine - fieldDimensions.centerCircleRadius) - safeDistance * 2.f, 0), //Striker position
+      Pose2f(0, fieldDimensions.xPosOwnGoalArea + (fieldDimensions.xPosHalfWayLine - fieldDimensions.xPosOwnGoalArea) * 0.5f + safeDistance, fieldDimensions.yPosRightGoalArea * 0.9f), //Supporter position
+      Pose2f(0, fieldDimensions.xPosOwnGoalArea + (fieldDimensions.xPosHalfWayLine - fieldDimensions.xPosOwnGoalArea) * 0.5f + safeDistance, fieldDimensions.yPosLeftGoalArea * 0.9f), //Left defender position
+      Pose2f(0, fieldDimensions.xPosOwnGoalArea + safeDistance, fieldDimensions.yPosCenterGoal) //Right defender position
     },
     {
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, fieldDimensions.yPosLeftGoal / 2.f),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, fieldDimensions.yPosRightGoal / 2.f),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, (fieldDimensions.yPosRightPenaltyArea + fieldDimensions.yPosRightSideline) / 2.f),
-      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyArea - safeDistance, (fieldDimensions.yPosLeftPenaltyArea + fieldDimensions.yPosLeftSideline) / 2.f)
+      Pose2f(-pi, fieldDimensions.xPosHalfWayLine - (fieldDimensions.xPosHalfWayLine - fieldDimensions.centerCircleRadius) + safeDistance * 2.f, 0), //Striker position
+      Pose2f(-pi, fieldDimensions.xPosOwnGoalArea - (fieldDimensions.xPosHalfWayLine - fieldDimensions.xPosOwnGoalArea) * 0.5f - safeDistance, fieldDimensions.yPosLeftGoalArea * 0.9f), //Supporter position
+      Pose2f(-pi, fieldDimensions.xPosOwnGoalArea - (fieldDimensions.xPosHalfWayLine - fieldDimensions.xPosOwnGoalArea) * 0.5f - safeDistance, fieldDimensions.yPosRightGoalArea * 0.9f), //Left defender position
+      Pose2f(-pi, fieldDimensions.xPosOpponentPenaltyMark - safeDistance, fieldDimensions.yPosCenterGoal) //Right defender position
     }
   };
 
-  // Move all field players that are not in their own half or in the center circle.
+  // Move all field players that are not in their own half.
   for(int i = minRobot; i < minRobot + numOfFieldPlayers; ++i)
   {
     Robot& r = robots[i];
     r.manuallyPlaced = r.simulatedRobot &&
-                       (r.lastPose.translation.norm() < fieldDimensions.centerCircleRadius + footLength ||
-                        r.lastPose.translation.y() < fieldDimensions.yPosRightSideline ||
+                       (r.lastPose.translation.y() < fieldDimensions.yPosRightSideline ||
                         r.lastPose.translation.y() > fieldDimensions.yPosLeftSideline ||
                         (i < numOfRobots / 2 && (r.lastPose.translation.x() < footLength ||
                             r.lastPose.translation.x() > fieldDimensions.xPosOpponentGroundline)) ||
@@ -346,20 +341,20 @@ void GameController::placeDefensivePlayers(int minRobot)
       placeFromSet(i, minRobot, poses[i < numOfRobots / 2 ? 1 : 0]);
   }
 
-  freePenaltyArea(minRobot, poses[minRobot < numOfRobots / 2 ? 1 : 0]);
+  freeGoalArea(minRobot, poses[minRobot < numOfRobots / 2 ? 1 : 0]);
 }
 
-void GameController::freePenaltyArea(int minRobot, const Pose2f* poses)
+void GameController::freeGoalArea(int minRobot, const Pose2f* poses)
 {
-  // Count robots in penalty area and determine the one that is
+  // Count robots in goal area and determine the one that is
   // furthest away from the field center.
-  int numOfRobotsInOwnPenaltyArea = 0;
+  int numOfRobotsInOwnGoalArea = 0;
   float maxDistance = -1.f;
   int indexOfMaxDistance = 0;
   for(int i = minRobot; i < minRobot + numOfFieldPlayers; ++i)
-    if(inOwnPenaltyArea(i))
+    if(inOwnGoalArea(i))
     {
-      ++numOfRobotsInOwnPenaltyArea;
+      ++numOfRobotsInOwnGoalArea;
       float distance = robots[i].lastPose.translation.squaredNorm();
       if(distance > maxDistance)
       {
@@ -368,11 +363,11 @@ void GameController::freePenaltyArea(int minRobot, const Pose2f* poses)
       }
     }
 
-  if(numOfRobotsInOwnPenaltyArea > 1)
+  if(numOfRobotsInOwnGoalArea > 1)
   {
-    // Move all remaining robots that are in the penalty area away
+    // Move all remaining robots that are in the goal area away
     for(int i = minRobot; i < minRobot + numOfFieldPlayers; ++i)
-      if(inOwnPenaltyArea(i) && i != indexOfMaxDistance)
+      if(inOwnGoalArea(i) && i != indexOfMaxDistance)
       {
         robots[i].manuallyPlaced = true;
         placeFromSet(i, minRobot, poses);
@@ -508,11 +503,7 @@ void GameController::setLastBallContactRobot(SimRobot::Object* robot)
 void GameController::writeGameInfo(Out& stream)
 {
   SYNC;
-  if(timeOfLastDropIn)
-    gameInfo.dropInTime = (unsigned short)(Time::getTimeSince(timeOfLastDropIn) / 1000);
-  else
-    gameInfo.dropInTime = -1;
-  if(gameInfo.state == STATE_PLAYING || (gameInfo.competitionPhase != COMPETITION_PHASE_PLAYOFF && gameInfo.competitionType != COMPETITION_TYPE_MIXEDTEAM  && timeWhenHalfStarted))
+  if(gameInfo.state == STATE_PLAYING || (gameInfo.competitionPhase != COMPETITION_PHASE_PLAYOFF && timeWhenHalfStarted))
     gameInfo.secsRemaining = (uint16_t)(durationOfHalf - Time::getTimeSince(timeWhenHalfStarted) / 1000);
   gameInfo.timeLastPackageReceived = Time::getCurrentSystemTime();
   stream << gameInfo;
@@ -576,7 +567,7 @@ void GameController::addCompletion(std::set<std::string>& completion) const
 void GameController::setTeamInfos(Settings::TeamColor& firstTeamColor, Settings::TeamColor& secondTeamColor)
 {
   teamInfos[0].teamNumber = 1;
-  teamInfos[0].teamColor = firstTeamColor;
+  teamInfos[0].fieldPlayerColour = firstTeamColor;
   teamInfos[1].teamNumber = 2;
-  teamInfos[1].teamColor = secondTeamColor;
+  teamInfos[1].fieldPlayerColour = secondTeamColor;
 }

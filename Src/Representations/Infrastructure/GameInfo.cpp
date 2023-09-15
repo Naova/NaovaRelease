@@ -118,39 +118,35 @@ void GameInfo::serialize(In* in, Out* out)
   STREAM(firstHalf); // 1 = game in first half, 0 otherwise
   STREAM(kickingTeam); // team number
   STREAM(gamePhase);  // Extra state information - (GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, etc)
-  STREAM(dropInTeam); // team number
-  STREAM(dropInTime); // number of seconds passed since the last drop in. -1 before first dropin.
   STREAM(secsRemaining); // estimate of number of seconds remaining in the half.
   STREAM(secondaryTime);
   STREAM(timeLastPackageReceived); // used to decide whether a gameController is running
   STREAM_REGISTER_FINISH;
 }
 
-void RawGameInfo::operator >> (BHumanMessage& m) const
+void RawGameInfo::operator >> (NaovaMessage& m) const
 {
-  m.theBHULKsStandardMessage.gameControlData.timestampWhenReceived = timeLastPackageReceived;
+  // m.theNaovaStandardMessage.gameControlData.timestampWhenReceived = timeLastPackageReceived;
 
-  m.theBHULKsStandardMessage.gameControlData.packetNumber = packetNumber;
-  m.theBHULKsStandardMessage.gameControlData.competitionType = competitionType;
-  m.theBHULKsStandardMessage.gameControlData.competitionPhase = competitionPhase;
-  m.theBHULKsStandardMessage.gameControlData.state = state;
-    m.theBHULKsStandardMessage.gameControlData.setPlay = setPlay;
-    m.theBHULKsStandardMessage.gameControlData.firstHalf = firstHalf;
-  m.theBHULKsStandardMessage.gameControlData.kickingTeam = kickingTeam;
-  m.theBHULKsStandardMessage.gameControlData.gamePhase = gamePhase;
-  m.theBHULKsStandardMessage.gameControlData.dropInTeam = dropInTeam;
-  m.theBHULKsStandardMessage.gameControlData.dropInTime = dropInTime;
-  m.theBHULKsStandardMessage.gameControlData.secsRemaining = secsRemaining;
-  m.theBHULKsStandardMessage.gameControlData.secondaryTime = secondaryTime;
+  // m.theNaovaStandardMessage.gameControlData.packetNumber = packetNumber;
+  // m.theNaovaStandardMessage.gameControlData.competitionType = competitionType;
+  // m.theNaovaStandardMessage.gameControlData.competitionPhase = competitionPhase;
+  // m.theNaovaStandardMessage.gameControlData.state = state;
+  // m.theNaovaStandardMessage.gameControlData.setPlay = setPlay;
+  // m.theNaovaStandardMessage.gameControlData.firstHalf = firstHalf;
+  // m.theNaovaStandardMessage.gameControlData.kickingTeam = kickingTeam;
+  // m.theNaovaStandardMessage.gameControlData.gamePhase = gamePhase;
+  // m.theNaovaStandardMessage.gameControlData.secsRemaining = secsRemaining;
+  // m.theNaovaStandardMessage.gameControlData.secondaryTime = secondaryTime;
 }
 
-void RawGameInfo::operator<< (const BHumanMessage& m)
+void RawGameInfo::operator<< (const NaovaMessage& m)
 {
-  timeLastPackageReceived = m.toLocalTimestamp(m.theBHULKsStandardMessage.gameControlData.timestampWhenReceived);
-  (RoboCup::RoboCupGameControlData&)(*this) << m.theBHULKsStandardMessage.gameControlData;
+  // timeLastPackageReceived = m.toLocalTimestamp(m.theNaovaStandardMessage.gameControlData.timestampWhenReceived);
+  // (RoboCup::RoboCupGameControlData&)(*this) << m.theNaovaStandardMessage.gameControlData;
 }
 
-void RoboCup::operator<<(RoboCupGameControlData r, const B_HULKs::OwnTeamInfo& bhOti)
+void RoboCup::operator<<(RoboCupGameControlData r, const Naova::OwnTeamInfo& bhOti)
 {
   r.packetNumber = bhOti.packetNumber;
   r.competitionType = bhOti.competitionType;
@@ -160,14 +156,12 @@ void RoboCup::operator<<(RoboCupGameControlData r, const B_HULKs::OwnTeamInfo& b
     r.firstHalf = bhOti.firstHalf;
   r.kickingTeam = bhOti.kickingTeam;
   r.gamePhase = bhOti.gamePhase;
-  r.dropInTeam = bhOti.dropInTeam;
-  r.dropInTime = bhOti.dropInTime;
   r.secsRemaining = bhOti.secsRemaining;
   r.secondaryTime = bhOti.secondaryTime;
 
   const int ownTeamArrayPos = r.teams[0].teamNumber == Global::getSettings().teamNumber ? 0 : 1;
 
   r.teams[ownTeamArrayPos].score = bhOti.score;
-  for(int i = 0; i < BHULKS_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; ++i)
+  for(int i = 0; i < NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS; ++i)
     r.teams[ownTeamArrayPos].players[i].penalty = bhOti.playersArePenalized[i] ? PENALTY_MANUAL : PENALTY_NONE;
 }

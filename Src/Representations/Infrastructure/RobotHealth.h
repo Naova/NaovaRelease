@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/RobotParts/Joints.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
@@ -28,10 +28,10 @@ STREAMABLE(MotionRobotHealth,
  * @struct RobotHealth
  * Full information about the robot.
  */
-STREAMABLE_WITH_BASE(RobotHealth, MotionRobotHealth, COMMA public PureBHumanArbitraryMessageParticle<idRobotHealth>
+STREAMABLE_WITH_BASE(RobotHealth, MotionRobotHealth, COMMA public PureNaovaArbitraryMessageParticle<idRobotHealth>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
   /**
    * Configurations that can be deployed-

@@ -26,8 +26,6 @@ void SideConfidenceProvider::update(SideConfidence& sideConfidence)
 
   // If the ball was out, it enters the game at a different position, this might be confusing.
   // Thus, all agreements become invalid, if the ball is out
-  if(theGameInfo.dropInTime <= 4) // time is in seconds since last time the ball was put in again
-    agreemates.clear();
 
   // Only compute/update internal representation when we are actually playing.
   if(theGameInfo.state == STATE_PLAYING && theRobotInfo.penalty == PENALTY_NONE)

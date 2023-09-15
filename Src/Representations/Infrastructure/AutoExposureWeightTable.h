@@ -13,6 +13,8 @@
 
 STREAMABLE(AutoExposureWeightTable,
 {
+  static constexpr int width = 4;
+  static constexpr int height = 4;
   void draw() const;
   void verify() const,
 

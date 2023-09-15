@@ -10,9 +10,7 @@
 
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Math/Eigen.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
-
-#include "Representations/Communication/BHumanMessage.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 
 /**
  * @struct BallState
@@ -33,11 +31,11 @@ STREAMABLE(BallState,
  *
  * Contains all current knowledge about the ball.
  */
-STREAMABLE(BallModel, COMMA public BHumanMessageParticle<idBallModel>
+STREAMABLE(BallModel, COMMA public NaovaMessageParticule<idBallModel>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
 
   /** Verifies that the ball model contains valid values. */
   void verify() const;
@@ -49,6 +47,7 @@ STREAMABLE(BallModel, COMMA public BHumanMessageParticle<idBallModel>
   (unsigned)(0) timeWhenLastSeen, /**< Time stamp, indicating what its name says */
   (unsigned)(0) timeWhenDisappeared, /**< The time when the ball was not seen in the image altough it should have been there */
   (unsigned char)(0) seenPercentage, /**< How often was the ball seen in the recent past (0%...100%). */
+  (float)(0.f) confidenceLevel,
 });
 
 /**
@@ -89,4 +88,5 @@ STREAMABLE(BallModel3D,
   (unsigned)(0) timeWhenLastSeen, /**< Time stamp, indicating what its name says */
   (unsigned)(0) timeWhenDisappeared, /**< The time when the ball was not seen in the image altough it should have been there */
   (unsigned char)(0) seenPercentage, /**< How often was the ball seen in the recent past (0%...100%). */
+  (float)(0.f) confidenceLevel,
 });

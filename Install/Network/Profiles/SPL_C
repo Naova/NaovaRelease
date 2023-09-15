@@ -5,9 +5,9 @@ ap_scan=1
 network={
   ssid="SPL_C"
   scan_ssid=1
-  key_mgmt=WPA-PSK
-  pairwise=TKIP CCMP
-  group=TKIP CCMP
-  psk="Nao?!Nao?!"
-  proto=RSN WPA WPA2
+    key_mgmt=WPA-PSK
+    pairwise=TKIP CCMP
+    group=TKIP CCMP
+    psk="Nao?!Nao?!"
+    proto=RSN WPA WPA2
 }

@@ -11,21 +11,29 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
+#include "Tools/Communication/MsgPack.h"
 #include "Robot.h"
 #include "NaoBody.h"
 #include "Tools/Settings.h"
 #include "libbhuman/bhuman.h"
-
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include "Tools/Math/Angle.h"
+#include "Tools/Math/Constants.h"
+#include "Tools/RobotParts/Joints.h"
 static pid_t bhumanPid = 0;
 static Robot* robot = nullptr;
 static bool run = true;
+static bool shutdownNAO = false;
+static pthread_t mainThread;
 
 static void bhumanStart()
 {
   fprintf(stderr, "BHuman: Start.\n");
 
   robot = new Robot();
+  
   robot->start();
 }
 
@@ -41,9 +49,17 @@ static void bhumanStop()
 
 static void sighandlerShutdown(int sig)
 {
-  if(run)
-    printf("Caught signal %i\nShutting down...\n", sig);
-  run = false;
+  if(pthread_self() != mainThread)
+  {
+    shutdownNAO = true;
+    pthread_kill(mainThread, sig);
+  }
+  else
+  {
+    if(run)
+      fprintf(stderr, "Caught signal %i\nShutting down...\n", sig);
+    run = false;
+  }
 }
 
 static void sighandlerRedirect(int sig)
@@ -53,9 +69,114 @@ static void sighandlerRedirect(int sig)
   run = false;
 }
 
+static void sitDown(bool ok)
+{
+  static const Angle targetAngles[Joints::numOfJoints - 1] =
+  {
+    0_deg, 0_deg, // Head
+
+    51_deg, 3_deg, 15_deg, -36_deg, -90_deg,  // Left arm
+    0_deg, 0_deg, -50_deg, 124_deg, -68_deg, 0_deg, // HipYawPitch and left leg
+
+    0_deg, -50_deg, 124_deg, -68_deg, 0_deg, // Right leg
+    51_deg, -3_deg, -15_deg, 36_deg, 90_deg, // Right arm
+
+    0_deg, 0_deg // Hands
+  };
+
+  int socket = ::socket(AF_UNIX, SOCK_STREAM, 0);
+  sockaddr_un address;
+  address.sun_family = AF_UNIX;
+  std::strcpy(address.sun_path, "/tmp/robocup");
+  if(!connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)))
+  {
+    unsigned char packet[896];
+    long bytesReceived = recv(socket, reinterpret_cast<char*>(packet), static_cast<int>(sizeof(packet)), 0);
+
+    // Determine current angles and whether sitting down is required, i.e. has the hip stiffness?
+    bool sitDownRequired = false;
+    Angle startAngles[Joints::numOfJoints - 1];
+    MsgPack::parse(packet, bytesReceived,
+                   [&sitDownRequired, &startAngles](const std::string& key, const unsigned char* p)
+                   {
+                     const std::string::size_type pos = key.find(":");
+                     ASSERT(pos != std::string::npos);
+                     const std::string category = key.substr(0, pos);
+                     const int index = std::stoi(key.substr(pos + 1));
+
+                     if(category == "Position")
+                       startAngles[index] = MsgPack::readFloat(p);
+                     else if(category == "Stiffness" && (index == 8 || index == 13) && MsgPack::readFloat(p) > 0.f)
+                       sitDownRequired = true;
+                   },
+
+                   // Ignore ints and strings
+                   [](const std::string&, const unsigned char*) {},
+                   [](const std::string&, const unsigned char*, size_t) {});
+
+    // If sitting down is required, interpolate from start angles to target angles
+    if(sitDownRequired)
+    {
+      float phase = 0.f;
+      while(phase < 1.f)
+      {
+        unsigned char* p = packet;
+        MsgPack::writeMapHeader(1, p);
+        MsgPack::write("Position", p);
+        MsgPack::writeArrayHeader(Joints::numOfJoints - 1, p);
+        // The should pitch joints interpolate faster because to avoid collisions of the arms with the legs.
+        const float shoulderPitchPhase = std::sqrt(std::min(1.f, phase / 0.6f));
+        for(int i = 0; i < Joints::numOfJoints - 1; ++i)
+        {
+          if(i == 2 || i == 18)
+            MsgPack::write(targetAngles[i] * shoulderPitchPhase + startAngles[i] * (1.f - shoulderPitchPhase), p);
+          else
+            MsgPack::write(targetAngles[i] * phase + startAngles[i] * (1.f - phase), p);
+        }
+
+        // Send packet to LoLA
+        send(socket, reinterpret_cast<char*>(packet), static_cast<int>(p - packet), 0);
+
+        // Receive next packet (required for sending again)
+        recv(socket, reinterpret_cast<char*>(packet), static_cast<int>(sizeof(packet)), 0);
+
+        phase += Constants::motionCycleTime / 2.f; // 2 seconds
+      }
+    }
+
+    // Switch off stiffness of all joints
+    unsigned char* p = packet;
+    MsgPack::writeMapHeader(9, p);
+    MsgPack::write("Stiffness", p);
+    MsgPack::writeArrayHeader(Joints::numOfJoints - 1, p);
+    for(int i = 0; i < Joints::numOfJoints - 1; ++i)
+      MsgPack::write(0.f, p);
+
+    // Switch off all leds, except for the eyes (ok: blue, crashed: red)
+    static std::string ledCategories[8] = {"LEye", "REye", "LEar", "REar", "Skull", "Chest", "LFoot", "RFoot"};
+    static size_t ledNumbers[8] = {24, 24, 10, 10, 12, 3, 3, 3};
+    for(int i = 0; i < 8; ++i)
+    {
+      MsgPack::write(ledCategories[i], p);
+      MsgPack::writeArrayHeader(ledNumbers[i], p);
+      for(size_t j = 0; j < ledNumbers[i]; ++j)
+      {
+        bool isRed = i < 2 && j < 8;
+        bool isBlue = i < 2 && j >= 16;
+        MsgPack::write(ok && isBlue ? 0.1f : !ok && isRed ? 1.f : 0.f, p);
+      }
+    }
+
+    // Send packet to LoLA
+    send(socket, reinterpret_cast<char*>(packet), static_cast<int>(p - packet), 0);
+  }
+  close(socket);
+}
 int main(int argc, char* argv[])
 {
-  {
+  
+    mainThread = pthread_self();
+
     // parse command-line arguments
     bool background = false;
     bool recover = false;
@@ -85,7 +206,7 @@ int main(int argc, char* argv[])
       fprintf(stderr, "There is already an instance of this process!\n");
       exit(EXIT_FAILURE);
     }
-
+/************************************bon*****************************/
     // start as daemon
     if(background)
     {
@@ -159,11 +280,9 @@ int main(int argc, char* argv[])
             }
             Assert::logDump(WIFSIGNALED(status) ? int(WTERMSIG(status)) : 0);
           }
-
           // quit here?
           if(normalExit)
             exit(WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
-
           // don't restart if the child process got killed
           if(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL)
             exit(EXIT_FAILURE);
@@ -171,6 +290,7 @@ int main(int argc, char* argv[])
           // restart in release mode only
 #ifndef NDEBUG
           exit(EXIT_FAILURE);
+
 #else
           // deactivate the pre-initial state
           recover = true;
@@ -184,7 +304,6 @@ int main(int argc, char* argv[])
             // close unused read end
             close(stdoutPipe[0]);
             close(stderrPipe[0]);
-
             dup2(STDOUT_FILENO, stdoutPipe[1]); // redirect stdout to out-pipe
             dup2(STDERR_FILENO, stderrPipe[1]); // redirect stderr to err-pipe
           }
@@ -192,38 +311,41 @@ int main(int argc, char* argv[])
         }
       }
     }
-
+/*******************************on comence le changement ici**********************/
     // wait for NaoQi/libbhuman
     NaoBody naoBody;
-    if(!naoBody.init())
+    if(1)
     {
-      fprintf(stderr, "B-Human: Waiting for NaoQi/libbhuman...\n");
       do
       {
         usleep(1000000);
       }
       while(!naoBody.init());
     }
-
     // load first settings instance
     Settings settings;
+    
     settings.recover = recover;
 
     if(!settings.loadingSucceeded())
       return EXIT_FAILURE;
-
     // register signal handler for strg+c and termination signal
     signal(SIGTERM, sighandlerShutdown);
     signal(SIGINT, sighandlerShutdown);
 
     //
     bhumanStart();
-  }
-
-  while(run)
+  
+  while(run){
     pause();
-
+  }
+    
   bhumanStop();
+  sitDown(true);
+  if(shutdownNAO)
+    static_cast<void>(!system("sudo systemctl poweroff &"));
+
+
 
   return EXIT_SUCCESS;
 }

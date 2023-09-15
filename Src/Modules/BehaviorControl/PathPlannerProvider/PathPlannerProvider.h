@@ -41,7 +41,7 @@ MODULE(PathPlannerProvider,
     (float)(550.f) fallenRobotRadius, /**< Radius to walk around a fallen robot (in mm). */
     (float)(750.f) readyRobotRadius, /**< Radius to walk around a robot in ready state (in mm). */
     (float)(850.f) centerCircleRadius, /**< If != 0: Radius to walk around a the center circle in ready state in defensive kickoff (in mm). */
-    (float)(150.f) penaltyAreaRadius, /**< Radius to walk around a corner of the own penaly area (in mm). */
+    (float)(150.f) goalAreaRadius, /**< Radius to walk around a corner of the own penaly area (in mm). */
     (float)(250.f) ballRadius, /**< Radius to walk around the ball (in mm). */
     (int)(3000) ballValidDelay, /**< How long is the ball avoided after its last perception (in ms). */
     (float)(350.f) fieldBorderLimit, /**< Distance outside the side lines that is still used for walking (in mm). */
@@ -205,25 +205,25 @@ class PathPlannerProvider : public PathPlannerProviderBase
   /**
    * Compute barrier lines that cannot be crossed during planning.
    * @param target The target the robot tries to reach.
-   * @param excludePenaltyArea Also generate barriers for the own penalty area.
+   * @param excludeGoalArea Also generate barriers for the own goal area.
    */
-  void createBarriers(const Pose2f& target, bool excludePenaltyArea);
+  void createBarriers(const Pose2f& target, bool excludeGoalArea);
 
   /**
-   * Clip penalty area barriers to make a position reachable.
+   * Clip goal area barriers to make a position reachable.
    * @param position The position that should be reachable.
    * @param left The y coordinate of the left barrier.
    * @param right The y coordinate of the right barrier.
    * @param front The x coordinate of the front barrier.
    */
-  void clipPenaltyArea(const Vector2f& position, float& left, float& right, float& front) const;
+  void clipGoalArea(const Vector2f& position, float& left, float& right, float& front) const;
 
   /**
    * Create the nodes from obstacles.
    * @param target The target the robot tries to reach.
-   * @param excludePenaltyArea Filter out obstacles inside the own penalty area and the own goal.
+   * @param excludeGoalArea Filter out obstacles inside the own goal area and the own goal.
    */
-  void createNodes(const Pose2f& target, bool excludePenaltyArea);
+  void createNodes(const Pose2f& target, bool excludeGoalArea);
 
   /**
    * Determine the radius of an obstacle.

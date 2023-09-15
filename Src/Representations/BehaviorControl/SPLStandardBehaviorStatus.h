@@ -9,17 +9,17 @@
 #pragma once
 #include "Tools/Math/Eigen.h"
 #include "Tools/Streams/AutoStreamable.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include <cstdint>
 
 /**
  * @struct SPLStandardBehaviorStatus
  * A struct that contains standard data about the current behavior state.
  */
-STREAMABLE(SPLStandardBehaviorStatus, COMMA public BHumanMessageParticle<idSPLStandardBehaviorStatus>
+STREAMABLE(SPLStandardBehaviorStatus, COMMA public NaovaMessageParticule<idSPLStandardBehaviorStatus>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override
   {
 //    m.theBSPLStandardMessage.walkingTo[0] = walkingTo.x();
 //    m.theBSPLStandardMessage.walkingTo[1] = walkingTo.y();
@@ -29,7 +29,7 @@ STREAMABLE(SPLStandardBehaviorStatus, COMMA public BHumanMessageParticle<idSPLSt
 //    m.theBSPLStandardMessage.averageWalkSpeed = averageWalkSpeed;
 //    m.theBSPLStandardMessage.maxKickDistance = maxKickDistance;
   }
-  void operator << (const BHumanMessage& m) override
+  void operator << (const NaovaMessage& m) override
   {
 //    walkingTo = Vector2f(m.theBSPLStandardMessage.walkingTo[0], m.theBSPLStandardMessage.walkingTo[1]);
 //    shootingTo = Vector2f(m.theBSPLStandardMessage.shootingTo[0], m.theBSPLStandardMessage.shootingTo[1]);

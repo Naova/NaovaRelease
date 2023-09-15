@@ -83,6 +83,8 @@ private:
   {
     ASSERT(!theRepresentation);
     theRepresentation = std::make_unique<T>();
+     
     loadModuleParameters(*theRepresentation, Streaming::demangle(typeid(T).name()).c_str(), fileName, false);
+ 
   }
 };

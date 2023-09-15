@@ -15,7 +15,7 @@ void JointCalibrator::update(JointCalibration& jointCalibration)
 {
   bool allActive = true;
   for(int i = Joints::lHipYawPitch; i <= Joints::rAnkleRoll; ++i)
-    allActive &= theJointRequest.angles[i] != JointAngles::off;
+    allActive &= theJointRequest.angles[i] != static_cast<float>(JointAngles::off);
 
   DEBUG_RESPONSE_ONCE("module:JointCalibrator:reset")
   {

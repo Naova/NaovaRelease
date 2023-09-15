@@ -18,7 +18,7 @@ using namespace std;
 SelfLocator::SelfLocator() : perceptRegistration(theCameraMatrix, theCirclePercept, theFieldDimensions, theFrameInfo, theGameInfo,
       theOwnTeamInfo, theGoalFeature, theGoalFrame, theFieldLineIntersections,
       theFieldLines, theMidCircle, theMidCorner, theOuterCorner,
-      thePenaltyArea, thePenaltyMarkPercept, theGoalPostPercept, goalFrameIsPerceivedAsLines,
+      theGoalArea, thePenaltyMarkPercept, theGoalPostPercept, goalFrameIsPerceivedAsLines,
       lineAssociationCorridor, longLineAssociationCorridor, centerCircleAssociationDistance,
       penaltyMarkAssociationDistance, intersectionAssociationDistance,
       globalPoseAssociationMaxDistanceDeviation, globalPoseAssociationMaxAngularDeviation),
@@ -43,14 +43,14 @@ SelfLocator::SelfLocator() : perceptRegistration(theCameraMatrix, theCirclePerce
   Vector2f pos5(-1.f * robotPlacementDistance, theFieldDimensions.yPosRightSideline - walkInYModificator);
   Vector2f pos6(-3.f * robotPlacementDistance, theFieldDimensions.yPosRightSideline - walkInYModificator);
   Vector2f centerOfGoal(theFieldDimensions.xPosOwnGroundline, 0.f);
-  Vector2f rightPenaltyAreaCorner(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosRightPenaltyArea);
-  Vector2f leftPenaltyAreaCorner(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
-  Vector2f pos1ToRightCorner  = rightPenaltyAreaCorner - pos1;
+  Vector2f rightGoalAreaCorner(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosRightGoalArea);
+  Vector2f leftGoalAreaCorner(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  Vector2f pos1ToRightCorner  = rightGoalAreaCorner - pos1;
   Vector2f pos2ToCenterCircle = -pos2;
-  Vector2f pos3ToLeftCorner   = rightPenaltyAreaCorner - pos3;
-  Vector2f pos4ToRightCorner  = leftPenaltyAreaCorner - pos4;
+  Vector2f pos3ToLeftCorner   = rightGoalAreaCorner - pos3;
+  Vector2f pos4ToRightCorner  = leftGoalAreaCorner - pos4;
   Vector2f pos5ToCenterCircle = -pos5;
-  Vector2f pos6ToLeftCorner   = leftPenaltyAreaCorner - pos6;
+  Vector2f pos6ToLeftCorner   = leftGoalAreaCorner - pos6;
   Angle angle1 = std::atan2(pos1ToRightCorner.y(), pos1ToRightCorner.x());
   Angle angle2 = std::atan2(pos2ToCenterCircle.y(), pos2ToCenterCircle.x());
   Angle angle3 = std::atan2(pos3ToLeftCorner.y(), pos3ToLeftCorner.x());
@@ -58,10 +58,10 @@ SelfLocator::SelfLocator() : perceptRegistration(theCameraMatrix, theCirclePerce
   Angle angle5 = std::atan2(pos5ToCenterCircle.y(), pos5ToCenterCircle.x());
   Angle angle6 = std::atan2(pos6ToLeftCorner.y(), pos6ToLeftCorner.x());
   walkInPositions.push_back(Pose2f(angle1, pos1)); // Robot 1
-  walkInPositions.push_back(Pose2f(angle2, pos2)); // Robot 2
-  walkInPositions.push_back(Pose2f(angle3, pos3)); // Robot 3
   walkInPositions.push_back(Pose2f(angle4, pos4)); // Robot 4
+  walkInPositions.push_back(Pose2f(angle3, pos3)); // Robot 3
   walkInPositions.push_back(Pose2f(angle5, pos5)); // Robot 5
+  walkInPositions.push_back(Pose2f(angle2, pos2)); // Robot 2
   walkInPositions.push_back(Pose2f(angle6, pos6)); // Robot 6
   if(mirrorWalkInPositionsFieldPlayers)
   {
@@ -290,7 +290,7 @@ void SelfLocator::computeModel(RobotPose& robotPose)
   else
     robotPose.validity *= (1.f / validityThreshold);
   if(theMidCircle.isValid || theMidCorner.isValid || theGoalFrame.isValid || theOuterCorner.isValid ||
-     thePenaltyArea.isValid || theGoalFeature.isValid)
+     theGoalArea.isValid || theGoalFeature.isValid)
   {
     robotPose.timeOfLastConsideredFieldFeature = theFrameInfo.time;
   }
@@ -316,9 +316,6 @@ void SelfLocator::motionUpdate()
 
   // Precalculate rotational error that has to be adapted to all samples
   float rotError = max(dist * movedDistWeightRotationNoise, angle * angleWeightNoise);
-  // Reduction of noise, if the robot has a z-axis gyro (which provides way more accurate rotational information than standard odometry)
-  if(theRobotInfo.hasFeature(RobotInfo::zGyro))
-    rotError *= v5RotationalNoiseReductionFactor;
 
   // precalculate translational error that has to be adapted to all samples
   const float transXError = max(abs(transX * majorDirTransWeight), abs(transY * minorDirTransWeight));
@@ -563,16 +560,6 @@ void SelfLocator::handleGameStateChanges(const Pose2f& robotPose)
       }
     }
   }
-  // If a penalty is over AND we are in SET or when the robot has been lifted during SET, reset samples to manual positioning line positions
-  else if((theOwnSideModel.returnFromGameControllerPenalty || theOwnSideModel.returnFromManualPenalty || theOwnSideModel.manuallyPlaced) && theGameInfo.state == STATE_SET)
-  {
-    for(int i = 0; i < samples->size(); ++i)
-    {
-      samples->at(i).init(getNewPoseAtManualPlacementPosition(), defaultPoseDeviation, nextSampleNumber++, 0.5f);
-    }
-    sampleSetHasBeenResetted = true;
-    timeOfLastReturnFromPenalty = theFrameInfo.time;
-  }
   // If a penalty is over, reset samples to reenter positions
   else if(theOwnSideModel.returnFromGameControllerPenalty || theOwnSideModel.returnFromManualPenalty)
   {
@@ -582,15 +569,6 @@ void SelfLocator::handleGameStateChanges(const Pose2f& robotPose)
     }
     sampleSetHasBeenResetted = true;
     timeOfLastReturnFromPenalty = theFrameInfo.time;
-  }
-  // I am clearly in the opponent's half and will be placed manually
-  else if(theGameInfo.state == STATE_SET && robotPose.translation.x() > 100.f)
-  {
-    for(int i = 0; i < samples->size(); ++i)
-    {
-      samples->at(i).init(getNewPoseAtManualPlacementPosition(), defaultPoseDeviation, nextSampleNumber++, 0.5f);
-    }
-    sampleSetHasBeenResetted = true;
   }
   // Normal game is about to start: We start on the sidelines looking at our goal: (this is for checking in TeamCom)
   else if(theCognitionStateChanges.lastGameState != STATE_INITIAL && theGameInfo.state == STATE_INITIAL)
@@ -681,10 +659,10 @@ void SelfLocator::domainSpecificSituationHandling()
   // keeper is turned by 180 degrees but assumes to stand correctly
   if(!theRole.isGoalkeeper() || theGameInfo.state != STATE_PLAYING || theGameInfo.gamePhase == GAME_PHASE_PENALTYSHOOT)
     return;
-  // The robot is in its penalty area and assumes to look at the opponent half
+  // The robot is in its goal area and assumes to look at the opponent half
   // and guards its goal.
-  if(theRobotPose.translation.x() < theFieldDimensions.xPosOwnPenaltyArea + 200 &&
-     abs(theRobotPose.translation.y()) < theFieldDimensions.yPosLeftPenaltyArea &&
+  if(theRobotPose.translation.x() < theFieldDimensions.xPosOwnGoalArea + 200 &&
+     abs(theRobotPose.translation.y()) < theFieldDimensions.yPosLeftGoalArea &&
      abs(theRobotPose.rotation) < 45_deg &&
      theRole.isGoalkeeper() &&
      theFrameInfo.getTimeSince(lastTimeNotInStandWalkKick) > goalieTwistNoStandWalkKickTimeout &&
@@ -799,22 +777,6 @@ Pose2f SelfLocator::getNewPoseAtWalkInPosition()
     Pose2f result = walkInPositions[nextWalkInPoseNumber];
     nextWalkInPoseNumber = (nextWalkInPoseNumber + 1) % walkInPositions.size();
     return result;
-  }
-}
-
-Pose2f SelfLocator::getNewPoseAtManualPlacementPosition()
-{
-  // Goalie
-  if(theRole.isGoalkeeper())
-  {
-    return Pose2f(0.f, theFieldDimensions.xPosOwnGroundline, 0.f);
-  }
-  else
-  {
-    float x = theFieldDimensions.xPosOwnPenaltyArea + 100.f;
-    float minY = theFieldDimensions.yPosRightSideline + 750.f;
-    float y = minY + Random::uniform(2 * std::abs(minY));
-    return Pose2f(0.f, x, y);
   }
 }
 

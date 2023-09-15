@@ -13,8 +13,12 @@
 #include <sys/mman.h>
 #include <cerrno>
 #include <poll.h>
-#include <linux/videodev2.h>
 
+#include <errno.h>
+
+#include "uvcvideo.h"
+#include "videodev2.h"
+#include "video.h"
 #include "NaoCamera.h"
 #include "Platform/BHAssert.h"
 #include "Platform/Time.h"
@@ -26,25 +30,24 @@ NaoCamera::NaoCamera(const char* device, CameraInfo::Camera camera, int width, i
   WIDTH(width),
   HEIGHT(height)
 {
-  VERIFY((fd = open(device, O_RDWR | O_NONBLOCK)) != -1);
+  resetRequired = (fd = open(device, O_RDWR | O_NONBLOCK)) == -1;
+  usleep(30000); // Experimental: Add delay between opening and using camera device
+  resetRequired = resetRequired || !setImageFormat() || !setFrameRate(1, 30)  || !mapBuffers() || !queueBuffers() || !checkSettingsAvailability();
+  if(!resetRequired)
+  {
+    specialSettings.horizontalFlip.value = flip ? 1 : 0;
+    setControlSetting(specialSettings.horizontalFlip);
+    
+    specialSettings.verticalFlip.value = flip ? 1 : 0;
 
-  mapBuffers();
-  queueBuffers();
-
-  setImageFormat();
-  setFrameRate(1, 30);
-
-  checkSettingsAvailability();
-
-  specialSettings.horizontalFlip.value = flip ? 1 : 0;
-  setControlSetting(specialSettings.horizontalFlip);
-  specialSettings.verticalFlip.value = flip ? 1 : 0;
-  setControlSetting(specialSettings.verticalFlip);
-  setSettings(settings, autoExposureWeightTable);
-  writeCameraSettings();
-  readCameraSettings();
-
-  startCapturing();
+    setControlSetting(specialSettings.verticalFlip);
+    setSettings(settings, autoExposureWeightTable);
+    writeCameraSettings();
+    readCameraSettings();
+    resetRequired = !startCapturing();
+  }
+  if(resetRequired)
+    OUTPUT_ERROR("Setting up NaoCamera failed!");
 }
 
 NaoCamera::~NaoCamera()
@@ -54,6 +57,7 @@ NaoCamera::~NaoCamera()
 
   close(fd);
 }
+
 
 bool NaoCamera::captureNew(NaoCamera& cam1, NaoCamera& cam2, int timeout, bool& errorCam1, bool& errorCam2)
 {
@@ -96,6 +100,7 @@ bool NaoCamera::captureNew(NaoCamera& cam1, NaoCamera& cam2, int timeout, bool& 
           VERIFY(ioctl(cams[i]->fd, VIDIOC_QBUF, &lastBuf) == 0);
         lastBuf = *cams[i]->buf;
       }
+
       if(errno != EAGAIN)
       {
         OUTPUT_ERROR("VIDIOC_DQBUF failed: " << strerror(errno));
@@ -109,7 +114,6 @@ bool NaoCamera::captureNew(NaoCamera& cam1, NaoCamera& cam2, int timeout, bool& 
         if(cams[i]->first)
         {
           cams[i]->first = false;
-          printf("%s camera is working\n", CameraInfo::getName(cams[i]->camera));
         }
       }
     }
@@ -172,7 +176,10 @@ void NaoCamera::releaseImage()
 {
   if(currentBuf)
   {
-    VERIFY(ioctl(fd, VIDIOC_QBUF, currentBuf) != -1);
+    if(ioctl(fd, VIDIOC_QBUF, currentBuf) == -1){
+      OUTPUT_ERROR("Releasing image failed!");
+      resetRequired = true;
+    }
     currentBuf = nullptr;
   }
 }
@@ -200,16 +207,18 @@ float NaoCamera::getFrameRate() const
   return 1.f / 30.f;
 }
 
-void NaoCamera::setFrameRate(unsigned numerator, unsigned denominator)
+bool NaoCamera::setFrameRate(unsigned numerator, unsigned denominator)
 {
   // set frame rate
   v4l2_streamparm fps;
   memset(&fps, 0, sizeof(v4l2_streamparm));
   fps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  VERIFY(!ioctl(fd, VIDIOC_G_PARM, &fps));
+  if(ioctl(fd, VIDIOC_G_PARM, &fps)){
+    return false;
+  }
   fps.parm.capture.timeperframe.numerator = numerator;
   fps.parm.capture.timeperframe.denominator = denominator;
-  VERIFY(ioctl(fd, VIDIOC_S_PARM, &fps) != -1);
+  return (ioctl(fd, VIDIOC_S_PARM, &fps) != -1);
 }
 
 CameraSettings::CameraSettingsCollection NaoCamera::getCameraSettingsCollection() const
@@ -264,15 +273,15 @@ void NaoCamera::writeCameraSettings()
     if(timeStamp == 0)
     {
       if(currentSetting.notChangableWhile != CameraSettings::numOfCameraSettings &&
-         settings.settings[currentSetting.notChangableWhile].value)
+         settings.settings[currentSetting.notChangableWhile].value ^ currentSetting.invert)
         continue;
     }
     else
     {
       if(currentSetting.notChangableWhile != CameraSettings::numOfCameraSettings)
       {
-        const bool nowActive = settings.settings[currentSetting.notChangableWhile].value;
-        const bool oldActive = oldSettings[currentSetting.notChangableWhile].value;
+        const bool nowActive = settings.settings[currentSetting.notChangableWhile].value ^ currentSetting.invert;
+        const bool oldActive = oldSettings[currentSetting.notChangableWhile].value ^ currentSetting.invert;
         if(nowActive || (!oldActive && currentSetting.value == appliedSetting.value))
           continue;
       }
@@ -281,13 +290,13 @@ void NaoCamera::writeCameraSettings()
     }
 
     if(!setControlSetting(currentSetting))
-    {
-      OUTPUT_ERROR("NaoCamera: Setting camera control " << CameraSettings::getName(settingName) << " failed for value: " << currentSetting.value);
-    }
+      OUTPUT_WARNING("NaoCamera: Setting camera control " << CameraSettings::getName(settingName) << " failed for value: " << currentSetting.value);
     else
     {
       appliedSetting.value = currentSetting.value;
+#ifdef _DEBUG
       assertCameraSetting(settingName);
+#endif
     }
   }
 
@@ -298,15 +307,30 @@ void NaoCamera::writeCameraSettings()
     if(timeStamp != 0 && currentTableEntry.value == appliedTableEntry.value)
       continue;
 
-    if(!setControlSetting(currentTableEntry))
+    // Set all weights at once
+    unsigned char value[17] =
     {
-      OUTPUT_ERROR("NaoCamera: Setting autoExposureWeightTableEntry " << i << " failed for value: " << currentTableEntry.value);
+      1, 0, 0, 0, 0,
+      static_cast<unsigned char>(WIDTH >> 8), static_cast<unsigned char>(WIDTH & 8),
+      static_cast<unsigned char>(HEIGHT >> 8), static_cast<unsigned char>(HEIGHT & 8)
+    };
+
+    // Set weights in value to set
+    for(size_t i = 0; i < CameraSettingsCollection::sizeOfAutoExposureWeightTable; ++i)
+    {
+      V4L2Setting& currentTableEntry = settings.autoExposureWeightTable[i];
+      currentTableEntry.enforceBounds();
+      ASSERT(9 + i / 2 < sizeof(value));
+      value[9 + i / 2] |= currentTableEntry.value << (i & 1) * 4;
     }
+
+    // Use extension unit to set exposure weight table
+    if(setXU(9, value))
+      appliedSettings.autoExposureWeightTable = settings.autoExposureWeightTable;
     else
-    {
-      appliedTableEntry.value = currentTableEntry.value;
-      assertAutoExposureWeightTableEntry(i);
-    }
+      OUTPUT_ERROR("NaoCamera: setting auto exposure weight table failed");
+
+    break; // All weights were set, no need to search for more differences
   }
 }
 
@@ -314,38 +338,87 @@ void NaoCamera::readCameraSettings()
 {
   for(V4L2Setting& setting : appliedSettings.settings)
     getControlSetting(setting);
-  for(V4L2Setting& setting : appliedSettings.autoExposureWeightTable)
-    getControlSetting(setting);
+  unsigned char value[17];
+  if(getXU(9, value))
+    for(size_t i = 0; i < CameraSettingsCollection::sizeOfAutoExposureWeightTable; ++i)
+      settings.autoExposureWeightTable[i].value = (value[9 + i / 2] >> (i & 1) * 4) & 0x0f;
+  else
+    OUTPUT_ERROR("NaoCamera: reading auto exposure weight table failed");
 }
 
 void NaoCamera::doAutoWhiteBalance()
 {
-  setControlSetting(specialSettings.doAutoWhiteBallance);
-  if(getControlSetting(settings.settings[CameraSettings::whiteBalanceTemperature]))
+  appliedSettings.settings[CameraSettings::autoWhiteBalance].value = 1;
+  setControlSetting(appliedSettings.settings[CameraSettings::autoWhiteBalance]);
+  usleep(100);
+  unsigned short hiRedGain, loRedGain, hiGreenGain, loGreenGain, hiBlueGain, loBlueGain;
+  if(getRegister(0x3400, hiRedGain) && getRegister(0x3401, loRedGain)
+     && getRegister(0x3402, hiGreenGain) && getRegister(0x3403, loGreenGain)
+     && getRegister(0x3404, hiBlueGain) && getRegister(0x3405, loBlueGain))
   {
-    OUTPUT_TEXT("New white balance is " << settings.settings[CameraSettings::whiteBalanceTemperature].value);
-    appliedSettings.settings[CameraSettings::whiteBalanceTemperature] = settings.settings[CameraSettings::whiteBalanceTemperature];
+    appliedSettings.settings[CameraSettings::redGain].value
+      = settings.settings[CameraSettings::redGain].value = hiRedGain << 8 | loRedGain;
+    appliedSettings.settings[CameraSettings::greenGain].value
+      = settings.settings[CameraSettings::greenGain].value = hiGreenGain << 8 | loGreenGain;
+    appliedSettings.settings[CameraSettings::blueGain].value
+      = settings.settings[CameraSettings::blueGain].value = hiBlueGain << 8 | loBlueGain;
+    OUTPUT_TEXT("New white balance is RGB = (" << settings.settings[CameraSettings::redGain].value << ", "
+                                               << settings.settings[CameraSettings::greenGain].value << ", "
+                                               << settings.settings[CameraSettings::blueGain].value << ")");
+    appliedSettings.settings[CameraSettings::autoWhiteBalance].value = 0;
+    setControlSetting(appliedSettings.settings[CameraSettings::autoWhiteBalance]);
   }
 }
 
-void NaoCamera::checkSettingsAvailability()
+bool NaoCamera::getRegister(unsigned short address, unsigned short& value) const
 {
-  for(V4L2Setting& setting : appliedSettings.settings)
-    checkV4L2Setting(setting);
-  for(V4L2Setting& setting : appliedSettings.autoExposureWeightTable)
-    checkV4L2Setting(setting);
-  checkV4L2Setting(specialSettings.doAutoWhiteBallance);
-  checkV4L2Setting(specialSettings.verticalFlip);
-  checkV4L2Setting(specialSettings.horizontalFlip);
+  unsigned char bytes[5] = {0, static_cast<unsigned char>(address >> 8),
+                            static_cast<unsigned char>(address & 0xff)};
+  if(setXU(14, bytes))
+  {
+    usleep(100000);
+    if(getXU(14, bytes))
+    {
+      value = static_cast<unsigned short>(bytes[3] << 8 | bytes[4]);
+      return true;
+    }
+  }
+  return false;
 }
 
-void NaoCamera::checkV4L2Setting(V4L2Setting& setting) const
+bool NaoCamera::setRegister(unsigned short address, unsigned short value) const
 {
+  unsigned char bytes[5];
+  bytes[0] = 1;
+  bytes[1] = static_cast<unsigned char>(address >> 8);
+  bytes[2] = static_cast<unsigned char>(address & 0xff);
+  bytes[3] = static_cast<unsigned char>(value >> 8);
+  bytes[4] = static_cast<unsigned char>(value & 0xff);
+  return setXU(14, bytes);
+}
+
+bool NaoCamera::checkSettingsAvailability()
+{
+  bool status = true;
+  for(V4L2Setting& setting : appliedSettings.settings)
+  {
+    status = status && checkV4L2Setting(setting);
+
+  }
+  return status;
+}
+
+bool NaoCamera::checkV4L2Setting(V4L2Setting& setting) const
+{
+  if(setting.command < 0)
+    return true;
+
   v4l2_queryctrl queryctrl;
   queryctrl.id = setting.command;
   if(ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl) < 0)
   {
-    FAIL("ioctl to query setting failed for camera setting " << setting.command);
+    OUTPUT_ERROR("ioctl to query setting failed for camera setting " << setting.command);
+    return false;
   }
   if(queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
   {
@@ -356,33 +429,61 @@ void NaoCamera::checkV4L2Setting(V4L2Setting& setting) const
     FAIL("Camera setting " << setting.command <<  "is unsupported ");
   }
   setting.setCameraBounds(queryctrl.minimum, queryctrl.maximum);
+  return true;
 }
 
 bool NaoCamera::getControlSetting(V4L2Setting& setting)
 {
-  v4l2_control control_s;
-  control_s.id = setting.command;
-  if(ioctl(fd, VIDIOC_G_CTRL, &control_s) < 0)
-  {
-    OUTPUT_ERROR("NaoCamera: Retrieving camera setting " << setting.command << " failed");
-    return false;
+  if(setting.command >= 0){
+    v4l2_control control_s;
+    control_s.id = setting.command;
+    if(ioctl(fd, VIDIOC_G_CTRL, &control_s) < 0)
+    {
+      OUTPUT_ERROR("NaoCamera: Retrieving camera setting " << setting.command << " failed");
+      return false;
+    }
+    setting.value = control_s.value;
   }
-  setting.value = control_s.value;
-  return true;
+    return true;
 }
 
 bool NaoCamera::setControlSetting(V4L2Setting& setting)
 {
   setting.enforceBounds();
-  v4l2_control control_s;
-  control_s.id = setting.command;
-  control_s.value = setting.value;
-
-  const int ret = ioctl(fd, VIDIOC_S_CTRL, &control_s);
-  if(ret < 0)
+  if(setting.command < 0) // command for extension unit?
   {
-    OUTPUT_ERROR("NaoCamera: Setting value ID: " << setting.command << " failed. VIDIOC_S_CTRL return value is " << ret);
-    return false;
+    if((-setting.command) >> 16 == 14) // set register
+    {
+      unsigned short address = static_cast<unsigned short>(-setting.command & 0xffff);
+      if(!setRegister(address, static_cast<unsigned char>(setting.value >> 8)))
+      {
+        OUTPUT_ERROR("NaoCamera: Setting register " << address << " failed.");
+        return false;
+      }
+      if(!setRegister(address + 1, static_cast<unsigned char>(setting.value & 0xff)))
+      {
+        OUTPUT_ERROR("NaoCamera: Setting register " << address << " failed.");
+        return false;
+      }
+    }
+    else if(!setXU(static_cast<unsigned char>((-setting.command) >> 16), static_cast<unsigned short>(setting.value)))
+    {
+      OUTPUT_ERROR("NaoCamera: Extension unit selector " << ((-setting.command) >> 16) << " failed.");
+      return false;
+    }
+  }
+  else
+  {
+    v4l2_control control_s;
+    control_s.id = setting.command;
+    control_s.value = setting.value;
+
+    const int ret = ioctl(fd, VIDIOC_S_CTRL, &control_s);
+    if(ret < 0)
+    {
+      OUTPUT_ERROR("NaoCamera: Setting value ID: " << setting.command << " failed. VIDIOC_S_CTRL return value is " << ret);
+      return false;
+    }
   }
   return true;
 }
@@ -390,6 +491,9 @@ bool NaoCamera::setControlSetting(V4L2Setting& setting)
 bool NaoCamera::assertCameraSetting(CameraSettings::CameraSetting setting)
 {
   appliedSettings.settings[setting] = settings.settings[setting];
+  if(settings.settings[setting].command < 0)
+    return true;
+
   const int oldValue = appliedSettings.settings[setting].value;
   if(getControlSetting(appliedSettings.settings[setting]))
   {
@@ -397,7 +501,7 @@ bool NaoCamera::assertCameraSetting(CameraSettings::CameraSetting setting)
       return true;
     else
     {
-      OUTPUT_ERROR("Value for command " << appliedSettings.settings[setting].command << " (" << CameraSettings::getName(setting) << ") is "
+      OUTPUT_WARNING("Value for command " << appliedSettings.settings[setting].command << " (" << CameraSettings::getName(setting) << ") is "
                    << appliedSettings.settings[setting].value << " but should be " << oldValue << ".");
     }
   }
@@ -428,19 +532,20 @@ void NaoCamera::changeResolution(int width, int height)
 {
   BH_TRACE_MSG("change resolution");
 
-  stopCapturing();
+  resetRequired = resetRequired || !stopCapturing();
+
   unmapBuffers();
 
   WIDTH = width;
   HEIGHT = height;
 
-  setImageFormat();
-  mapBuffers();
-  queueBuffers();
-  startCapturing();
+  resetRequired = resetRequired || !setImageFormat() || !mapBuffers() || !queueBuffers() || !startCapturing();
+  if(resetRequired){
+    OUTPUT_ERROR("Changing camera resolution failed");
+  }
 }
 
-void NaoCamera::setImageFormat()
+bool NaoCamera::setImageFormat()
 {
   // set format
   v4l2_format fmt;
@@ -448,14 +553,19 @@ void NaoCamera::setImageFormat()
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   fmt.fmt.pix.width = WIDTH;
   fmt.fmt.pix.height = HEIGHT;
-  fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+  fmt.fmt.pix.sizeimage = WIDTH * HEIGHT * 2;
   fmt.fmt.pix.field = V4L2_FIELD_NONE;
-  VERIFY(!ioctl(fd, VIDIOC_S_FMT, &fmt));
+  fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+
+  if(ioctl(fd, VIDIOC_S_FMT, &fmt)){
+    return false;
+  }
 
   ASSERT(fmt.fmt.pix.sizeimage == WIDTH * HEIGHT * 2);
+  return true;
 }
 
-void NaoCamera::mapBuffers()
+bool NaoCamera::mapBuffers()
 {
   // request buffers
   v4l2_requestbuffers rb;
@@ -463,7 +573,9 @@ void NaoCamera::mapBuffers()
   rb.count = frameBufferCount;
   rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   rb.memory = V4L2_MEMORY_MMAP;
-  VERIFY(ioctl(fd, VIDIOC_REQBUFS, &rb) != -1);
+  if(ioctl(fd, VIDIOC_REQBUFS, &rb) == -1){
+    return false;
+  }
   ASSERT(rb.count == frameBufferCount);
 
   // map or prepare the buffers
@@ -474,11 +586,14 @@ void NaoCamera::mapBuffers()
   for(unsigned i = 0; i < frameBufferCount; ++i)
   {
     buf->index = i;
-    VERIFY(ioctl(fd, VIDIOC_QUERYBUF, buf) != -1);
+    if(ioctl(fd, VIDIOC_QUERYBUF, buf) == -1){
+      return false;
+    }
     memLength[i] = buf->length;
     mem[i] = mmap(0, buf->length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf->m.offset);
     ASSERT(mem[i] != MAP_FAILED);
   }
+  return true;
 }
 
 void NaoCamera::unmapBuffers()
@@ -495,29 +610,43 @@ void NaoCamera::unmapBuffers()
   currentBuf = buf = nullptr;
 }
 
-void NaoCamera::queueBuffers()
+bool NaoCamera::queueBuffers()
 {
   for(unsigned i = 0; i < frameBufferCount; ++i)
   {
     buf->index = i;
-    VERIFY(ioctl(fd, VIDIOC_QBUF, buf) != -1);
+    if(ioctl(fd, VIDIOC_QBUF, buf) == -1){
+      return false;
+    }
   }
+  return true;
 }
 
-void NaoCamera::startCapturing()
+bool NaoCamera::startCapturing()
 {
   int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  VERIFY(ioctl(fd, VIDIOC_STREAMON, &type) != -1);
+  return (ioctl(fd, VIDIOC_STREAMON, &type) != -1);
 }
 
-void NaoCamera::stopCapturing()
+bool NaoCamera::stopCapturing()
 {
   int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  VERIFY(ioctl(fd, VIDIOC_STREAMOFF, &type) != -1);
+  return (ioctl(fd, VIDIOC_STREAMOFF, &type) != -1);
 }
 
-NaoCamera::V4L2Setting::V4L2Setting(int command, int value, int min, int max, CameraSettings::CameraSetting notChangableWhile) :
-  command(command), value(value), notChangableWhile(notChangableWhile), min(min), max(max)
+bool NaoCamera::queryXU(bool set, unsigned char control, void* value, unsigned short size) const
+{
+  uvc_xu_control_query xu;
+  xu.unit = 3;
+  xu.selector = control;
+  xu.query = set ? UVC_SET_CUR : UVC_GET_CUR;
+  xu.size = size;
+  xu.data = static_cast<__u8*>(value);
+  return !ioctl(fd, UVCIOC_CTRL_QUERY, &xu);
+}
+
+NaoCamera::V4L2Setting::V4L2Setting(int command, int value, int min, int max, CameraSettings::CameraSetting notChangableWhile, int invert) :
+  command(command), value(value), invert(invert), notChangableWhile(notChangableWhile), min(min), max(max)
 {
   ASSERT(min <= max);
 }
@@ -557,25 +686,21 @@ void NaoCamera::V4L2Setting::setCameraBounds(int camMin, int camMax)
 
 NaoCamera::CameraSettingsCollection::CameraSettingsCollection()
 {
-  settings[CameraSettings::autoExposure] = V4L2Setting(V4L2_CID_EXPOSURE_AUTO, -1000, 0, 1);
-  settings[CameraSettings::autoExposureAlgorithm] = V4L2Setting(V4L2_CID_EXPOSURE_ALGORITHM, -1000, 0, 3);
-  settings[CameraSettings::autoExposureBrightness] = V4L2Setting(V4L2_CID_BRIGHTNESS, -1000, 0, 255);
-  //settings[CameraSettings::autoExposureBrightnessDark] = V4L2Setting(V4L2_MT9M114_BRIGHTNESS_DARK, -1000, 0, 255);
-  settings[CameraSettings::autoExposureMinVirtAnalogGain] = V4L2Setting(V4L2_MT9M114_AE_MIN_VIRT_AGAIN, -1000, 0, 32767);
-  settings[CameraSettings::autoExposureMaxVirtAnalogGain] = V4L2Setting(V4L2_MT9M114_AE_MAX_VIRT_AGAIN, -1000, 0, 32767);
-  settings[CameraSettings::autoExposureMinVirtDigitalGain] = V4L2Setting(V4L2_MT9M114_AE_MIN_VIRT_DGAIN, -1000, 0, 32767);
-  settings[CameraSettings::autoExposureMaxVirtDigitalGain] = V4L2Setting(V4L2_MT9M114_AE_MAX_VIRT_DGAIN, -1000, 0, 32767);
-  settings[CameraSettings::autoExposureTargetGain] = V4L2Setting(V4L2_MT9M114_AE_TARGET_GAIN, -1000, 0, 32767);
-  settings[CameraSettings::autoWhiteBalance] = V4L2Setting(V4L2_CID_AUTO_WHITE_BALANCE, 0, 0, 1);
-  settings[CameraSettings::contrast] = V4L2Setting(V4L2_CID_CONTRAST, -1000, 16, 64);
-  settings[CameraSettings::exposure] = V4L2Setting(V4L2_CID_EXPOSURE, -1000, 0, 333, CameraSettings::autoExposure);
-  settings[CameraSettings::fadeToBlack] = V4L2Setting(V4L2_MT9M114_FADE_TO_BLACK, -1000, 0, 1);
-  settings[CameraSettings::gain] = V4L2Setting(V4L2_CID_GAIN, -1000, 32, 255, CameraSettings::autoExposure);
-  settings[CameraSettings::hue] = V4L2Setting(V4L2_CID_HUE, -1000, -22, 22);
-  settings[CameraSettings::powerLineFrequency] = V4L2Setting(V4L2_CID_POWER_LINE_FREQUENCY, -1000, 1, 2);
+  settings[CameraSettings::autoExposure] = V4L2Setting(V4L2_CID_EXPOSURE_AUTO, -1000, 0, 3);
+  settings[CameraSettings::autoExposureBrightness] = V4L2Setting(V4L2_CID_BRIGHTNESS, -1000, -255, 255);
+  settings[CameraSettings::exposure] = V4L2Setting(V4L2_CID_EXPOSURE_ABSOLUTE, -1000, 0, 1048575, CameraSettings::autoExposure, 1);
+  settings[CameraSettings::gain] = V4L2Setting(V4L2_CID_GAIN, -1000, 0, 1023, CameraSettings::autoExposure, 1);
+  settings[CameraSettings::autoWhiteBalance] = V4L2Setting(V4L2_CID_AUTO_WHITE_BALANCE, -1000, 0, 1);
+  settings[CameraSettings::autoFocus] = V4L2Setting(V4L2_CID_FOCUS_AUTO, -1000, 0, 1);
+  settings[CameraSettings::focus] = V4L2Setting(V4L2_CID_FOCUS_ABSOLUTE, -1000, 0, 250, CameraSettings::autoFocus);
+  settings[CameraSettings::autoHue] = V4L2Setting(V4L2_CID_HUE_AUTO, -1000, 0, 1);
+  settings[CameraSettings::hue] = V4L2Setting(V4L2_CID_HUE, -1000, -180, 180, CameraSettings::autoHue);
   settings[CameraSettings::saturation] = V4L2Setting(V4L2_CID_SATURATION, -1000, 0, 255);
-  settings[CameraSettings::sharpness] = V4L2Setting(V4L2_CID_SHARPNESS, -1000, -7, 7);
-  settings[CameraSettings::whiteBalanceTemperature] = V4L2Setting(V4L2_CID_WHITE_BALANCE_TEMPERATURE, -1000, 2700, 6500, CameraSettings::autoWhiteBalance);
+  settings[CameraSettings::contrast] = V4L2Setting(V4L2_CID_CONTRAST, -1000, 0, 255);
+  settings[CameraSettings::sharpness] = V4L2Setting(V4L2_CID_SHARPNESS, -1000, 0, 9);
+  settings[CameraSettings::redGain] = V4L2Setting(-0xe3400, -1000, 0, 4095, CameraSettings::autoWhiteBalance);
+  settings[CameraSettings::greenGain] = V4L2Setting(-0xe3402, -1000, 0, 4095, CameraSettings::autoWhiteBalance);
+  settings[CameraSettings::blueGain] = V4L2Setting(-0xe3404, -1000, 0, 4095, CameraSettings::autoWhiteBalance);
 
   for(size_t i = 0; i < sizeOfAutoExposureWeightTable; ++i)
   {
@@ -604,7 +729,7 @@ bool NaoCamera::CameraSettingsCollection::operator!=(const CameraSettingsCollect
 }
 
 NaoCamera::CameraSettingsSpecial::CameraSettingsSpecial() :
-  verticalFlip(V4L2_CID_VFLIP, 0, 0, 1),
-  horizontalFlip(V4L2_CID_HFLIP, 0, 0, 1),
+  verticalFlip(-0xc0000, 0, 0, 1),
+  horizontalFlip(-0xd0000, 0, 0, 1),
   doAutoWhiteBallance(V4L2_CID_DO_WHITE_BALANCE, 1, 1, 1)
 {}

@@ -22,7 +22,7 @@ logpath="/home/nao/logs/"
 keySource="${basePath}/../../Config/Keys/id_rsa_nao"
 keyFile=/tmp/id_rsa_nao
 cp "${keySource}" ${keyFile}
-sshoptions="-c arcfour -i ${keyFile} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
+sshoptions="-c aes128-ctr -i ${keyFile} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa"
 
 chmod 600 $keyFile
 

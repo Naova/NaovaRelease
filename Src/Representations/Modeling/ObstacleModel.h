@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Streams/Enum.h"
 #include "Tools/Math/Eigen.h"
 #include "Tools/Modeling/Obstacle.h"
@@ -19,11 +19,11 @@
  * foot bumper contact.
  */
 
-STREAMABLE(ObstacleModel, COMMA public BHumanMessageParticle<idObstacleModel>
+STREAMABLE(ObstacleModel, COMMA public NaovaMessageParticule<idObstacleModel>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
 
   ObstacleModel() = default;

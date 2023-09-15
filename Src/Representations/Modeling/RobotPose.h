@@ -10,17 +10,17 @@
 
 #include "Tools/Math/Pose2f.h"
 #include "Tools/Streams/AutoStreamable.h"
-#include "Representations/Communication/BHumanTeamMessageParts/BHumanMessageParticle.h"
+#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 
 /**
  * @struct RobotPose
  * The pose of the robot with additional information
  */
-STREAMABLE_WITH_BASE(RobotPose, Pose2f, COMMA public BHumanMessageParticle<idRobotPose>
+STREAMABLE_WITH_BASE(RobotPose, Pose2f, COMMA public NaovaMessageParticule<idRobotPose>
 {
-  /** BHumanMessageParticle functions */
-  void operator >> (BHumanMessage& m) const override;
-  void operator << (const BHumanMessage& m) override;
+  /** NaovaMessageParticle functions */
+  void operator >> (NaovaMessage& m) const override;
+  void operator << (const NaovaMessage& m) override;
 
   /**
    * Assignment operator for Pose2f objects

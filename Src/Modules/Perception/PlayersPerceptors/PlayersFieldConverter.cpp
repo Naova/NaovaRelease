@@ -93,15 +93,15 @@ void PlayersFieldConverter::detectJersey(const PlayersImagePercept::PlayerInImag
     int totalPixels = 0;
 
     FieldColors::Color ownTeamColor =
-      theOwnTeamInfo.teamColor == TEAM_BLACK ? FieldColors::black :
-      theOwnTeamInfo.teamColor == TEAM_WHITE ? FieldColors::white :
-      theOwnTeamInfo.teamColor == TEAM_GREEN ? FieldColors::field :
+      theOwnTeamInfo.fieldPlayerColour == TEAM_BLACK ? FieldColors::black :
+      theOwnTeamInfo.fieldPlayerColour == TEAM_WHITE ? FieldColors::white :
+      theOwnTeamInfo.fieldPlayerColour == TEAM_GREEN ? FieldColors::field :
       FieldColors::none;
 
     FieldColors::Color opponentTeamColor =
-      theOpponentTeamInfo.teamColor == TEAM_BLACK ? FieldColors::black :
-      theOpponentTeamInfo.teamColor == TEAM_WHITE ? FieldColors::white :
-      theOpponentTeamInfo.teamColor == TEAM_GREEN ? FieldColors::field :
+      theOpponentTeamInfo.fieldPlayerColour == TEAM_BLACK ? FieldColors::black :
+      theOpponentTeamInfo.fieldPlayerColour == TEAM_WHITE ? FieldColors::white :
+      theOpponentTeamInfo.fieldPlayerColour == TEAM_GREEN ? FieldColors::field :
       FieldColors::none;
 
     // walk through image and count pixels:
@@ -123,8 +123,8 @@ void PlayersFieldConverter::detectJersey(const PlayersImagePercept::PlayerInImag
         // if both teams have FieldColors::none, they are colored or gray:
         else
         {
-          bool ownTeamIsGray = theOwnTeamInfo.teamColor == TEAM_GRAY;
-          bool opponentTeamIsGray = theOpponentTeamInfo.teamColor == TEAM_GRAY;
+          bool ownTeamIsGray = theOwnTeamInfo.fieldPlayerColour == TEAM_GRAY;
+          bool opponentTeamIsGray = theOpponentTeamInfo.fieldPlayerColour == TEAM_GRAY;
 
           // if one team is gray, just decide by saturation value:
           if(ownTeamIsGray || opponentTeamIsGray)
@@ -151,11 +151,11 @@ void PlayersFieldConverter::detectJersey(const PlayersImagePercept::PlayerInImag
               continue;
 
             // calculate own hue difference:
-            int ownTeamDiff = std::abs(teamColorsHue[theOwnTeamInfo.teamColor] - theECImage.hued[y][x]);
+            int ownTeamDiff = std::abs(teamColorsHue[theOwnTeamInfo.fieldPlayerColour] - theECImage.hued[y][x]);
             ownTeamDiff = std::min(ownTeamDiff, std::abs(255 - ownTeamDiff));
 
             // calculate opponent hue difference:
-            int opponentTeamDiff = std::abs(teamColorsHue[theOpponentTeamInfo.teamColor] - theECImage.hued[y][x]);
+            int opponentTeamDiff = std::abs(teamColorsHue[theOpponentTeamInfo.fieldPlayerColour] - theECImage.hued[y][x]);
             opponentTeamDiff = std::min(opponentTeamDiff, std::abs(255 - opponentTeamDiff));
 
             // if own difference is smaller, it is our pixel, else it is the opponents pixel:

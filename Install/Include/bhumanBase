@@ -13,11 +13,11 @@ export robotsFile="${configDir}/Robots/robots.cfg"
 
 export privateKeySource="${configDir}/Keys/id_rsa_nao"
 export privateKey=/tmp/id_rsa_nao
-export sshOptions="-c arcfour -o PreferredAuthentications=publickey,keyboard-interactive -o NumberOfPasswordPrompts=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet"
+export sshOptions="-c aes128-ctr -o PreferredAuthentications=publickey,keyboard-interactive -o NumberOfPasswordPrompts=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa"
 if [ `uname` = Darwin ]; then
-  export rsyncOptions="-qzPha --delete"
+  export rsyncOptions="-qzPha"
 else
-  export rsyncOptions="-qzPEha --delete"
+  export rsyncOptions="-qzPEha"
 fi
 export sshCommand="ssh -i \"${privateKey}\" ${sshOptions}"
 

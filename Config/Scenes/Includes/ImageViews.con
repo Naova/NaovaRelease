@@ -5,6 +5,7 @@ vi image upper
 vid all representation:FieldLines:image
 vid all representation:PenaltyMarkPercept:image
 vid all representation:PenaltyArea:image
+vid all representation:GoalArea:image
 vid all representation:OuterCorner:image
 vid all representation:MidCircle:image
 vid all representation:MidCorner:image

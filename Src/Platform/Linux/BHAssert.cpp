@@ -13,6 +13,10 @@
 #include <cstdarg>
 #include <iostream>
 
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 void Assert::print(const char* file, int line, const char* format, ...)
 {
   char data[320];
@@ -40,6 +44,15 @@ void Assert::print(const char* file, int line, const std::string& message)
 
 void Assert::abort()
 {
+  int size = 16;
+    void * array[16];
+    int stack_num = backtrace(array, size);
+    char ** stacktrace = backtrace_symbols(array, stack_num);
+    for (int i = 0; i < stack_num; ++i)
+    {
+        printf("%s\n", stacktrace[i]);
+    }
+    free(stacktrace);
   ::abort();
 }
 

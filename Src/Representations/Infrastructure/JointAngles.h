@@ -56,5 +56,5 @@ inline void JointAngles::mirror(const JointAngles& other)
 
 inline float JointAngles::mirror(float angle)
 {
-  return (angle == off || angle == ignore) ? angle : -angle;
+  return (angle == static_cast<float>(off) || angle == static_cast<float>(ignore)) ? angle : -angle;
 }

@@ -148,10 +148,10 @@ private:
             if(gameCtrlData.state != previousState ||
                gameCtrlData.gamePhase != previousGamePhase ||
                gameCtrlData.kickingTeam != previousKickingTeam ||
-               team.teamColour != previousTeamColour ||
+               team.fieldPlayerColour != previousTeamColour ||
                team.players[*playerNumber - 1].penalty != previousPenalty)
             {
-                switch(team.teamColour)
+                switch(team.fieldPlayerColour)
                 {
                     case TEAM_BLUE:
                         setLED(leftFootRed, 0.f, 0.f, 1.f);
@@ -224,13 +224,14 @@ private:
                 previousState = gameCtrlData.state;
                 previousGamePhase = gameCtrlData.gamePhase;
                 previousKickingTeam = gameCtrlData.kickingTeam;
-                previousTeamColour = team.teamColour;
+                previousTeamColour = team.fieldPlayerColour;
                 previousPenalty = team.players[*playerNumber - 1].penalty;
             }
 
             if(now - whenPacketWasReceived < GAMECONTROLLER_TIMEOUT &&
-               now - whenPacketWasSent >= ALIVE_DELAY &&
-               send(GAMECONTROLLER_RETURN_MSG_ALIVE))
+               now - whenPacketWasSent >= ALIVE_DELAY)
+            //    &&
+            //    send(GAMECONTROLLER_RETURN_MSG_ALIVE))
                 whenPacketWasSent = now;
         }
     }
@@ -281,14 +282,14 @@ private:
             if(gameCtrlData.teams[0].teamNumber != teamNumber &&
                gameCtrlData.teams[1].teamNumber != teamNumber)
             {
-                uint8_t teamColour = (uint8_t) *defaultTeamColour;
-                if(teamColour != TEAM_BLUE && teamColour != TEAM_RED && teamColour != TEAM_YELLOW &&
-                   teamColour != TEAM_WHITE && teamColour != TEAM_GREEN && teamColour != TEAM_ORANGE &&
-                   teamColour != TEAM_PURPLE && teamColour != TEAM_BROWN && teamColour != TEAM_GRAY)
-                    teamColour = TEAM_BLACK;
+                uint8_t fieldPlayerColour = (uint8_t) *defaultTeamColour;
+                if(fieldPlayerColour != TEAM_BLUE && fieldPlayerColour != TEAM_RED && fieldPlayerColour != TEAM_YELLOW &&
+                   fieldPlayerColour != TEAM_WHITE && fieldPlayerColour != TEAM_GREEN && fieldPlayerColour != TEAM_ORANGE &&
+                   fieldPlayerColour != TEAM_PURPLE && fieldPlayerColour != TEAM_BROWN && fieldPlayerColour != TEAM_GRAY)
+                    fieldPlayerColour = TEAM_BLACK;
                 gameCtrlData.teams[0].teamNumber = (uint8_t) teamNumber;
-                gameCtrlData.teams[0].teamColour = teamColour;
-                gameCtrlData.teams[1].teamColour = teamColour ^ 1; // we don't know better
+                gameCtrlData.teams[0].fieldPlayerColour = fieldPlayerColour;
+                gameCtrlData.teams[1].fieldPlayerColour = fieldPlayerColour ^ 1; // we don't know better
                 if(!gameCtrlData.playersPerTeam)
                     gameCtrlData.playersPerTeam = (uint8_t) *playerNumber; // we don't know better
                 publish();
@@ -302,6 +303,7 @@ private:
                 {
                     if(chestButtonPressed && whenChestButtonStateChanged && now - whenPacketWasReceived >= GAMECONTROLLER_TIMEOUT) // ignore first press, e.g. for getting up
                     {
+
                         RobotInfo& player = team.players[*playerNumber - 1];
                         if(player.penalty == PENALTY_NONE)
                         {
@@ -326,7 +328,7 @@ private:
                     {
                         if(leftFootButtonPressed)
                         {
-                            team.teamColour = (team.teamColour + 1) % 10; // cycle between TEAM_BLUE .. TEAM_GRAY
+                            team.fieldPlayerColour = (team.fieldPlayerColour + 1) % 10; // cycle between TEAM_BLUE .. TEAM_GRAY
                             publish();
                         }
                         previousLeftFootButtonPressed = leftFootButtonPressed;
@@ -366,9 +368,9 @@ private:
     bool send(uint8_t message)
     {
         RoboCupGameControlReturnData returnPacket;
-        returnPacket.team = (uint8_t) teamNumber;
-        returnPacket.player = (uint8_t) *playerNumber;
-        returnPacket.message = message;
+        returnPacket.teamNum = (uint8_t) teamNumber;
+        returnPacket.playerNum = (uint8_t) *playerNumber;
+        returnPacket.fallen = (uint8_t) 0; // Mieux vaut de la mauvaise information que pas d’information pantoute. - Éric Duhaime, 2015
         return !udp || udp->write((const char*) &returnPacket, sizeof(returnPacket));
     }
 

@@ -48,16 +48,9 @@ STREAMABLE(Teammate, COMMA public MessageHandler
     PENALIZED,                        /** OK   : I receive packets, but robot is penalized */
     FALLEN,                           /** GOOD : Robot is playing but has fallen or currently no ground contact */
     PLAYING,                          /** BEST : Teammate is standing/walking and has ground contact :-) */
-  });
-
-  ENUM(TeamOrigin,
-  {,
-    HULKsRobot,
-    BHumanRobot,
   }),
 
   (int)(-1) number,
-  (TeamOrigin) mateType,
   (bool)(false) isGoalkeeper,
   (bool)(true) isPenalized,
   (bool)(true) isUpright,
@@ -65,20 +58,19 @@ STREAMABLE(Teammate, COMMA public MessageHandler
   (unsigned)(0) timeOfLastGroundContact,
   (bool)(true) hasGroundContact,
   (Status)(PENALIZED) status,
-  (Angle)(0_deg) headYawAngle,
 
   (RobotPose) theRobotPose,
   (BallModel) theBallModel,
-  (ObstacleModel) theObstacleModel,
+  // (ObstacleModel) theObstacleModel,
   (BehaviorStatus) theBehaviorStatus,
-  (SPLStandardBehaviorStatus) theSPLStandardBehaviorStatus,
+  // (SPLStandardBehaviorStatus) theSPLStandardBehaviorStatus,
   (Whistle) theWhistle,
-  (TeammateRoles) theTeammateRoles,
+  // (TeammateRoles) theTeammateRoles,
   (FieldCoverage) theFieldCoverage,
-  (SideConfidence) theSideConfidence,
+  // (SideConfidence) theSideConfidence,
 
-  (RobotHealth) theRobotHealth,
-  (B_HULKs::OwnTeamInfo) theRawGCData,
+  // (RobotHealth) theRobotHealth,
+  // (Naova::OwnTeamInfo) theRawGCData,
 });
 
 /**
@@ -93,4 +85,5 @@ STREAMABLE(TeamData,
   (std::vector<Teammate>) teammates, //< An unordered(!) list of all teammates that are currently communicating with me */
   (int)(0) numberOfActiveTeammates,   //< The number of teammates (in the list) that are at not INACTIVE */
   (unsigned)(0) receivedMessages,     //< The number of received (not self) team messages
+  (bool)(true) canSendMessages, 
 });

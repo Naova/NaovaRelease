@@ -65,15 +65,12 @@ void MotionCombinator::update(JointRequest& jointRequest)
     }
   }
 
-  if(theRobotInfo.hasFeature(RobotInfo::zGyro))
-  {
+  
     if(theFallDownState.state == FallDownState::falling || theFallDownState.state == FallDownState::fallen)
       odometryOffset.rotation = 0_deg; // postpone rotation change until being upright again
     else
       odometryOffset.rotation = Angle::normalize(Rotation::Euler::getZAngle(theInertialData.orientation3D) - odometryData.rotation);
-  }
-  else
-    odometryOffset.rotation = Angle::normalize(odometryOffset.rotation + theFallDownState.odometryRotationOffset);
+  
 
   if(useAccFusion && theLegMotionSelection.targetMotion == MotionRequest::walk)
     estimateOdometryOffset(odometryOffset.translation);
@@ -91,8 +88,8 @@ void MotionCombinator::update(JointRequest& jointRequest)
   int count = 0;
   for(int i = Joints::lHipYawPitch; i < Joints::numOfJoints; i++)
   {
-    if(jointRequest.angles[i] != JointAngles::off && jointRequest.angles[i] != JointAngles::ignore &&
-       lastJointRequest.angles[i] != JointAngles::off && lastJointRequest.angles[i] != JointAngles::ignore)
+    if(jointRequest.angles[i] != static_cast<float>(JointAngles::off) && jointRequest.angles[i] != static_cast<float>(JointAngles::ignore) &&
+       lastJointRequest.angles[i] != static_cast<float>(JointAngles::off) && lastJointRequest.angles[i] != static_cast<float>(JointAngles::ignore))
     {
       sum += std::abs(jointRequest.angles[i] - lastJointRequest.angles[i]);
       count++;
@@ -101,8 +98,8 @@ void MotionCombinator::update(JointRequest& jointRequest)
   PLOT("module:MotionCombinator:deviations:JointRequest:legsOnly", sum / count);
   for(int i = 0; i < Joints::lHipYawPitch; i++)
   {
-    if(jointRequest.angles[i] != JointAngles::off && jointRequest.angles[i] != JointAngles::ignore &&
-       lastJointRequest.angles[i] != JointAngles::off && lastJointRequest.angles[i] != JointAngles::ignore)
+    if(jointRequest.angles[i] != static_cast<float>(JointAngles::off) && jointRequest.angles[i] != static_cast<float>(JointAngles::ignore) &&
+       lastJointRequest.angles[i] != static_cast<float>(JointAngles::off) && lastJointRequest.angles[i] != static_cast<float>(JointAngles::ignore))
     {
       sum += std::abs(jointRequest.angles[i] - lastJointRequest.angles[i]);
       count++;
@@ -114,7 +111,7 @@ void MotionCombinator::update(JointRequest& jointRequest)
   count = 0;
   for(int i = Joints::lHipYawPitch; i < Joints::numOfJoints; i++)
   {
-    if(lastJointRequest.angles[i] != JointAngles::off && lastJointRequest.angles[i] != JointAngles::ignore)
+    if(lastJointRequest.angles[i] != static_cast<float>(JointAngles::off) && lastJointRequest.angles[i] != static_cast<float>(JointAngles::ignore))
     {
       sum += std::abs(lastJointRequest.angles[i] - theJointAngles.angles[i]);
       count++;
@@ -124,7 +121,7 @@ void MotionCombinator::update(JointRequest& jointRequest)
 
   for(int i = 0; i < Joints::lHipYawPitch; i++)
   {
-    if(lastJointRequest.angles[i] != JointAngles::off && lastJointRequest.angles[i] != JointAngles::ignore)
+    if(lastJointRequest.angles[i] != static_cast<float>(JointAngles::off) && lastJointRequest.angles[i] != static_cast<float>(JointAngles::ignore))
     {
       sum += std::abs(lastJointRequest.angles[i] - theJointAngles.angles[i]);
       count++;

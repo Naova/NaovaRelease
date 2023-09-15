@@ -31,6 +31,8 @@ private:
   ModuleManager moduleManager; /**< The solution manager handles the execution of modules. */
   Logger logger; /**< The logger logs representations in the background. */
 
+  void printInfo(const NaovaMessageOutputGenerator& outTeamMessage);
+
 public:
   Cognition();
 

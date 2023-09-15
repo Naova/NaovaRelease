@@ -4,6 +4,8 @@
 
 #pragma once
 #include <vector>
+#include <string>
+
 /**
  * static class for system calls
  * @attention the implementation is system specific!
@@ -51,4 +53,7 @@ public:
    * @return Is currently a file replayed?
    */
   static bool soundIsPlaying();
+
+  static std::string execute(const std::string& cmd);
+
 };

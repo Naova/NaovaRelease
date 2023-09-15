@@ -18,6 +18,12 @@
 struct RobotInfo : public RoboCup::RobotInfo, public Streamable
 {
 public:
+  ENUM(Mode, 
+  {,
+    unstiff,
+    active,
+  });
+
   ENUM(NaoVersion,
   {,
     V32,
@@ -43,6 +49,7 @@ public:
     headLEDs,
   });
 
+  Mode mode;
   int number; /**< The number of the robot. */
 
   NaoVersion headVersion = V4;

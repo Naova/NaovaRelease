@@ -19,6 +19,7 @@ void PlayersImagePercept::draw() const
       {
         CROSS("representation:PlayersImagePercept:image", player.realCenterX, player.y2, 2, 4, Drawings::solidPen, ColorRGBA::red);
       }
+      DRAWTEXT("representation:BallPercept:image", player.realCenterX, player.y2, 14, ColorRGBA::black, "confidence:" << player.confidence);
     }
   }
 

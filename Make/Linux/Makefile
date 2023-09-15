@@ -6,11 +6,7 @@ FLAGS = $(SSSE3) $(AVX2)
 
 OS_VERS = $(word 1, $(subst ., , `$(shell lsb_release -a 2>/dev/null | grep Release | awk '{ print $$2 }')`))
 
-ifeq ($(OS_VERS),`18)
 QTINCLUDE = `find /usr/include /usr/local/include -name qt5 -type d`
-else
-QTINCLUDE = `qtchooser -qt=qt5-x86_64-linux-gnu -print-env | grep QTTOOLDIR | sed "s%QTTOOLDIR=\"\(.*\)bin\"%\1%" | sed "s/^\/usr\/lib/\/usr\/include/"`
-endif
 
 .PHONY: all clean
 

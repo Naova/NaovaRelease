@@ -3,13 +3,9 @@ option(Soccer)
 {
   common_transition
   {
-    theArmMotionRequest.armMotion[Arms::left] = ArmMotionRequest::none;
-    theArmMotionRequest.armMotion[Arms::right] = ArmMotionRequest::none;
-	//theArmMotionRequest.armMotion
     theHeadControlMode = HeadControl::none;
-
     if(!theCameraStatus.ok)
-      goto sitDown;
+     goto sitDown;
   }
 
   /** Initially, all robot joints are off until the chest button is pressed. */
@@ -55,11 +51,15 @@ option(Soccer)
   {
     transition
     {
+      if(theRobotInfo.mode == RobotInfo::unstiff)
+        goto sitDown;
       if(action_done)
         goto playSoccer;
     }
     action
     {
+		theArmMotionRequest.armMotion[Arms::left] = ArmMotionRequest::none;
+	theArmMotionRequest.armMotion[Arms::right] = ArmMotionRequest::none;
       Activity(BehaviorStatus::gettingUp);
       LookForward();
       Stand();
@@ -75,13 +75,15 @@ option(Soccer)
   {
     transition
     {
+      if(theRobotInfo.mode == RobotInfo::unstiff)
+        goto sitDown;
+        
       if(action_done) // chest button pressed and released once
         goto waitForSecondButtonPress;
     }
     action
     {
       HandlePenaltyState();
-      HeadControl();
       ButtonPressedAndReleased(KeyStates::chest, 1000, 200);
     }
   }
@@ -126,8 +128,14 @@ option(Soccer)
   {
     transition
     {
-      if(action_done)
-        goto playDeadDoNotRecover;
+      if(action_done) {
+        if(theRobotInfo.mode == RobotInfo::unstiff) {
+          goto playDead;
+        }
+        else {
+          goto playDeadDoNotRecover;
+        }
+      }
     }
     action
     {

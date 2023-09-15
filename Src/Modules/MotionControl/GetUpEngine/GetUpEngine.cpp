@@ -107,17 +107,17 @@ void GetUpEngine::interpolate(const JointAngles& from, const JointRequest& to, f
     float f = from.angles[i];
     float t = to.angles[i];
 
-    if(t == JointAngles::ignore && f == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore) && f == static_cast<float>(JointAngles::ignore))
       continue;
 
-    if(t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::ignore))
       t = target.angles[i];
-    if(f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::ignore))
       f = target.angles[i];
 
-    if(t == JointAngles::off || t == JointAngles::ignore)
+    if(t == static_cast<float>(JointAngles::off) || t == static_cast<float>(JointAngles::ignore))
       t = theJointAngles.angles[i];
-    if(f == JointAngles::off || f == JointAngles::ignore)
+    if(f == static_cast<float>(JointAngles::off) || f == static_cast<float>(JointAngles::ignore))
       f = theJointAngles.angles[i];
 
     target.angles[i] = ratio * (t - f) + f;
@@ -132,15 +132,15 @@ void GetUpEngine::pickMotion(GetUpEngineOutput& output)
   const float& bodyAngleY = theInertialData.angle.y();
   const float& bodyAngleX = theInertialData.angle.x();
 
-  FallDownState::Direction fallDirection;
-  if(std::abs(bodyAngleX) > std::abs(bodyAngleY))
-  {
-    fallDirection = bodyAngleX > 0 ? FallDownState::right : FallDownState::left;
-  }
-  else
-  {
-    fallDirection = bodyAngleY > 0 ? FallDownState::front : FallDownState::back;
-  }
+  // FallDownState::Direction fallDirection;
+  // if(std::abs(bodyAngleX) > std::abs(bodyAngleY))
+  // {
+  //   fallDirection = bodyAngleX > 0 ? FallDownState::right : FallDownState::left;
+  // }
+  // else
+  // {
+  //   fallDirection = bodyAngleY > 0 ? FallDownState::front : FallDownState::back;
+  // }
 
   switch(state)
   {
@@ -628,11 +628,7 @@ void GetUpEngine::generateMotionOfMof(GetUpMotion motionName)
                 return;
               }
             }
-            if(sscanf(sval[Joints::numOfJoints], "%i", &val) == 1 && (val >= 0 || val <= 3))
-            {
-              //do nothing with interpolation flag
-            }
-            else
+            if(sscanf(sval[Joints::numOfJoints], "%i", &val) != 1)
             {
               char buffer[50];
               sprintf(buffer, "%s(%i) : error: interpolation data format", name, line);

@@ -11,7 +11,10 @@
 #include <list>
 #include "PlatformProcess.h"
 #include "Receiver.h"
+#include <string.h>
+
 #include "Sender.h"
+#include <string.h>
 #include "Tools/Streams/AutoStreamable.h"
 #ifdef TARGET_SIM
 #include "Controller/RoboCupCtrl.h"
@@ -281,8 +284,12 @@ public:
    */
   void start()
   {
-    for(iterator i = begin(); i != end(); ++i)
-      (*i)->start();
+    for(iterator i = begin(); i != end(); ++i){
+      // if(!strcmp((*i)->getName().c_str(),"Cognition")){
+        (*i)->start();
+        
+      // }
+    }
   }
 };
 

@@ -4,6 +4,16 @@
 #include "Platform/File.h"
 #include "Filesystem.h"
 
+static std::string escapeCmdString(const std::string& string)
+{
+#ifdef WINDOWS
+  static std::regex regex("[\\^\\&\\|\\<\\>]");
+  return std::regex_replace(string, regex, "^$&");
+#else
+  return string;
+#endif
+}
+
 std::string remoteCommand(const std::string& command, const std::string ip)
 {
   std::string ticks = "\"";
@@ -12,7 +22,7 @@ std::string remoteCommand(const std::string& command, const std::string ip)
 
 std::string remoteCommandForQProcess(const std::string& command, const std::string& ip)
 {
-  return connectCommand(ip + " " + command);
+  return connectCommand(ip + " \"\"\"" + escapeCmdString(command) + "\"\"\"");
 }
 
 std::string connectCommand(const std::string& ip)
@@ -21,7 +31,7 @@ std::string connectCommand(const std::string& ip)
 #ifdef WINDOWS
     "cmd /c "
 #endif
-    "bash -c \"cp Keys/id_rsa_nao /tmp/id_rsa_nao && chmod 600 /tmp/id_rsa_nao && ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet nao@" + ip + "\"";
+    "bash -c \"cp Keys/id_rsa_nao /tmp/id_rsa_nao && chmod 600 /tmp/id_rsa_nao && ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa nao@" + ip + "\"";
 }
 
 std::string scpCommand(const std::string& fromFile, const std::string& fromHost, const std::string& toDir, const std::string& toHost)
@@ -41,7 +51,7 @@ std::string scpCommand(const std::string& fromFile, const std::string& fromHost,
 #ifdef WINDOWS
     "cmd /c "
 #endif
-    "bash -c \"cp Keys/id_rsa_nao /tmp/id_rsa_nao && chmod 600 /tmp/id_rsa_nao && scp -r -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet " + from + " " + to + "\"";
+    "bash -c \"cp Keys/id_rsa_nao /tmp/id_rsa_nao && chmod 600 /tmp/id_rsa_nao && scp -r -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa " + from + " " + to + "\"";
 }
 
 std::string scpCommandFromRobot(const std::string& fromDir, const std::string& ip, const std::string& toDir)

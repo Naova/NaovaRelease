@@ -22,58 +22,44 @@ void RobotPose::onRead()
   inversePose.invert();
 }
 
-void RobotPose::operator >> (BHumanMessage& m) const
+void RobotPose::operator >> (NaovaMessage& m) const
 {
-  m.theBSPLStandardMessage.pose[0] = translation.x();
-  m.theBSPLStandardMessage.pose[1] = translation.y();
-  m.theBSPLStandardMessage.pose[2] = rotation;
+  m.theNaovaSPLStandardMessage.pose[0] = translation.x();
+  m.theNaovaSPLStandardMessage.pose[1] = translation.y();
+  m.theNaovaSPLStandardMessage.pose[2] = rotation;
 //  m.theBSPLStandardMessage.currentPositionConfidence = static_cast<int8_t>(validity * 100);
 
-  m.theBHumanStandardMessage.robotPoseValidity = static_cast<unsigned char>(validity * 255.f);
-  m.theBHumanStandardMessage.robotPoseDeviation = deviation;
-  m.theBHumanStandardMessage.robotPoseCovariance[0] = covariance(0, 0);
-  m.theBHumanStandardMessage.robotPoseCovariance[1] = covariance(1, 1);
-  m.theBHumanStandardMessage.robotPoseCovariance[2] = covariance(2, 2);
-  m.theBHumanStandardMessage.robotPoseCovariance[3] = (covariance(1, 0) + covariance(0, 1)) / 2.f;
-  m.theBHumanStandardMessage.robotPoseCovariance[4] = (covariance(2, 0) + covariance(0, 2)) / 2.f;
-  m.theBHumanStandardMessage.robotPoseCovariance[5] = (covariance(2, 1) + covariance(1, 2)) / 2.f;
+  m.theNaovaStandardMessage.robotPoseValidity = static_cast<unsigned char>(validity * 255.f);
+  m.theNaovaStandardMessage.robotPoseDeviation = deviation;
+  // m.theNaovaStandardMessage.robotPoseCovariance[0] = covariance(0, 0);
+  // m.theNaovaStandardMessage.robotPoseCovariance[1] = covariance(1, 1);
+  // m.theNaovaStandardMessage.robotPoseCovariance[2] = covariance(2, 2);
+  // m.theNaovaStandardMessage.robotPoseCovariance[3] = (covariance(1, 0) + covariance(0, 1)) / 2.f;
+  // m.theNaovaStandardMessage.robotPoseCovariance[4] = (covariance(2, 0) + covariance(0, 2)) / 2.f;
+  // m.theNaovaStandardMessage.robotPoseCovariance[5] = (covariance(2, 1) + covariance(1, 2)) / 2.f;
 
-  m.theBHULKsStandardMessage.timestampLastJumped = timestampLastJump;
+  m.theNaovaStandardMessage.timestampLastJumped = timestampLastJump;
 }
 
-void RobotPose::operator<< (const BHumanMessage& m)
+void RobotPose::operator<< (const NaovaMessage& m)
 {
-  translation.x() = m.theBSPLStandardMessage.pose[0];
-  translation.y() = m.theBSPLStandardMessage.pose[1];
-  rotation = m.theBSPLStandardMessage.pose[2];
+  translation.x() = m.theNaovaSPLStandardMessage.pose[0];
+  translation.y() = m.theNaovaSPLStandardMessage.pose[1];
+  rotation = m.theNaovaSPLStandardMessage.pose[2];
 
   inversePose = static_cast<Pose2f>(*this).inverse();
 
-  if(m.theBHULKsStandardMessage.member == B_HUMAN_MEMBER)
-  {
-    deviation = m.theBHumanStandardMessage.robotPoseDeviation;
-    validity = static_cast<float>(m.theBHumanStandardMessage.robotPoseValidity) / 255.f;
+  deviation = m.theNaovaStandardMessage.robotPoseDeviation;
+  validity = static_cast<float>(m.theNaovaStandardMessage.robotPoseValidity) / 255.f;
 
-    covariance(0, 0) = m.theBHumanStandardMessage.robotPoseCovariance[0];
-    covariance(1, 1) = m.theBHumanStandardMessage.robotPoseCovariance[1];
-    covariance(2, 2) = m.theBHumanStandardMessage.robotPoseCovariance[2];
-    covariance(1, 0) = covariance(0, 1) = m.theBHumanStandardMessage.robotPoseCovariance[3];
-    covariance(2, 0) = covariance(0, 2) = m.theBHumanStandardMessage.robotPoseCovariance[4];
-    covariance(2, 1) = covariance(1, 2) = m.theBHumanStandardMessage.robotPoseCovariance[5];
-  }
-  else
-  {
-    covariance(0, 0) = 1000.f;
-    covariance(1, 1) = 1000.f;
-    covariance(2, 2) = 0.2f;
-    covariance(1, 0) = covariance(0, 1) = 25.f;
-    covariance(2, 0) = covariance(0, 2) = 0.01f;
-    covariance(2, 1) = covariance(1, 2) = 0.01f;
+  // covariance(0, 0) = m.theNaovaStandardMessage.robotPoseCovariance[0];
+  // covariance(1, 1) = m.theNaovaStandardMessage.robotPoseCovariance[1];
+  // covariance(2, 2) = m.theNaovaStandardMessage.robotPoseCovariance[2];
+  // covariance(1, 0) = covariance(0, 1) = m.theNaovaStandardMessage.robotPoseCovariance[3];
+  // covariance(2, 0) = covariance(0, 2) = m.theNaovaStandardMessage.robotPoseCovariance[4];
+  // covariance(2, 1) = covariance(1, 2) = m.theNaovaStandardMessage.robotPoseCovariance[5];
 
-    deviation = std::sqrt(std::max(covariance(0, 0), covariance(1, 1)));
-    validity = 0.8f;
-  }
-  timestampLastJump = m.toLocalTimestamp(m.theBHULKsStandardMessage.timestampLastJumped);
+  timestampLastJump = m.toLocalTimestamp(m.theNaovaStandardMessage.timestampLastJumped);
 }
 
 Pose2f RobotPose::inverse() const
@@ -132,7 +118,7 @@ void RobotPose::draw() const
     ColorRGBA::black
   };
   const ColorRGBA ownTeamColorForDrawing = colors[Blackboard::getInstance().exists("OwnTeamInfo") ?
-      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).teamColor : TEAM_BLACK];
+      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).fieldPlayerColour : TEAM_BLACK];
 
   DEBUG_DRAWING("representation:RobotPose", "drawingOnField")
   {

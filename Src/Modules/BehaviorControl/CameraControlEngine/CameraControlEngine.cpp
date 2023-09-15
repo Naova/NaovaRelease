@@ -106,9 +106,9 @@ void CameraControlEngine::update(HeadAngleRequest& headAngleRequest)
 
   if(theHeadMotionRequest.mode == HeadMotionRequest::panTiltMode)
   {
-    if(theHeadMotionRequest.tilt == JointAngles::off)
+    if(theHeadMotionRequest.tilt == static_cast<float>(JointAngles::off))
       headAngleRequest.tilt = JointAngles::off;
-    if(theHeadMotionRequest.pan == JointAngles::off)
+    if(theHeadMotionRequest.pan == static_cast<float>(JointAngles::off))
       headAngleRequest.pan = JointAngles::off;
   }
   headAngleRequest.speed = theHeadMotionRequest.speed;

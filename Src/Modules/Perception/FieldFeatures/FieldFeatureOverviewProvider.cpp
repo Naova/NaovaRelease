@@ -8,7 +8,7 @@ void FieldFeatureOverviewProvider::update(FieldFeatureOverview& fieldFeatureOver
   fieldFeatures[FieldFeatureOverview::MidCircle] = &theMidCircle;
   fieldFeatures[FieldFeatureOverview::MidCorner] = &theMidCorner;
   fieldFeatures[FieldFeatureOverview::OuterCorner] = &theOuterCorner;
-  fieldFeatures[FieldFeatureOverview::PenaltyArea] = &thePenaltyArea;
+  fieldFeatures[FieldFeatureOverview::GoalArea] = &theGoalArea;
 
   fieldFeatureOverview.combinedStatus.isValid = false;
   FOREACH_ENUM((FieldFeatureOverview) Feature, i)

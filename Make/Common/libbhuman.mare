@@ -41,7 +41,7 @@ libbhuman = cppDynamicLibrary + {
   cppFlags += {
     "-Wconversion"
     "-Wno-sign-conversion"
-    "-nostdinc -march=atom -target i686-pc-linux-gnu"
+    "-nostdinc -march=silvermont -mtune=silvermont -target i686-pc-linux-gnu"
     if (host == "Win32") {
       "-x c++"
     }

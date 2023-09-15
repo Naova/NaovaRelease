@@ -33,7 +33,7 @@ bool OuterCornerPerceptor::searchForBigLAndT(OuterCorner& outerCorner) const
     if(intersection.type == FieldLineIntersections::Intersection::T && intersection.additionalType == FieldLineIntersections::Intersection::none)
       useNormalTIntersections.push_back(&intersection);
 
-  const float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftPenaltyArea;
+  const float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftGoalArea;
 
   for(const FieldLineIntersections::Intersection* intersectionL : useBigLIntersections)
     for(const FieldLineIntersections::Intersection* intersectionT : useNormalTIntersections)
@@ -79,7 +79,7 @@ bool OuterCornerPerceptor::searchForBigLAndT(OuterCorner& outerCorner) const
 
 bool OuterCornerPerceptor::searchForLAndPA(OuterCorner& outerCorner) const
 {
-  if(!thePenaltyArea.isValid)
+  if(!theGoalArea.isValid)
     return false;
 
   std::vector<const FieldLineIntersections::Intersection*> useLIntersections;
@@ -92,11 +92,11 @@ bool OuterCornerPerceptor::searchForLAndPA(OuterCorner& outerCorner) const
 
   for(const FieldLineIntersections::Intersection* lIntersection : useLIntersections)
   {
-    const Vector2f intersectionInPA = thePenaltyArea.inverse() * lIntersection->pos;
+    const Vector2f intersectionInPA = theGoalArea.inverse() * lIntersection->pos;
     if(intersectionInPA.x() < 0.f)
       continue;
 
-    const static float xOffsetPA = (theFieldDimensions.xPosOpponentGroundline - theFieldDimensions.xPosOpponentPenaltyArea) / 2.f;
+    const static float xOffsetPA = (theFieldDimensions.xPosOpponentGroundline - theFieldDimensions.xPosOpponentGoalArea) / 2.f;
     if(intersectionInPA.y() < 0) //check for right corner
     {
       const static Vector2f rightCornerInPa = Vector2f(xOffsetPA, theFieldDimensions.yPosRightSideline);
@@ -106,7 +106,7 @@ bool OuterCornerPerceptor::searchForLAndPA(OuterCorner& outerCorner) const
          std::abs(displacement.x()) > allowedDisplacement || std::abs(displacement.y()) > allowedDisplacement)
         continue;
 
-      const Angle postulatedCornerAngle = thePenaltyArea.rotation + 90_deg;
+      const Angle postulatedCornerAngle = theGoalArea.rotation + 90_deg;
       Angle rotation;
       if(std::abs((rotation = lIntersection->dir1.angle()) - postulatedCornerAngle) < thresholdPostulatedCornerAngleOffset)
       {
@@ -154,7 +154,7 @@ bool OuterCornerPerceptor::searchForLAndPA(OuterCorner& outerCorner) const
          std::abs(displacement.x()) > allowedDisplacement || std::abs(displacement.y()) > allowedDisplacement)
         continue;
 
-      const float postulatedCornerAngle = thePenaltyArea.rotation - 90_deg;
+      const float postulatedCornerAngle = theGoalArea.rotation - 90_deg;
       Angle rotation;
       if(std::abs((rotation = lIntersection->dir1.angle()) - postulatedCornerAngle) < thresholdPostulatedCornerAngleOffset)
       {
@@ -212,7 +212,7 @@ bool OuterCornerPerceptor::searchForBigLAndTL(OuterCorner& outerCorner) const
     if(intersection.type == FieldLineIntersections::Intersection::L && intersection.additionalType == FieldLineIntersections::Intersection::none)
       useNormalLIntersections.push_back(&intersection);
 
-  const static float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftPenaltyArea;
+  const static float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftGoalArea;
 
   for(const FieldLineIntersections::Intersection* intersectionBigL : useBigLIntersections)
   {
@@ -278,8 +278,8 @@ bool OuterCornerPerceptor::searchForBigLAndSmallL(OuterCorner& outerCorner) cons
     if(intersection.type == FieldLineIntersections::Intersection::L && intersection.additionalType == FieldLineIntersections::Intersection::none)
       useNormalLIntersections.push_back(&intersection);
 
-  const static float xFieldDistance = theFieldDimensions.xPosOpponentGroundline - theFieldDimensions.xPosOpponentPenaltyArea;
-  const static float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftPenaltyArea + xFieldDistance;
+  const static float xFieldDistance = theFieldDimensions.xPosOpponentGroundline - theFieldDimensions.xPosOpponentGoalArea;
+  const static float fieldDistance = theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftGoalArea + xFieldDistance;
 
   for(const FieldLineIntersections::Intersection* intersectionBigL : useBigLIntersections)
   {

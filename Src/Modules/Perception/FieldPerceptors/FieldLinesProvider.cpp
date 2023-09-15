@@ -30,8 +30,8 @@ void FieldLinesProvider::update(FieldLines& fieldLines)
     if(theGameInfo.gamePhase == GAME_PHASE_PENALTYSHOOT)
     {
       if(std::abs(std::abs((theRobotPose * line.firstField - theRobotPose * line.lastField).angle()) - 90_deg) > 30_deg
-         && (std::abs((theRobotPose * line.firstField).y()) < theFieldDimensions.yPosLeftPenaltyArea - 150
-             || std::abs((theRobotPose * line.lastField).y()) < theFieldDimensions.yPosLeftPenaltyArea - 150))
+         && (std::abs((theRobotPose * line.firstField).y()) < theFieldDimensions.yPosLeftGoalArea - 150
+             || std::abs((theRobotPose * line.lastField).y()) < theFieldDimensions.yPosLeftGoalArea - 150))
       {
         spotLineUsage.push_back(thrown);
         lineIndexTable.push_back(lostIndex);

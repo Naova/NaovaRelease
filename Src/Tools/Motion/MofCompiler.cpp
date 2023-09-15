@@ -362,7 +362,7 @@ bool MofCompiler::parseMofs()
                     return false;
                   }
                 }
-                if(sscanf(sval[Joints::numOfJoints], "%i", &val) == 1 && (val >= 0 || val <= 3))
+                if(sscanf(sval[Joints::numOfJoints], "%i", &val) == 1)
                 {
                   strcat(temp, " ");
                   strcat(temp, sval[Joints::numOfJoints]);

@@ -29,12 +29,12 @@ option(TrackBall, (float)(pi) speed, ((HeadMotionRequest) CameraControlMode)(aut
   {
     transition
     {
-      if(action_done)
+      if(theTeamBallModel.isValid)
         goto startTracking;
     }
     action
     {
-        SearchBall();
+      SetHeadPanTilt(0, 1.5); 
     }
   }
 }

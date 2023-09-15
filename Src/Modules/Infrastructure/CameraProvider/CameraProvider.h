@@ -96,4 +96,5 @@ private:
   bool processResolutionRequest();
 
   void setupCameras();
+  void saveCurrentImageToFile(std::string filePath, const Image& image) const;
 };

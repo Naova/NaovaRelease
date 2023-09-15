@@ -28,13 +28,13 @@ void HeadMotionEngine::update(HeadMotionEngineOutput& headMotionEngineOutput)
   float maxAcc = theGroundContactState.contact ? 10.f : 1.f; // arbitrary value that seems to be good...
   MODIFY("module:HeadMotionEngine:maxAcceleration", maxAcc);
 
-  const float pan = requestedPan == JointAngles::off ? JointAngles::off : Rangef(theHeadLimits.minPan(), theHeadLimits.maxPan()).limit(requestedPan);
-  const float tilt = requestedTilt == JointAngles::off ? JointAngles::off : theHeadLimits.getTiltBound(pan).limit(requestedTilt);
+  const float pan = requestedPan == static_cast<float>(JointAngles::off) ? static_cast<float>(JointAngles::off) : Rangef(theHeadLimits.minPan(), theHeadLimits.maxPan()).limit(requestedPan);
+  const float tilt = requestedTilt == static_cast<float>(JointAngles::off) ? JointAngles::off : theHeadLimits.getTiltBound(pan).limit(requestedTilt);
 
   constexpr float deltaTime = Constants::motionCycleTime;
-  const Vector2f position(headMotionEngineOutput.pan == JointAngles::off ? theJointAngles.angles[Joints::headYaw] : headMotionEngineOutput.pan,
-                          headMotionEngineOutput.tilt == JointAngles::off ? theJointAngles.angles[Joints::headPitch] : headMotionEngineOutput.tilt);
-  const Vector2f target(pan == JointAngles::off ? 0.f : pan, tilt == JointAngles::off ? 0.f : tilt);
+  const Vector2f position(headMotionEngineOutput.pan == static_cast<float>(JointAngles::off) ? theJointAngles.angles[Joints::headYaw] : headMotionEngineOutput.pan,
+                          headMotionEngineOutput.tilt == static_cast<float>(JointAngles::off) ? theJointAngles.angles[Joints::headPitch] : headMotionEngineOutput.tilt);
+  const Vector2f target(pan == static_cast<float>(JointAngles::off) ? 0.f : pan, tilt == static_cast<float>(JointAngles::off) ? 0.f : tilt);
   Vector2f offset(target - position);
   const float distanceToTarget = offset.norm();
 
@@ -76,9 +76,9 @@ void HeadMotionEngine::update(HeadMotionEngineOutput& headMotionEngineOutput)
   Vector2f newPosition(position + offset);
 
   // set new position
-  headMotionEngineOutput.pan = pan == JointAngles::off ? JointAngles::off : newPosition.x();
-  headMotionEngineOutput.tilt = tilt == JointAngles::off ? JointAngles::off : newPosition.y();
-  headMotionEngineOutput.moving = pan != JointAngles::off && tilt != JointAngles::off && ((newPosition - position) / deltaTime).squaredNorm() > sqr(maxAcc * deltaTime * 0.5f);
+  headMotionEngineOutput.pan = pan == static_cast<float>(JointAngles::off) ? static_cast<float>(JointAngles::off) : newPosition.x();
+  headMotionEngineOutput.tilt = tilt == static_cast<float>(JointAngles::off) ? static_cast<float>(JointAngles::off) : newPosition.y();
+  headMotionEngineOutput.moving = pan != static_cast<float>(JointAngles::off) && tilt != static_cast<float>(JointAngles::off) && ((newPosition - position) / deltaTime).squaredNorm() > sqr(maxAcc * deltaTime * 0.5f);
 
   // check reachability
   headMotionEngineOutput.reachable = true;

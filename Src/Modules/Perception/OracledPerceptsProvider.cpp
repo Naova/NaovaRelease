@@ -40,6 +40,49 @@ OracledPerceptsProvider::OracledPerceptsProvider()
   oppLeftCorner.dir1 = Vector2f(-1.f, 0.f);
   oppLeftCorner.dir2 = Vector2f(0.f, -1.f);
   intersections.push_back(oppLeftCorner);
+  IntersectionsPercept::Intersection oppLeftGoalArea;
+  oppLeftGoalArea.type = IntersectionsPercept::Intersection::T;
+  oppLeftGoalArea.pos = Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftGoalArea);
+  oppLeftGoalArea.dir1 = Vector2f(-1.f, 0.f);
+  oppLeftGoalArea.dir2 = Vector2f(0.f, -1.f);
+  intersections.push_back(oppLeftGoalArea);
+  IntersectionsPercept::Intersection oppRightGoalArea;
+  oppRightGoalArea.type = IntersectionsPercept::Intersection::T;
+  oppRightGoalArea.pos = Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosRightGoalArea);
+  oppRightGoalArea.dir1 = Vector2f(-1.f, 0.f);
+  oppRightGoalArea.dir2 = Vector2f(0.f, -1.f);
+  intersections.push_back(oppRightGoalArea);
+  IntersectionsPercept::Intersection oppRightCorner;
+  oppRightCorner.type = IntersectionsPercept::Intersection::L;
+  oppRightCorner.pos = Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosRightSideline);
+  oppRightCorner.dir1 = Vector2f(-1.f, 0.f);
+  oppRightCorner.dir2 = Vector2f(0.f, 1.f);
+  intersections.push_back(oppRightCorner);
+  IntersectionsPercept::Intersection oppLeftGoalCorner;
+  oppLeftGoalCorner.type = IntersectionsPercept::Intersection::L;
+  oppLeftGoalCorner.pos = Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  oppLeftGoalCorner.dir1 = Vector2f(1.f, 0.f);
+  oppLeftGoalCorner.dir2 = Vector2f(0.f, -1.f);
+  intersections.push_back(oppLeftGoalCorner);
+  IntersectionsPercept::Intersection oppRightGoalCorner;
+  oppRightGoalCorner.type = IntersectionsPercept::Intersection::L;
+  oppRightGoalCorner.pos = Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosRightGoalArea);
+  oppRightGoalCorner.dir1 = Vector2f(1.f, 0.f);
+  oppRightGoalCorner.dir2 = Vector2f(0.f, 1.f);
+  intersections.push_back(oppRightGoalCorner);
+
+   IntersectionsPercept::Intersection oppLeftPenaltyCorner;
+  oppLeftPenaltyCorner.type = IntersectionsPercept::Intersection::L;
+  oppLeftPenaltyCorner.pos = Vector2f(theFieldDimensions.xPosOpponentPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
+  oppLeftPenaltyCorner.dir1 = Vector2f(1.f, 0.f);
+  oppLeftPenaltyCorner.dir2 = Vector2f(0.f, -1.f);
+  intersections.push_back(oppLeftPenaltyCorner);
+  IntersectionsPercept::Intersection oppRightPenaltyCorner;
+  oppRightPenaltyCorner.type = IntersectionsPercept::Intersection::L;
+  oppRightPenaltyCorner.pos = Vector2f(theFieldDimensions.xPosOpponentPenaltyArea, theFieldDimensions.yPosRightPenaltyArea);
+  oppRightPenaltyCorner.dir1 = Vector2f(1.f, 0.f);
+  oppRightPenaltyCorner.dir2 = Vector2f(0.f, 1.f);
+  intersections.push_back(oppRightPenaltyCorner);
   IntersectionsPercept::Intersection oppLeftPenaltyArea;
   oppLeftPenaltyArea.type = IntersectionsPercept::Intersection::T;
   oppLeftPenaltyArea.pos = Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftPenaltyArea);
@@ -52,24 +95,7 @@ OracledPerceptsProvider::OracledPerceptsProvider()
   oppRightPenaltyArea.dir1 = Vector2f(-1.f, 0.f);
   oppRightPenaltyArea.dir2 = Vector2f(0.f, -1.f);
   intersections.push_back(oppRightPenaltyArea);
-  IntersectionsPercept::Intersection oppRightCorner;
-  oppRightCorner.type = IntersectionsPercept::Intersection::L;
-  oppRightCorner.pos = Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosRightSideline);
-  oppRightCorner.dir1 = Vector2f(-1.f, 0.f);
-  oppRightCorner.dir2 = Vector2f(0.f, 1.f);
-  intersections.push_back(oppRightCorner);
-  IntersectionsPercept::Intersection oppLeftPenaltyCorner;
-  oppLeftPenaltyCorner.type = IntersectionsPercept::Intersection::L;
-  oppLeftPenaltyCorner.pos = Vector2f(theFieldDimensions.xPosOpponentPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
-  oppLeftPenaltyCorner.dir1 = Vector2f(1.f, 0.f);
-  oppLeftPenaltyCorner.dir2 = Vector2f(0.f, -1.f);
-  intersections.push_back(oppLeftPenaltyCorner);
-  IntersectionsPercept::Intersection oppRightPenaltyCorner;
-  oppRightPenaltyCorner.type = IntersectionsPercept::Intersection::L;
-  oppRightPenaltyCorner.pos = Vector2f(theFieldDimensions.xPosOpponentPenaltyArea, theFieldDimensions.yPosRightPenaltyArea);
-  oppRightPenaltyCorner.dir1 = Vector2f(1.f, 0.f);
-  oppRightPenaltyCorner.dir2 = Vector2f(0.f, 1.f);
-  intersections.push_back(oppRightPenaltyCorner);
+
   IntersectionsPercept::Intersection leftCenterLineCrossing;
   leftCenterLineCrossing.type = IntersectionsPercept::Intersection::T;
   leftCenterLineCrossing.pos = Vector2f(0.f, theFieldDimensions.yPosLeftSideline);
@@ -111,6 +137,27 @@ OracledPerceptsProvider::OracledPerceptsProvider()
   line.first =  Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosRightSideline);
   line.second = Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightSideline);
   lines.push_back(line);
+  // opponent goal area:
+  line.first =  Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  lines.push_back(line);
+  line.first =  Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosRightGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosRightGoalArea);
+  lines.push_back(line);
+  line.first =  Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOpponentGoalArea, theFieldDimensions.yPosRightGoalArea);
+  lines.push_back(line);
+  // own goal area:
+  line.first =  Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosLeftGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  lines.push_back(line);
+  line.first =  Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosRightGoalArea);
+  lines.push_back(line);
+  line.first =  Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosLeftGoalArea);
+  line.second = Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosRightGoalArea);
+  lines.push_back(line);
+
   // opponent penalty area:
   line.first =  Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftPenaltyArea);
   line.second = Vector2f(theFieldDimensions.xPosOpponentPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
@@ -126,11 +173,12 @@ OracledPerceptsProvider::OracledPerceptsProvider()
   line.second = Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
   lines.push_back(line);
   line.first =  Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightPenaltyArea);
-  line.second = Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosRightPenaltyArea);
+  line.second = Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosRightPenaltyArea);
   lines.push_back(line);
   line.first =  Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosLeftPenaltyArea);
   line.second = Vector2f(theFieldDimensions.xPosOwnPenaltyArea, theFieldDimensions.yPosRightPenaltyArea);
   lines.push_back(line);
+
   // The field boundary
   line.first = Vector2f(theFieldDimensions.xPosOwnFieldBorder, theFieldDimensions.yPosLeftFieldBorder);
   line.second =  Vector2f(theFieldDimensions.xPosOpponentFieldBorder, theFieldDimensions.yPosLeftFieldBorder);

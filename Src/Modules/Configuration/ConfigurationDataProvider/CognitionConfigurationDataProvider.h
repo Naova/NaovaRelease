@@ -30,13 +30,13 @@ MODULE(CognitionConfigurationDataProvider,
   PROVIDES_WITHOUT_MODIFY(IntersectionRelations),
   PROVIDES(BallSpecification),
   PROVIDES(CameraCalibration),
-  PROVIDES(CameraSettings),
   PROVIDES(FieldColors),
   PROVIDES(RobotDimensions),
   PROVIDES(BehaviorParameters),
   PROVIDES(DamageConfigurationBody),
   PROVIDES(DamageConfigurationHead),
   PROVIDES(HeadLimits),
+  PROVIDES(CameraSettings),
 });
 
 class CognitionConfigurationDataProvider : public CognitionConfigurationDataProviderBase
@@ -56,17 +56,18 @@ private:
   std::unique_ptr<DamageConfigurationHead> theDamageConfigurationHead;
   std::unique_ptr<HeadLimits> theHeadLimits;
 
-  void update(BallSpecification& ballSpecification) {update(ballSpecification, theBallSpecification);}
-  void update(CameraCalibration& cameraCalibration);
-  void update(CameraSettings& cameraSettings) {update(cameraSettings, theCameraSettings);}
-  void update(FieldDimensions& fieldDimensions);
-  void update(FieldColors& fieldColors);
-  void update(IntersectionRelations& intersectionRelations) {update(intersectionRelations, theIntersectionRelations);}
-  void update(RobotDimensions& robotDimensions) {update(robotDimensions, theRobotDimensions);}
-  void update(BehaviorParameters& behaviorParameters) {update(behaviorParameters, theBehaviorParameters);}
-  void update(DamageConfigurationBody& damageConfigurationBody) {update(damageConfigurationBody, theDamageConfigurationBody);}
-  void update(DamageConfigurationHead& damageConfigurationHead) {update(damageConfigurationHead, theDamageConfigurationHead);}
-  void update(HeadLimits& headLimits) {update(headLimits, theHeadLimits);}
+  void update(BallSpecification& ballSpecification) override {update(ballSpecification, theBallSpecification);}
+  void update(CameraCalibration& cameraCalibration) override;
+  void update(CameraSettings& cameraSettings) override {update(cameraSettings, theCameraSettings);}
+  void update(FieldDimensions& fieldDimensions) override;
+  void update(FieldColors& fieldColors) override;
+  void update(IntersectionRelations& intersectionRelations) override {update(intersectionRelations, theIntersectionRelations);}
+  void update(RobotDimensions& robotDimensions) override {update(robotDimensions, theRobotDimensions);}
+  void update(BehaviorParameters& behaviorParameters) override {update(behaviorParameters, theBehaviorParameters);}
+  void update(DamageConfigurationBody& damageConfigurationBody) override {update(damageConfigurationBody, theDamageConfigurationBody);}
+  void update(DamageConfigurationHead& damageConfigurationHead) override {update(damageConfigurationHead, theDamageConfigurationHead);}
+  void update(HeadLimits& headLimits) override {update(headLimits, theHeadLimits);}
+
 
   template<typename T> void update(T& representation, std::unique_ptr<T>& theRepresentation)
   {
@@ -81,7 +82,9 @@ private:
   {
     ASSERT(!theRepresentation);
     theRepresentation = std::make_unique<T>();
+    
     loadModuleParameters(*theRepresentation, Streaming::demangle(typeid(T).name()).c_str(), fileName, fileName != nullptr);
+    
   }
 
 public:

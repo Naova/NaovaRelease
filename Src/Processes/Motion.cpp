@@ -48,12 +48,6 @@ void Motion::terminate()
 
 bool Motion::main()
 {
-  // there has been no new package from Cognition in more than 3000ms and thus we let the robot sit down.
-  if(theCognitionReceiver.timeStamp != 0 && Time::getTimeSince(theCognitionReceiver.timeStamp) > 3000)
-  {
-    MotionSelector::sitDown();
-  }
-
   if(MotionLogDataProvider::isFrameDataComplete())
   {
     timingManager.signalProcessStart();
@@ -81,6 +75,7 @@ bool Motion::main()
     {
       // messages were sent in this frame -> send process finished
       OUTPUT(idProcessFinished, bin, 'm');
+
     }
     else
       theDebugSender.removeLastMessage();
@@ -92,10 +87,15 @@ bool Motion::main()
     OUTPUT(idProcessBegin, bin, 'm');
   }
 
-  if(Blackboard::getInstance().exists("JointSensorData"))
+  if(Blackboard::getInstance().exists("JointSensorData")){
     NaoProvider::waitForFrameData();
-  else
+
+  }
+
+  else{
     Thread::sleep(10);
+
+  }
 
   return SystemCall::getMode() != SystemCall::physicalRobot;
 }
