@@ -6,9 +6,7 @@ _**Localization :**_ Montreal, Canada
 
 _**School :**_ École de Technologie Supérieure
 
-### Code release 2018 :
-- Head movement
-- Arms in the back
-- Compatibility with Ubuntu 17 and 18
-- LibTactic (libCodeRelease) : Changing roles
-- Team Description Paper 2019 : [TDP.pdf](TDP_2019.pdf)
+### Code release 2023 :
+- Walk controller
+- Ball perception
+- Compatibility with Ubuntu 18, 20 and 22
