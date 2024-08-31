@@ -1,8 +1,8 @@
 /**
-* @file Simulation/Sensors/Gyroscope.h
-* Declaration of class Gyroscope
-* @author Colin Graf
-*/
+ * @file Simulation/Sensors/Gyroscope.h
+ * Declaration of class Gyroscope
+ * @author Colin Graf
+ */
 
 #pragma once
 
@@ -11,9 +11,9 @@
 class Body;
 
 /**
-* @class Gyroscope
-* A simulated gyroscope sensor
-*/
+ * @class Gyroscope
+ * A simulated gyroscope sensor
+ */
 class Gyroscope : public Sensor
 {
 public:
@@ -22,28 +22,32 @@ public:
 
 private:
   /**
-  * @class GyroscopeSensor
-  * The gyroscope sensor interface
-  */
+   * @class GyroscopeSensor
+   * The gyroscope sensor interface
+   */
   class GyroscopeSensor : public Sensor::Port
   {
   public:
-    Body* body; /** The body were the gyroscope is mounted on */
-    float angularVel[4]; /** The sensor reading */
+    Body* body; /**< The body where the gyroscope is mounted on. */
+    float angularVel[4]; /**< The sensor reading. */
+    Pose3f offset; /**< Offset of the sensor relative to the body. */
 
     /** Update the sensor value. Is called when required. */
-    virtual void updateValue();
+    void updateValue() override;
 
     //API
-    virtual bool getMinAndMax(float& min, float& max) const {return false;}
+    bool getMinAndMax(float&, float&) const override {return false;}
   } sensor;
 
+  /** Initializes the gyroscope after all attributes have been set */
+  void createPhysics() override;
+
   /**
-  * Registers an element as parent
-  * @param element The element to register
-  */
-  virtual void addParent(Element& element);
+   * Registers an element as parent
+   * @param element The element to register
+   */
+  void addParent(Element& element) override;
 
   /** Registers this object with children, actuators and sensors at SimRobot's GUI. */
-  virtual void registerObjects();
+  void registerObjects() override;
 };

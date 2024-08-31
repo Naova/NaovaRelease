@@ -1,23 +1,22 @@
 /**
-* @file Simulation/Joints/Slider.cpp
-* Implementation of class Slider
-* @author <A href="mailto:tlaue@uni-bremen.de">Tim Laue</A>
-* @author <A href="mailto:kspiess@informatik.uni-bremen.de">Kai Spiess</A>
-* @author Colin Graf
-* @author Thomas Röfer
-*/
-
-#include <cmath>
-#include "Platform/OpenGL.h"
+ * @file Simulation/Actuators/Slider.cpp
+ * Implementation of class Slider
+ * @author <A href="mailto:tlaue@uni-bremen.de">Tim Laue</A>
+ * @author <A href="mailto:kspiess@informatik.uni-bremen.de">Kai Spiess</A>
+ * @author Colin Graf
+ * @author Thomas Röfer
+ */
 
 #include "Slider.h"
-#include "Simulation/Body.h"
-#include "Simulation/Axis.h"
-#include "Simulation/Simulation.h"
-#include "Simulation/Motors/ServoMotor.h"
-#include "Platform/Assert.h"
 #include "CoreModule.h"
+#include "Simulation/Axis.h"
+#include "Simulation/Body.h"
+#include "Simulation/Motors/ServoMotor.h"
+#include "Simulation/Simulation.h"
+#include "Platform/Assert.h"
+#include "Platform/OpenGL.h"
 #include "Tools/OpenGLTools.h"
+#include <ode/objects.h>
 
 void Slider::createPhysics()
 {
@@ -33,7 +32,7 @@ void Slider::createPhysics()
   Body* parentBody = dynamic_cast<Body*>(parent);
   ASSERT(!parentBody || parentBody->body);
   ASSERT(!children.empty());
-  Body* childBody = dynamic_cast<Body*>(*children.begin());
+  Body* childBody = dynamic_cast<Body*>(children.front());
   ASSERT(childBody);
   ASSERT(childBody->body);
 
@@ -41,10 +40,10 @@ void Slider::createPhysics()
   joint = dJointCreateSlider(Simulation::simulation->physicalWorld, 0);
   dJointAttach(joint, childBody->body, parentBody ? parentBody->body : 0);
   //set Slider joint parameter
-  Vector3<> globalAxis = pose.rotation * Vector3<>(axis->x, axis->y, axis->z);
-  dJointSetSliderAxis(joint, globalAxis.x, globalAxis.y, globalAxis.z);
+  const Vector3f globalAxis = pose.rotation * Vector3f(axis->x, axis->y, axis->z);
+  dJointSetSliderAxis(joint, globalAxis.x(), globalAxis.y(), globalAxis.z());
   if(axis->cfm != -1.f)
-    dJointSetSliderParam(joint, dParamCFM, dReal(axis->cfm));
+    dJointSetSliderParam(joint, dParamCFM, axis->cfm);
 
   if(axis->deflection)
   {
@@ -55,20 +54,18 @@ void Slider::createPhysics()
       minSliderLimit = maxSliderLimit;
     //Set physical limits to higher values (+10%) to avoid strange Slider effects.
     //Otherwise, sometimes the motor exceeds the limits.
-    float internalTolerance = (maxSliderLimit - minSliderLimit) * 0.1f;
     if(dynamic_cast<ServoMotor*>(axis->motor))
     {
+      const float internalTolerance = (maxSliderLimit - minSliderLimit) * 0.1f;
       minSliderLimit -= internalTolerance;
       maxSliderLimit += internalTolerance;
     }
-    dJointSetSliderParam(joint, dParamLoStop, dReal(minSliderLimit));
-    dJointSetSliderParam(joint, dParamHiStop, dReal(maxSliderLimit));
-    // this has to be done due to the way ODE sets joint stops
-    dJointSetSliderParam(joint, dParamLoStop, dReal(minSliderLimit));
+    dJointSetSliderParam(joint, dParamLoStop, minSliderLimit);
+    dJointSetSliderParam(joint, dParamHiStop, maxSliderLimit);
     if(deflection.stopCFM != -1.f)
-      dJointSetSliderParam(joint, dParamStopCFM, dReal(deflection.stopCFM));
+      dJointSetSliderParam(joint, dParamStopCFM, deflection.stopCFM);
     if(deflection.stopERP != -1.f)
-      dJointSetSliderParam(joint, dParamStopERP, dReal(deflection.stopERP));
+      dJointSetSliderParam(joint, dParamStopERP, deflection.stopERP);
   }
 
   // create motor

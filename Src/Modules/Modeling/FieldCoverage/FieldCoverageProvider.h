@@ -1,5 +1,5 @@
 /**
- * @file FieldCoverageProvider.cpp
+ * @file FieldCoverageProvider.h
  * @author Andreas Stolpmann
  */
 
@@ -7,6 +7,7 @@
 
 #include "Tools/Module/Module.h"
 
+#include "Representations/Communication/NaovaMessage.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Infrastructure/FrameInfo.h"
@@ -35,6 +36,8 @@ MODULE(FieldCoverageProvider,
     (int)(12) numOfCellsY,
 
     (float)(2000.f) ballVisibilityRange,
+    (float)(600000.f)  squaredBallVisibilityMin,
+    (Angle)(50_deg) shoulderRange,
     (float)(200.f) obstacleRadius,
   }),
 });
@@ -44,7 +47,7 @@ class FieldCoverageProvider : public FieldCoverageProviderBase
 public:
   FieldCoverageProvider();
 
-  void update(FieldCoverage& fieldCoverage);
+  void update(FieldCoverage& fieldCoverage) override;
 
 private:
   struct InternalCell

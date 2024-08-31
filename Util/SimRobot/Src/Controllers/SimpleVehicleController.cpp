@@ -1,8 +1,8 @@
 /**
  * @file SimpleVehicleController
- * 
+ *
  * Controller for the demo specified in SimpleVehicle.ros2.
- * A simplistic car is equipped with a laser range finder, 
+ * A simplistic car is equipped with a laser range finder,
  * searches a ball and drives towards it.
  *
  * This demo includes:
@@ -18,12 +18,13 @@
 #include <Platform/OpenGL.h>
 #include <QString>
 #include <QVector>
+#include <QList>
 #include <cmath>
 
 /**
-* @class TestDrawing
-* An object (a simple sphere) to be drawn by this controller.
-*/
+ * @class TestDrawing
+ * An object (a simple sphere) to be drawn by this controller.
+ */
 class TestDrawing : public SimRobotCore2::Controller3DDrawing
 {
   void draw()
@@ -34,11 +35,10 @@ class TestDrawing : public SimRobotCore2::Controller3DDrawing
   }
 };
 
-
 /**
-* @class SimpleVehicleController
-* The controller class for the SimpleVehicle demo
-*/
+ * @class SimpleVehicleController
+ * The controller class for the SimpleVehicle demo
+ */
 class SimpleVehicleController : public SimRobot::Module
 {
 private:
@@ -58,36 +58,34 @@ private:
     GO_TO_BALL
   } vehicleState;         /** Different states for the robot behavior */
 
-
 public:
   /** Constructor */
-  SimpleVehicleController(SimRobot::Application& simRobot):simRobot(simRobot)
+  SimpleVehicleController(SimRobot::Application& simRobot) : simRobot(simRobot)
   {}
 
-
   /** Initializes drawing and objects for interfacing with actuators and sensor */
-  bool compile()
+  bool compile() override
   {
     // Init 3D drawing, attach it to the ball
     TestDrawing* testDrawing = new TestDrawing();
-    SimRobotCore2::Body* ballObj = (SimRobotCore2::Body*)simRobot.resolveObject("SimpleVehicle.Ball", SimRobotCore2::body);
+    SimRobotCore2::Body* ballObj = static_cast<SimRobotCore2::Body*>(simRobot.resolveObject("SimpleVehicle.Ball", SimRobotCore2::body));
     ballObj->registerDrawing(*testDrawing);
 
     // Get all necessary actuator and sensor objects
-    SimRobotCore2::Object* vehicleObj = (SimRobotCore2::Object*)simRobot.resolveObject("SimpleVehicle.car", SimRobotCore2::body);
+    SimRobotCore2::Object* vehicleObj = static_cast<SimRobotCore2::Object*>(simRobot.resolveObject("SimpleVehicle.car", SimRobotCore2::body));
     QVector<QString> parts;
     parts.resize(1);
     parts[0] = "frontLeft.velocity";
-    frontLeftWheel = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort);
+    frontLeftWheel = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort));
     parts[0] = "frontRight.velocity";
-    frontRightWheel = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort);
+    frontRightWheel = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort));
     parts[0] = "backLeft.velocity";
-    backLeftWheel = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort);
+    backLeftWheel = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort));
     parts[0] = "backRight.velocity";
-    backRightWheel = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort);
+    backRightWheel = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::actuatorPort));
     parts[0] = "image";
-    distanceSensor = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::sensorPort);
- 
+    distanceSensor = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, vehicleObj, SimRobotCore2::sensorPort));
+
     // Init behavior member
     vehicleState = SEARCH_FOR_BALL;
     ballFound = false;
@@ -95,18 +93,17 @@ public:
     return true;
   }
 
-
   /** This function is called in every execution cycle of the simulation*/
-  void update()
+  void update() override
   {
     detectBall();
     // Oh behave:
     if(vehicleState == SEARCH_FOR_BALL)
     {
-      frontLeftWheel->setValue((float) M_PI / 1.5f);
-      frontRightWheel->setValue((float) -M_PI / 1.5f);
-      backLeftWheel->setValue((float) M_PI / 1.5f);
-      backRightWheel->setValue((float) -M_PI / 1.5f);
+      frontLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      frontRightWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
+      backLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      backRightWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
       if(ballFound)
       {
         simRobot.setStatusMessage("Ball detected. Driving to ball.");
@@ -124,7 +121,6 @@ public:
     }
   }
 
-
   /** Tries to find the ball in the laser range finder data. Sets some members. */
   void detectBall()
   {
@@ -134,7 +130,7 @@ public:
     float minDist = distanceData[0];
     int minDistIdx = 0;
     const int numOfDist = distanceSensor->getDimensions()[0];
-    for(int i=1; i<numOfDist; ++i)
+    for(int i = 1; i < numOfDist; ++i)
     {
       if(distanceData[i] < minDist)
       {
@@ -145,43 +141,41 @@ public:
     // Compute relative ball position (if anything has been measured):
     float sensorMinDist, sensorMaxDist;
     distanceSensor->getMinAndMax(sensorMinDist, sensorMaxDist);
-    if(minDist/sensorMaxDist < 0.9)
+    if(minDist / sensorMaxDist < 0.9)
     {
       ballFound = true;
-      const float openingAngle = (float) M_PI * 2.0f / 3.0f;
-      angleToBall = openingAngle/2.0f - (minDistIdx+0.5f)*(openingAngle/numOfDist);
+      const float openingAngle = static_cast<float>(M_PI) * 2.0f / 3.0f;
+      angleToBall = openingAngle / 2.0f - (minDistIdx + 0.5f) * (openingAngle / numOfDist);
       distanceToBall = minDist;
     }
   }
-
 
   /** Drives to the ball. */
   void driveToBall()
   {
     if(angleToBall < -0.1f)
     {
-      frontLeftWheel->setValue((float) M_PI / 1.5f);
-      frontRightWheel->setValue((float) -M_PI / 1.5f);
-      backLeftWheel->setValue((float) M_PI / 1.5f);
-      backRightWheel->setValue((float) -M_PI / 1.5f);
+      frontLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      frontRightWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
+      backLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      backRightWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
     }
     else if(angleToBall > 0.1f)
     {
-      frontLeftWheel->setValue((float) -M_PI / 1.5f);
-      frontRightWheel->setValue((float) M_PI / 1.5f);
-      backLeftWheel->setValue((float) -M_PI / 1.5f);
-      backRightWheel->setValue((float) M_PI / 1.5f);
+      frontLeftWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
+      frontRightWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      backLeftWheel->setValue(static_cast<float>(-M_PI) / 1.5f);
+      backRightWheel->setValue(static_cast<float>(M_PI) / 1.5f);
     }
     else //(ball is in front of robot)
     {
-      frontLeftWheel->setValue((float) M_PI / 1.5f);
-      frontRightWheel->setValue((float) M_PI / 1.5f);
-      backLeftWheel->setValue((float) M_PI / 1.5f);
-      backRightWheel->setValue((float) M_PI / 1.5f);
+      frontLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      frontRightWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      backLeftWheel->setValue(static_cast<float>(M_PI) / 1.5f);
+      backRightWheel->setValue(static_cast<float>(M_PI) / 1.5f);
     }
   }
 };
-
 
 extern "C" DLL_EXPORT SimRobot::Module* createModule(SimRobot::Application& simRobot)
 {

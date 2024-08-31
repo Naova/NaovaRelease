@@ -31,7 +31,7 @@ void RobotPoolDelegate::paint(QPainter* painter,
   painter->restore();
 }
 
-QSize RobotPoolDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
+QSize RobotPoolDelegate::sizeHint(const QStyleOptionViewItem&, const QModelIndex& index) const
 {
   RobotView* robotView = robotPool->robotViews[index.data().toString()];
   return robotView->sizeHint();
@@ -43,9 +43,6 @@ RobotPool::RobotPool(TeamSelector* teamSelector)
     robotViews(),
     toBeDeletedLater(0)
 {
-  QPalette palette = teamSelector->palette();
-  palette.setColor(QPalette::Base, palette.color(QPalette::Background));
-  setPalette(palette);
   setItemDelegate(new RobotPoolDelegate(this));
   setDefaultDropAction(Qt::MoveAction);
   setDragDropMode(QAbstractItemView::DragDrop);
@@ -72,7 +69,7 @@ void RobotPool::update()
     senderName = source->getRobotName();
   }
   clear();
-  foreach(RobotView* view, robotViews)
+  for(RobotView* view : robotViews)
   {
     disconnect(view, 0, 0, 0);
     /* Set parent to parentWidget since qt seems to have problems to get the
@@ -149,4 +146,12 @@ void RobotPool::dropEvent(QDropEvent* e)
   }
   else // enable move inside the list
     QListWidget::dropEvent(e);
+}
+
+void RobotPool::paintEvent(QPaintEvent* e)
+{
+  QPalette palette = teamSelector->palette();
+  palette.setColor(QPalette::Base, palette.color(QPalette::Background));
+  setPalette(palette);
+  QListWidget::paintEvent(e);
 }

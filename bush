@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# From the maker of MakeAnStartBush.sh, le Arne de Naova, Elias Zabaleta
+
+./Build/Linux/bush/Develop/bush

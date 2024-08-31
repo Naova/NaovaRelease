@@ -5,6 +5,7 @@ call Includes/connectDialog Includes/connect
 call Includes/JPEGImageViews
 call Includes/FieldViews1
 call Includes/FieldViews2
+call Motors/PlotController
 
 call Includes/DebugResponses
 
@@ -14,4 +15,4 @@ jc press 2 call Includes/Joystick
 jc press 3 call Includes/Joystick
 jc press 4 call Includes/Joystick
 
-echo dr representation:JPEGImage off
+echo mr JPEGImage off

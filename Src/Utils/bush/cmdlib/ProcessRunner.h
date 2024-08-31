@@ -10,7 +10,6 @@
 
 #include <QString>
 #include <QProcess>
-#include <QProcessEnvironment>
 #include <string>
 
 class Context;
@@ -118,7 +117,7 @@ public:
    * not 0. For the destruction of the process, deleteLater() is used to prevent
    * segmentation faults within the delivery of asynchronous signals.
    */
-  virtual ~ProcessRunner();
+  ~ProcessRunner();
 
   ProcessRunner& operator=(const ProcessRunner& other);
 
@@ -179,7 +178,7 @@ protected:
    * Do not call something like waitForFinished or close on the process since
    * run will do that after the call of interact.
    */
-  virtual void interact(QProcess* process) {}
+  virtual void interact(QProcess*) {}
 
 public slots:
 
@@ -216,6 +215,7 @@ protected:
    * @param process The process to which the data should be passed to.
    */
   void interact(QProcess* process);
+
 public:
   /**
    * Constructs a new RemoteWriteProcessRunner.

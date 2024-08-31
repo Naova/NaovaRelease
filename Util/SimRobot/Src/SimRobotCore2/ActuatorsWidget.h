@@ -1,19 +1,18 @@
 /**
-* @file ActuatorsWidget.h
-* Declaration of class ActuatorsObject, ActuatorsWidget and ActuatorWidget
-* @author Colin Graf
-*/
+ * @file ActuatorsWidget.h
+ * Declaration of class ActuatorsObject, ActuatorsWidget and ActuatorWidget
+ * @author Colin Graf
+ */
 
 #pragma once
 
-#include <QWidget>
+#include "SimRobotCore2.h"
 #include <QHash>
 #include <QIcon>
-
-#include "SimRobotCore2.h"
+#include <QWidget>
 
 class QSlider;
-class QSpinBox;
+class QDoubleSpinBox;
 class QPushButton;
 class QVBoxLayout;
 class QCheckBox;
@@ -22,9 +21,9 @@ class ActuatorWidget;
 class FlowLayout;
 
 /**
-* @class ActuatorsObject
-* A hidden scene graph object for the centralized actuators widget
-*/
+ * @class ActuatorsObject
+ * A hidden scene graph object for the centralized actuators widget
+ */
 class ActuatorsObject : public SimRobot::Object
 {
 public:
@@ -36,15 +35,15 @@ protected:
   QString name;
   QIcon icon;
 
-  virtual const QString& getFullName() const {return name;}
-  virtual const QIcon* getIcon() const {return &icon;}
-  virtual SimRobot::Widget* createWidget();
+  const QString& getFullName() const override {return name;}
+  const QIcon* getIcon() const override {return &icon;}
+  SimRobot::Widget* createWidget() override;
 };
 
 /**
-* @class ActuatorsWidget
-* The implementation of the centralized actuators widget
-*/
+ * @class ActuatorsWidget
+ * The implementation of the centralized actuators widget
+ */
 class ActuatorsWidget : public QWidget, public SimRobot::Widget
 {
   Q_OBJECT
@@ -56,7 +55,7 @@ public:
   ActuatorsWidget();
 
   /** Destructor */
-  virtual ~ActuatorsWidget();
+  ~ActuatorsWidget();
 
   /** Opens an actuator in the centralized actuators widget */
   void openActuator(const QString& name);
@@ -70,17 +69,17 @@ private:
   FlowLayout* layout;
   QWidget* clientArea;
 
-  virtual QWidget* getWidget() {return this;}
-  void resizeEvent(QResizeEvent* event);
+  QWidget* getWidget() override {return this;}
+  void resizeEvent(QResizeEvent* event) override;
 
 private slots:
   void closeActuator();
 };
 
 /**
-* @class ActuatorsObject
-* A widget for controlling an actuator
-*/
+ * @class ActuatorsObject
+ * A widget for controlling an actuator
+ */
 class ActuatorWidget : public QWidget
 {
   Q_OBJECT
@@ -89,13 +88,13 @@ public:
   QString actuatorName; /**< The scene graph path name of the actuator */
 
   /** Constructor
-  * @param actuator The actuator controlled by the widget
-  * @param parent The parent (centralized actuators) widget
-  */
+   * @param actuator The actuator controlled by the widget
+   * @param parent The parent (centralized actuators) widget
+   */
   ActuatorWidget(SimRobotCore2::ActuatorPort* actuator, QWidget* parent);
 
   /** Destructor */
-  virtual ~ActuatorWidget();
+  ~ActuatorWidget();
 
   /** Adopts a user controlled actuator value */
   void adoptActuator();
@@ -105,15 +104,16 @@ signals:
 
 public slots:
   void valueChanged(int value);
+  void valueChanged(double value);
 
 private:
   SimRobotCore2::ActuatorPort* actuator;
 
   bool isAngle;
   QSlider* slider;
-  QSpinBox* txbValue;
+  QDoubleSpinBox* txbValue;
   QPushButton* btnExit;
   QCheckBox* cbxSet;
-  int value;
+  float value;
   bool set;
 };

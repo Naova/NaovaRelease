@@ -1,8 +1,8 @@
 /**
-* @file SimRobotEditor/EditorModule.h
-* Declaration of class EditorModule
-* @author Colin Graf
-*/
+ * @file SimRobotEditor/EditorModule.h
+ * Declaration of class EditorModule
+ * @author Colin Graf
+ */
 
 #pragma once
 
@@ -32,7 +32,7 @@ public:
 private:
   QHash<QString, FileEditorObject*> editorsByPath;
 
-  virtual bool compile();
+  bool compile() override;
 
-  virtual const QIcon* getIcon() const {return &editorIcon;}
+  const QIcon* getIcon() const override {return &editorIcon;}
 };

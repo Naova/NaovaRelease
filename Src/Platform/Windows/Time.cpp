@@ -1,30 +1,12 @@
 #include "Platform/Time.h"
-
-#ifdef TARGET_SIM
-#include "Controller/RoboCupCtrl.h"
-#endif
-
 #include <Windows.h>
-
-unsigned Time::base = 0;
-unsigned long long Time::threadTimebase = 0;
-
-unsigned Time::getCurrentSystemTime()
-{
-#ifdef TARGET_SIM
-  if(RoboCupCtrl::controller)
-    return RoboCupCtrl::controller->getTime();
-  else
-#endif
-    return getRealSystemTime();
-}
 
 unsigned Time::getRealSystemTime()
 {
   const unsigned time = timeGetTime();
   if(!base)
-    base = time - 10000; // avoid time == 0, because it is often used as a marker
-  return time - base;
+    base = time - 100000; // avoid time == 0, because it is often used as a marker
+  return static_cast<unsigned>(time - base);
 }
 
 unsigned long long Time::getCurrentThreadTime()

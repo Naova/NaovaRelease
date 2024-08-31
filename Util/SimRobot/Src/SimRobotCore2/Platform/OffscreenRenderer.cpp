@@ -4,18 +4,13 @@
  * @author Colin Graf
  */
 
-#include "Platform/OpenGL.h"
-#include <QGLPixelBuffer>
-#include <QGLWidget>
-
-#include "Platform/OffscreenRenderer.h"
+#include "OffscreenRenderer.h"
 #include "Platform/Assert.h"
+#include "Platform/OpenGL.h"
 #include "Simulation/Simulation.h"
 #include "Simulation/Scene.h"
-#include "SimObjectWidget.h"
-
-OffscreenRenderer::OffscreenRenderer() :
-  mainGlWidget(0), usedMainGlWidget(false) {}
+#include <QGLPixelBuffer>
+#include <QGLWidget>
 
 OffscreenRenderer::~OffscreenRenderer()
 {
@@ -41,7 +36,7 @@ bool OffscreenRenderer::makeCurrent(int width, int height, bool sampleBuffers)
   // Considering weak graphics cards glClear is faster when the color and depth buffers are not greater then they have to be.
   // So we create an individual buffer for each size in demand.
 
-  std::unordered_map<unsigned int, Buffer>::iterator it = renderBuffers.find(width << 16 | height << 1 | (sampleBuffers ? 1 : 0));
+  auto it = renderBuffers.find(width << 16 | height << 1 | (sampleBuffers ? 1 : 0));
   if(it == renderBuffers.end())
   {
     Buffer& buffer = renderBuffers[width << 16 | height << 1 | (sampleBuffers ? 1 : 0)];
@@ -116,7 +111,7 @@ bool OffscreenRenderer::initPixelBuffer(int width, int height, bool sampleBuffer
   if(!buffer.pbuffer->isValid())
   {
     delete buffer.pbuffer;
-    buffer.pbuffer = 0;
+    buffer.pbuffer = nullptr;
     return false;
   }
 
@@ -135,7 +130,7 @@ void OffscreenRenderer::initHiddenWindow(int width, int height, Buffer& buffer)
   }
 
   const QGLFormat format(QGL::NoStencilBuffer | QGL::SingleBuffer);
-  buffer.glWidget = new QGLWidget(format, 0, mainGlWidget, Qt::WindowStaysOnTopHint);
+  buffer.glWidget = new QGLWidget(format, nullptr, mainGlWidget, Qt::WindowStaysOnTopHint);
   buffer.glWidget->setFixedSize(width, height);
   buffer.glWidget->makeCurrent();
   initContext(buffer.glWidget->isSharing());
@@ -155,7 +150,7 @@ void OffscreenRenderer::init()
   ASSERT(!mainGlWidget);
 
   const QGLFormat format(QGL::NoStencilBuffer | QGL::SingleBuffer);
-  mainGlWidget = new QGLWidget(format, 0, 0, Qt::WindowStaysOnTopHint);
+  mainGlWidget = new QGLWidget(format, nullptr, nullptr, Qt::WindowStaysOnTopHint);
   mainGlWidget->makeCurrent();
   initContext(false);
 }

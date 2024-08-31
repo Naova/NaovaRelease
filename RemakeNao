@@ -1,0 +1,7 @@
+#!/bin/bash
+
+Make/Linux/compile clean
+NO_CLION=true Make/Linux/generate
+
+echo "Compile Nao"
+Make/Linux/compile Nao

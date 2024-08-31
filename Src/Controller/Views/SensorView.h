@@ -3,7 +3,7 @@
  *
  * Declaration of class SensorView
  *
- * @author of original sensorview <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author of original sensorview Thomas Röfer
  * @author Jeff
  * @author Colin Graf
  */
@@ -39,7 +39,7 @@ private:
   const InertialSensorData& inertialSensorData;
   const KeyStates& keyStates;
   const SystemSensorData& systemSensorData;
-  const unsigned& timeStamp;
+  const unsigned& timestamp;
 
   friend class SensorWidget;
 
@@ -50,7 +50,7 @@ public:
    */
   SensorView(const QString& fullName, RobotConsole& robotConsole, const FsrSensorData& fsrSensorData,
              const InertialSensorData& inertialSensorData, const KeyStates& keyStates,
-             const SystemSensorData& systemSensorData, const unsigned& timeStamp);
+             const SystemSensorData& systemSensorData, const unsigned& timestamp);
 
 private:
   /**
@@ -58,9 +58,9 @@ private:
    * The caller has to delete this instance. (Qt handles this)
    * @return The widget.
    */
-  virtual SimRobot::Widget* createWidget();
-  virtual const QString& getFullName() const { return fullName; }
-  virtual const QIcon* getIcon() const { return &icon; }
+  SimRobot::Widget* createWidget() override;
+  const QString& getFullName() const override { return fullName; }
+  const QIcon* getIcon() const override { return &icon; }
 };
 
 class SensorWidget : public QWidget
@@ -87,19 +87,17 @@ private:
   int textOffset;
 
   QFont font;
-  QBrush altBrush;
-  QPen fontPen;
   QPen noPen;
   bool fillBackground;
 
   QRect paintRect;
   QRect paintRectField0;
   QRect paintRectField1;
-  unsigned lastUpdateTimeStamp = 0;
+  unsigned lastUpdateTimestamp = 0;
 
 public:
   SensorWidget(SensorView& sensorView, QHeaderView* headerView, QWidget* parent);
-  virtual ~SensorWidget();
+  ~SensorWidget();
 
   void update();
   void paintEvent(QPaintEvent* event);

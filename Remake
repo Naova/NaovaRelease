@@ -1,0 +1,13 @@
+#!/bin/bash
+
+Make/Linux/compile clean
+NO_CLION=true Make/Linux/generate
+
+echo "Compile Nao"
+Make/Linux/compile Nao
+
+echo "Compile Bush"
+Make/Linux/compile bush
+
+echo "Compile SimRobot"
+Make/Linux/compile SimRobot

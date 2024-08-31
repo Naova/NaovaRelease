@@ -1,9 +1,9 @@
 /**
-* @file Tools/Texture.cpp
-* Implementation of class Texture
-* @author <A href="mailto:pachur@informatik.uni-bremen.de">Dennis Pachur</A>
-* @author Colin Graf
-*/
+ * @file Tools/Texture.cpp
+ * Implementation of class Texture
+ * @author <A href="mailto:pachur@informatik.uni-bremen.de">Dennis Pachur</A>
+ * @author Colin Graf
+ */
 
 #include <cstring>
 #include <cstdio>
@@ -100,20 +100,20 @@ bool Texture::load(const std::string& file)
 
 bool Texture::loadTGA(const std::string& name)
 {
-  GLubyte TGAheader[12] = {0,0,2,0,0,0,0,0,0,0,0,0};   // Uncompressed TGA header
-  GLubyte TGAcompare[12];                              // Used to compare TGA header
-  GLubyte header[6];                                   // First 6 useful bytes of the header
+  GLubyte TGAheader[12] = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Uncompressed TGA header
+  GLubyte TGAcompare[12];                                       // Used to compare TGA header
+  GLubyte header[6];                                            // First 6 useful bytes of the header
   GLuint  bytesPerPixel;
   GLuint  imageSize;
   GLuint  bpp;
 
-  FILE *file = fopen(name.c_str(), "rb");               // Open the TGA file
+  FILE* file = fopen(name.c_str(), "rb");               // Open the TGA file
 
   // Load the file and perform checks
   if(file == nullptr ||                                                      // Does file exist?
-    fread(TGAcompare,1,sizeof(TGAcompare),file) != sizeof(TGAcompare) ||  // Are there 12 bytes to read?
-    memcmp(TGAheader,TGAcompare,sizeof(TGAheader)) != 0 ||                // Is it the right format?
-    fread(header,1,sizeof(header),file) != sizeof(header))                // If so then read the next 6 header bytes
+     fread(TGAcompare, 1, sizeof(TGAcompare), file) != sizeof(TGAcompare) || // Are there 12 bytes to read?
+     memcmp(TGAheader, TGAcompare, sizeof(TGAheader)) != 0 ||                // Is it the right format?
+     fread(header, 1, sizeof(header), file) != sizeof(header))               // If so then read the next 6 header bytes
   {
     if(file == nullptr) // If the file didn't exist then return
       return false;
@@ -135,14 +135,14 @@ bool Texture::loadTGA(const std::string& name)
     return false;
   }
   // Only 24 or 32 bit images are supported
-  if( (header[4] != 24 && header[4] != 32) )
+  if(header[4] != 24 && header[4] != 32)
   {
     fclose(file);
     return false;
   }
 
   bpp = header[4];  // Grab the bits per pixel
-  bytesPerPixel = bpp/8;  // Divide by 8 to get the bytes per pixel
+  bytesPerPixel = bpp / 8; // Divide by 8 to get the bytes per pixel
   imageSize = width * height * bytesPerPixel; // Calculate the memory required for the data
 
   // Allocate the memory for the image data

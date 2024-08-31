@@ -3,7 +3,7 @@
  *
  * Declaration of class ImageView
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  * @author Colin Graf
  */
 
@@ -21,14 +21,11 @@
 #include <QElapsedTimer>
 
 #include <SimRobot.h>
-#include "Tools/Math/Eigen.h"
-#include "Controller/RobotConsole.h"
 #include "Controller/RoboCupCtrl.h"
-#include "Controller/Views/ColorCalibrationView/ColorCalibrationView.h"
+#include "Controller/RobotConsole.h"
 #include "Controller/Visualization/PaintMethods.h"
-#include "Controller/ImageViewAdapter.h"
-#include "Representations/Infrastructure/Image.h"
-#include "Platform/Thread.h"
+#include "Representations/Infrastructure/CameraImage.h"
+#include "Tools/Math/Eigen.h"
 
 class RobotConsole;
 class ImageWidget;
@@ -38,12 +35,12 @@ class ImageWidget;
  *
  * A class to represent a view displaying camera images and overlaid debug drawings.
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 class ImageView : public SimRobot::Object
 {
 public:
-  bool upperCam; /**< Show upper cams image in this view. */
+  const std::string threadIdentifier; /**< The thread that created the images shown in this view. */
   ImageWidget* widget = nullptr; /**< The widget of this view */
 
   /**
@@ -51,10 +48,10 @@ public:
    * @param console The console object.
    * @param background The name of the background image.
    * @param name The name of the view.
-   * @param segmented The image will be segmented.
    * @param gain The intensity is multiplied with this factor.
+   * @param ddScale The debug drawings are multiplied with this factor.
    */
-  ImageView(const QString& fullName, RobotConsole& console, const std::string& background, const std::string& name, bool segmented, bool upperCam, float gain = 1.0f);
+  ImageView(QString fullName, RobotConsole& console, std::string background, std::string  name, std::string threadIdentifier, float gain = 1.0f, float ddScale = 1.0f);
 
 private:
   const QString fullName; /**< The path to this view in the scene graph */
@@ -62,18 +59,18 @@ private:
   RobotConsole& console; /**< A reference to the console object. */
   const std::string background; /**< The name of the background image. */
   const std::string name; /**< The name of the view. */
-  bool segmented;  /**< The image will be segmented. */
   float gain; /**< The intensity is multiplied with this factor. */
+  float ddScale; /**< The debug drawings are multiplied with this factor. */
 
   /**
    * The method returns a new instance of a widget for this direct view.
    * The caller has to delete this instance. (Qt handles this)
    * @return The widget.
    */
-  virtual SimRobot::Widget* createWidget();
+  SimRobot::Widget* createWidget() override;
 
-  virtual const QString& getFullName() const { return fullName; }
-  virtual const QIcon* getIcon() const { return &icon; }
+  const QString& getFullName() const override { return fullName; }
+  const QIcon* getIcon() const override { return &icon; }
 
   friend class ImageWidget;
 };
@@ -82,20 +79,17 @@ class ImageWidget : public WIDGET2D, public SimRobot::Widget
 {
   Q_OBJECT
 public:
-  ImageWidget(ImageView& imageView);
-  virtual ~ImageWidget();
-
-  void setUndoRedo(const bool enableUndo, const bool enableRedo);
+  explicit ImageWidget(ImageView& imageView);
+  ~ImageWidget() override;
 
 private:
   ImageView& imageView;
   QImage* imageData = nullptr;
   void* imageDataStorage = nullptr;
-  int imageWidth = Image::maxResolutionWidth;
-  int imageHeight = Image::maxResolutionHeight;
-  unsigned int lastImageTimeStamp = 0;
-  unsigned int lastColorTableTimeStamp = 0;
-  unsigned int lastDrawingsTimeStamp = 0;
+  int imageWidth = CameraImage::maxResolutionWidth / 2;
+  int imageHeight = CameraImage::maxResolutionHeight / 2;
+  unsigned int lastImageTimestamp = 0;
+  unsigned int lastDrawingsTimestamp = 0;
   QPainter painter;
   QPointF dragStart;
   QPointF dragStartOffset;
@@ -103,68 +97,37 @@ private:
   float zoom = 1.f;
   float scale = 1.f;
   QPointF offset;
-  bool headControlMode = false;
 
-  QAction* undoAction = nullptr;
-  QAction* redoAction = nullptr;
-
-  void paintEvent(QPaintEvent* event);
-  virtual void paint(QPainter& painter);
+  void paintEvent(QPaintEvent* event) override;
+  void paint(QPainter& painter) override;
   void paintDrawings(QPainter& painter);
   void copyImage(const DebugImage& srcImage);
-  void copyImageSegmented(const DebugImage& srcImage);
-  void segmentImage(const DebugImage& srcImage);
   void paintImage(QPainter& painter, const DebugImage& srcImage);
   bool needsRepaint() const;
   void window2viewport(QPointF& point);
-  void mouseMoveEvent(QMouseEvent* event);
-  void mousePressEvent(QMouseEvent* event);
-  void mouseReleaseEvent(QMouseEvent* event);
-  void keyPressEvent(QKeyEvent* event);
-  bool event(QEvent* event);
-  void wheelEvent(QWheelEvent* event);
-  void mouseDoubleClickEvent(QMouseEvent* event);
+  void mouseMoveEvent(QMouseEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
+  bool event(QEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
+  void mouseDoubleClickEvent(QMouseEvent* event) override;
+  const DebugDrawing* getDrawing(const std::string& name) const;
 
-  QSize sizeHint() const { return QSize(imageWidth, imageHeight); }
+  QSize sizeHint() const override { return QSize(imageWidth, imageHeight); }
 
-  virtual QWidget* getWidget() { return this; }
+  QWidget* getWidget() override { return this; }
 
-  virtual void update()
+  void update() override
   {
     if(needsRepaint())
-    {
       QWidget::update();
-    }
   }
 
-
-  virtual QMenu* createUserMenu() const;
+  QMenu* createUserMenu() const override;
 
   friend class ImageView;
 
 private slots:
   void saveImg();
-  void colorAct(int color);
-
-private:
-  /* The toolbar of a widget (and therefore the containing actions) is deleted by the
-   * SimRobot mainwindow if another view receives focus. If this happens there is no
-   * way to know for this widget that the toolbar (and therefor the undo/redo buttons)
-   * is deleted. So this work around sets the undo/redo button pointers to nullptr if
-   * they are deleted.
-   */
-  class WorkAroundAction : public QAction
-  {
-  private:
-    QAction** toBeSetToNULL;
-  public:
-    WorkAroundAction(QAction** toBeSetToNULL, const QIcon& icon, const QString& text, QObject* parent) :
-      QAction(icon, text, parent), toBeSetToNULL(toBeSetToNULL)
-    {}
-
-    ~WorkAroundAction()
-    {
-      (*toBeSetToNULL) = nullptr;
-    }
-  };
 };

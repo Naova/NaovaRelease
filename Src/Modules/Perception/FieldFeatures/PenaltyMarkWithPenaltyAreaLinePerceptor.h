@@ -38,7 +38,7 @@ MODULE(PenaltyMarkWithPenaltyAreaLinePerceptor,
   {,
     (float)(1000.f) minimumLineLength,   /**< The penalty area line has to be at least this long */
     (float)(150.f)  maximumDeviation,    /**< Maximum tolerated deviation between modeled distance and perceived distance */
-    (int)(40) bufferTimePenaltyMark,     /**< Use old penalty marks not longer than for this number of milliseconds */
+    (int)(80) bufferTimePenaltyMark,     /**< Use old penalty marks not longer than for this number of milliseconds */
   }),
 });
 

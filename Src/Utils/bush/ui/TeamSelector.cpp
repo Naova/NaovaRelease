@@ -16,9 +16,9 @@ TeamSelector::TeamSelector()
     teamPages(),
     teamViews()
 {
-  static const size_t NUM_PLAYERS = 12; //due to F1..F12 keys and two rows with 1-6 players
+  static const size_t NUM_PLAYERS = 16; //due to F1..F12 keys and two rows with 1-8 players
   selectActions.reserve(NUM_PLAYERS);
-  for(int i = 0; i < (int) NUM_PLAYERS; ++i)
+  for(int i = 0; i < static_cast<int>(NUM_PLAYERS); ++i)
   {
     QAction* a = new QAction(this);
     a->setShortcut(QKeySequence(Qt::Key_F1 + i));
@@ -28,12 +28,12 @@ TeamSelector::TeamSelector()
   }
 
   QAction* aNext = new QAction(this);
-  aNext->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_PageDown));
+  aNext->setShortcut(QKeySequence(static_cast<int>(Qt::CTRL) + static_cast<int>(Qt::Key_PageDown)));
   addAction(aNext);
   connect(aNext, SIGNAL(triggered()), this, SLOT(selectNext()));
 
   QAction* aPrev = new QAction(this);
-  aPrev->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_PageUp));
+  aPrev->setShortcut(QKeySequence(static_cast<int>(Qt::CTRL) + static_cast<int>(Qt::Key_PageUp)));
   addAction(aPrev);
   connect(aPrev, SIGNAL(triggered()), this, SLOT(selectPrev()));
 }
@@ -143,7 +143,7 @@ void TeamSelector::selectPlayer()
   if(!s)
     return;
   int number = -1;
-  for(int i = 0; i < (int) selectActions.size(); ++i)
+  for(int i = 0; i < static_cast<int>(selectActions.size()); ++i)
     if(selectActions[i] == s)
       number = i;
 

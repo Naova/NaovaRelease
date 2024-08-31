@@ -1,22 +1,24 @@
 /**
  * @file Controller/GameController.h
  * This file declares a class that simulates a console-based GameController.
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 
 #pragma once
 
-#include <set>
-#include <SimRobotCore2.h>
 #include "Platform/Thread.h"
+#include "Representations/Communication/GameInfo.h"
+#include "Representations/Communication/RobotInfo.h"
+#include "Representations/Communication/TeamInfo.h"
 #include "Representations/Configuration/BallSpecification.h"
 #include "Representations/Configuration/FieldDimensions.h"
-#include "Representations/Infrastructure/GameInfo.h"
-#include "Representations/Infrastructure/RobotInfo.h"
-#include "Representations/Infrastructure/TeamInfo.h"
-#include "Tools/Streams/Enum.h"
 #include "Tools/Math/Pose2f.h"
+#include "Tools/Settings.h"
+#include "Tools/Streams/Enum.h"
 #include "Tools/Streams/InOut.h"
+#include <SimRobot.h>
+#include <set>
+#include <string>
 
 class SimulatedRobot;
 
@@ -26,7 +28,22 @@ class SimulatedRobot;
 class GameController
 {
 public:
-  bool automatic = true; /**< Are the automatic features active? */
+  ENUM(AutomaticReferee,
+  {,
+    placeBall,
+    placePlayers,
+    switchToSet,
+    switchToPlaying,
+    ballOut,
+    freeKickComplete,
+    clearBall,
+    penalizeLeavingTheField,
+    penalizeIllegalPosition,
+    penalizeIllegalPositionInSet,
+    unpenalize,
+  });
+
+  unsigned automatic = ~0u; /**< Which automatic features are active? */
 
 private:
   struct Robot
@@ -34,6 +51,12 @@ private:
     SimulatedRobot* simulatedRobot = nullptr;
     RobotInfo info;
     unsigned timeWhenPenalized = 0;
+    unsigned timeWhenBallNotStuckBetweenLegs = 0;
+    float ownPenaltyAreaMargin = -1.f;
+    float ownGoalAreaMargin = -1.f;
+    float opponentPenaltyAreaMargin = -1.f;
+    float opponentGoalAreaMargin = -1.f;
+    uint8_t lastPenalty = PENALTY_NONE;
     Pose2f lastPose;
     bool manuallyPlaced = false;
   };
@@ -45,10 +68,12 @@ private:
     playerPushing,
     illegalMotionInSet,
     inactivePlayer,
-    illegalDefender,
+    illegalPosition,
     leavingTheField,
-    kickOffGoal,
     requestForPickup,
+    localGameStuck,
+    illegalPositionInSet,
+    substitute,
     manual,
   });
   static const int numOfPenalties = numOfPenaltys; /**< Correct typo. */
@@ -56,25 +81,42 @@ private:
   DECLARE_SYNC;
   static const int numOfRobots = 12;
   static const int numOfFieldPlayers = numOfRobots / 2 - 2; // Keeper, Substitute
-  static const int durationOfHalf = 600;
+  static const int halfTime = 600;
+  static const int readyTime = 45;
+  static const int penaltyKickReadyTime = 30;
+  static const int kickOffTime = 10;
+  static const int freeKickTime = 30;
+  static const int penaltyShotTime = 30;
   static const float footLength; /**< foot length for position check and manual placement at center circle. */
-  static const float safeDistance; /**< safe distance from goal areas for manual placement. */
+  static const float safeDistance; /**< safe distance from penalty areas for manual placement. */
   static const float dropHeight; /**< height at which robots are manually placed so the fall a little bit and recognize it. */
-  static Pose2f lastBallContactPose; /**< Position were the last ball contact of a robot took place, orientation is toward opponent goal (0/180 degress). */
-  static FieldDimensions fieldDimensions;
-  static BallSpecification ballSpecification;
-  GameInfo gameInfo;
+  static const float returnFromPenaltyYOffset; /**< when the robot returns from a penalty, it is placed at this y offset from the sideline */
+  Pose2f lastBallContactPose; /**< Position where the last ball contact of a robot took place, orientation is toward opponent goal (0/180 degrees). */
+  unsigned lastBallContactTime = 0;
+  FieldDimensions fieldDimensions;
+  BallSpecification ballSpecification;
+  RawGameInfo gameInfo;
   TeamInfo teamInfos[2];
-  unsigned timeWhenHalfStarted = 0;
-  unsigned timeOfLastDropIn = 0;
+  uint8_t lastState = STATE_INITIAL;
+  unsigned timeBeforeCurrentState = 0;
   unsigned timeWhenLastRobotMoved = 0;
   unsigned timeWhenStateBegan = 0;
+  unsigned timeWhenSetPlayBegan = 0;
   Robot robots[numOfRobots];
 
   /** enum which declares the different types of balls leaving the field */
-  enum BallOut {notOut, goalBySecondTeam, goalByFirstTeam, outBySecondTeam, outByFirstTeam};
-
-  friend Settings;
+  enum BallOut
+  {
+    notOut,
+    goalBySecondTeam,
+    goalByFirstTeam,
+    outBySecondTeam,
+    outByFirstTeam,
+    ownGoalOutBySecondTeam,
+    ownGoalOutByFirstTeam,
+    opponentGoalOutBySecondTeam,
+    opponentGoalOutByFirstTeam
+  };
 
 public:
   GameController();
@@ -108,7 +150,7 @@ public:
    * Proclaims which robot touched the ball at last
    * @param robot The robot
    */
-  static void setLastBallContactRobot(SimRobot::Object* robot);
+  void setLastBallContactRobot(SimRobot::Object* robot);
 
   /**
    * Write the current game information to the stream provided.
@@ -152,9 +194,10 @@ public:
    * which can only be obtained using an instance of application. We are using
    * RoboCupCtrl for this.
    */
-  void setTeamInfos(Settings::TeamColor& firstTeamColor, Settings::TeamColor& secondTeamColor);
+  void setTeamInfos(Settings::TeamColor firstTeamColor, Settings::TeamColor secondTeamColor);
 
 private:
+
   /**
    * Handles the command "gc".
    * @param command The second part of the command (without "gc").
@@ -162,18 +205,53 @@ private:
   bool handleGlobalCommand(const std::string& command);
 
   /**
+   * Handles commands that modify the competition phase.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleCompetitionPhaseCommand(const std::string& command);
+
+  /**
+   * Handles commands that modify the competition type.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleCompetitionTypeCommand(const std::string& command);
+
+  /**
+   * Handles commands that modify the game state.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleStateCommand(const std::string& command);
+
+  /**
+   * Handles commands that count goals.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleGoalCommand(const std::string& command);
+
+  /**
+   * Handles commands that give free kicks.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleFreeKickCommand(const std::string& command);
+
+  /**
+   * Handles commands that give kickoff.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleKickOffCommand(const std::string& command);
+
+  /**
+   * Handles commands that request manual placement.
+   * @param command The second part of the command (without "gc").
+   */
+  bool handleManualPlacementCommand(const std::string& command);
+
+  /**
    * Handles the command "pr".
    * @param robot The number of the robot that received the command.
    * @param command The second part of the command (without "pr").
    */
   bool handleRobotCommand(int robot, const std::string& command);
-
-  /**
-   * Is a robot it its own penalty area or in its own goal area?
-   * @param robot The number of the robot to check [0 ... numOfRobots-1].
-   * @return Is it?
-   */
-  bool inOwnGoalArea(int robot) const;
 
   /**
    * Finds a free place for a (un)penalized robot.
@@ -212,15 +290,20 @@ private:
   void placeDefensivePlayers(int minRobot);
 
   /**
-   * Remove all but one field players from the goal area.
-   * @param minRobot The number of the first field player in the team (1 or numOfRobots/2+1).
-   * @param poses Possible placement poses robots.
+   * Checks the position of a robot at the transition from ready to set and penalizes it if its position is illegal.
+   * @param robot The number of the robot to check the position of.
    */
-  void freeGoalArea(int minRobot, const Pose2f* poses);
+  void checkIllegalPositionInSet(int robot);
+
+  /** Adds the time that has elapsed in the current state to timeBeforeCurrentState. */
+  void addTimeInCurrentState();
+
+  /** Sets all times when penalized to 0. */
+  void resetPenaltyTimes();
 
   /** Execute the manual placements decided before. */
   void executePlacement();
 
   /** Update the ball position based on the rules. */
-  static BallOut updateBall();
+  BallOut updateBall();
 };

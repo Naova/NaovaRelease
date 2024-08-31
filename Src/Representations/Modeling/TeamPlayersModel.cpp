@@ -17,7 +17,6 @@
 
 void TeamPlayersModel::verify() const
 {
-#ifndef NDEBUG
   for(const auto& obstacle : obstacles)
   {
     ASSERT(std::isfinite(obstacle.center.x()));
@@ -32,7 +31,7 @@ void TeamPlayersModel::verify() const
     ASSERT(std::isfinite(obstacle.velocity.x()));
     ASSERT(std::isfinite(obstacle.velocity.y()));
 
-    //ASSERT((obstacle.left - obstacle.right).squaredNorm() < sqr(2000.f));
+    ASSERT((obstacle.left - obstacle.right).squaredNorm() < sqr(2000.f));
 
     ASSERT(std::isnormal(obstacle.covariance(0, 0)));
     ASSERT(std::isnormal(obstacle.covariance(1, 1)));
@@ -40,7 +39,6 @@ void TeamPlayersModel::verify() const
     ASSERT(std::isfinite(obstacle.covariance(1, 0)));
     ASSERT(Approx::isEqual(obstacle.covariance(0, 1), obstacle.covariance(1, 0), 1e-20f));
   }
-#endif
 }
 
 void TeamPlayersModel::draw() const
@@ -96,8 +94,8 @@ void TeamPlayersModel::draw() const
             const Geometry::Line leftLine(gloBallPos, left - gloBallPos);
             const Geometry::Line rightLine(gloBallPos, right - gloBallPos);
 
-            const Vector2f bottomLeft(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightSideline);
-            const Vector2f topRight(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftSideline);
+            const Vector2f bottomLeft(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosRightSideline);
+            const Vector2f topRight(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosLeftSideline);
 
             Vector2f useLeft;
             Vector2f useRight;
@@ -116,7 +114,7 @@ void TeamPlayersModel::draw() const
             POLYGON("representation:TeamPlayersModel:teamCoverage", 3, points, 10, Drawings::noPen, color, Drawings::solidBrush, color);
           };
 
-          //const Vector2f points[3] = { gloBallPos , Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightGoal) , Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosLeftGoal) };
+          //const Vector2f points[3] = { gloBallPos , Vector2f(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosRightGoal) , Vector2f(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosLeftGoal) };
           //POLYGON("representation:TeamPlayersModel:teamCoverage", 3, points, 10, Drawings::noPen, ColorRGBA(ColorRGBA::red.r, ColorRGBA::red.g, ColorRGBA::red.b, 50), Drawings::solidBrush, ColorRGBA(ColorRGBA::red.r, ColorRGBA::red.g, ColorRGBA::red.b, 50));
 
           drawOffset(genuflectRange, ColorRGBA(ColorRGBA::violet.r, ColorRGBA::violet.g, ColorRGBA::violet.b, 100));
@@ -132,16 +130,9 @@ void TeamPlayersModel::draw() const
     {
       if(obstacle.type != Obstacle::teammate && obstacle.type != Obstacle::fallenTeammate)
       {
-        float xExpansion, yExpansion, rotation;
-        Covariance::errorEllipse(obstacle.covariance, xExpansion, yExpansion, rotation);
         CROSS("representation:TeamPlayersModel:oppRobots", obstacle.center.x(), obstacle.center.y(), 20, 40, Drawings::solidPen, ColorRGBA::blue);
-        ELLIPSE("representation:TeamPlayersModel:oppRobotsCovariance", obstacle.center, sqrt(3.0f) * xExpansion, sqrt(3.0f) * yExpansion, rotation,
-                10, Drawings::solidPen, ColorRGBA(100, 100, 255, 100), Drawings::solidBrush, ColorRGBA(0, 0, 255, 100));
-        ELLIPSE("representation:TeamPlayersModel:oppRobotsCovariance", obstacle.center, sqrt(2.0f) * xExpansion, sqrt(2.0f) * yExpansion, rotation,
-                10, Drawings::solidPen, ColorRGBA(150, 150, 100, 100), Drawings::solidBrush, ColorRGBA(0, 255, 0, 100));
-        ELLIPSE("representation:TeamPlayersModel:oppRobotsCovariance", obstacle.center, xExpansion, yExpansion, rotation,
-                10, Drawings::solidPen, ColorRGBA(255, 100, 100, 100), Drawings::solidBrush, ColorRGBA(255, 255, 0, 100));
         CIRCLE("representation:TeamPlayersModel:oppRobots", obstacle.center.x(), obstacle.center.y(), 600, 20, Drawings::solidPen, ColorRGBA::yellow, Drawings::noBrush, ColorRGBA());
+        COVARIANCE_ELLIPSES_2D("representation:TeamPlayersModel:oppRobotsCovariance", obstacle.covariance, obstacle.center);
       }
     }
   }

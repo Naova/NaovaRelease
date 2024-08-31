@@ -1,16 +1,15 @@
 /**
-* @file OpenGLTools.cpp
-* Utility functions for using OpenGL
-* @author Colin Graf
-*/
-
-#include <cmath>
+ * @file OpenGLTools.cpp
+ * Utility functions for using OpenGL
+ * @author Colin Graf
+ */
 
 #include "OpenGLTools.h"
+#include <cmath>
 
-void OpenGLTools::computePerspective(float fovy, float aspect, float near, float far, float matrix[])
+void OpenGLTools::computePerspective(float fovY, float aspect, float near, float far, float matrix[])
 {
-  matrix[5] = 1.f / tanf(fovy * 0.5f);
+  matrix[5] = 1.f / std::tan(fovY * 0.5f);
   matrix[0] = matrix[5] / aspect;
   const float nearMFarInv = 1.f / (near - far);
   matrix[10] = (far + near) * nearMFarInv;

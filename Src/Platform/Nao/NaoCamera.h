@@ -6,13 +6,12 @@
 
 #pragma once
 
+#include "Representations/Configuration/AutoExposureWeightTable.h"
+#include "Representations/Configuration/CameraSettings.h"
 #include "Representations/Infrastructure/CameraInfo.h"
-#include "Representations/Infrastructure/CameraSettings.h"
-#include "Representations/Infrastructure/AutoExposureWeightTable.h"
 
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
-
 
 /**
  * @class NaoCamera
@@ -21,30 +20,35 @@
 class NaoCamera
 {
 public:
-  unsigned int timeWaitedForLastImage = 0; /**< The time (in _milliseconds_) passed while waiting for a new image. */
   bool resetRequired = false;
-
 
   /**
    * Constructor.
    * @param device The name of the camera device (e.g. /dev/video0).
    * @param camera Whether this is the lower or upper camera.
-   * @param width The width of the camera image in pixels. V4L only allows certain values (e.g. 320 or 640)
-   * @param height The height of the camera image in pixels. V4L only allows certain values (e.g. 240 or 320)
-   * @param flip Whether the image should be flipped
+   * @param width The width of the camera image in pixels. V4L only allows certain values (e.g. 320 or 640).
+   * @param height The height of the camera image in pixels. V4L only allows certain values (e.g. 240 or 480).
+   * @param flip Whether the image should be flipped, i.e. rotated by 180°.
+   * @param settings The initial camera settings.
+   * @param autoExposureWeightTable The initial auto exposure weight table. The table contains 5x5 values in
+   *                                the range [0 .. 100] that weight the influence the corresponding area of
+   *                                the image (rows top to bottom, columns left to right) on the auto exposure
+   *                                computation. If the table does only contains zeros, the image will be black.
    */
   NaoCamera(const char* device, CameraInfo::Camera camera, int width, int height, bool flip,
-            const CameraSettings::CameraSettingsCollection& settings, const AutoExposureWeightTable& autoExposureWeightTable);
+            const CameraSettings::Collection& settings,
+            const AutoExposureWeightTable::Table& autoExposureWeightTable);
 
-  virtual ~NaoCamera();
+  ~NaoCamera();
 
   void changeResolution(int width, int height);
 
   /**
    * The method blocks till a new image arrives.
+   * @param timeout The maximum waiting time
    * @return true (except a not manageable exception occurs)
    */
-  bool captureNew();
+  bool captureNew(int timeout);
 
   /**
    * The method blocks till one of the given cameras returns an image.
@@ -54,7 +58,7 @@ public:
    * @param errorCam1 Whether an error occured on cam1
    * @param errorCam2 Whether an error occured on cam2
    */
-  static bool captureNew(NaoCamera& cam1, NaoCamera& cam2, int timeout, bool& errorCam1, bool& errorCam2);
+  static bool captureNew(NaoCamera& cam1, NaoCamera& cam2, int timeout);
 
   /**
    * Releases an image that has been captured. That way the buffer can be used to capture another image
@@ -71,13 +75,13 @@ public:
    * Whether an image has been captured.
    * @return true if there is one
    */
-  virtual bool hasImage();
+  bool hasImage();
 
   /**
    * Timestamp of the last captured image in µs.
    * @return The timestamp.
    */
-  unsigned long long getTimeStamp() const;
+  unsigned long long getTimestamp() const;
 
   /**
    * Returns the frame rate used by the camera
@@ -90,10 +94,10 @@ public:
    */
   bool setFrameRate(unsigned numerator = 1, unsigned denominator = 30);
 
-  CameraSettings::CameraSettingsCollection getCameraSettingsCollection() const;
-  AutoExposureWeightTable getAutoWhiteBalanceTable() const;
+  CameraSettings::Collection getCameraSettingsCollection() const;
+  AutoExposureWeightTable::Table getAutoExposureWeightTable() const;
 
-  void setSettings(const CameraSettings::CameraSettingsCollection& settings, const AutoExposureWeightTable& autoExposureWeightTable);
+  void setSettings(const CameraSettings::Collection& settings, const AutoExposureWeightTable::Table& autoExposureWeightTable);
 
   /**
    * Unconditional write of the camera settings
@@ -104,6 +108,33 @@ public:
 
   void doAutoWhiteBalance();
 
+  void toggleAutoWhiteBalance();
+
+
+  /**
+   * Set a camera register.
+   * @param address The address of the register.
+   * @param value The value to set. Although the command could set two bytes,
+   *              actual tests showed that only a single byte is set.
+   * @return Was the call successful?
+   */
+  bool setRegister(unsigned short address, unsigned short value) const;
+
+  /**
+   * Get the current value of a register.
+   * @param address The address of the register.
+   * @param value The value returned. Although the command could return two bytes,
+   *              actual tests showed that only a single byte is read.
+   * @return Could the register be read?
+   */
+  bool getRegister(unsigned short address, unsigned short& value) const;
+
+  static void resetCamera();
+  static bool openI2CDevice(int& fileDescriptor);
+  static bool i2cReadWriteAccess(int fileDescriptor, unsigned char readWrite, unsigned char command, unsigned char size, i2c_smbus_data& data);
+  static bool i2cWriteBlockData(int fileDescriptor, unsigned char deviceAddress, unsigned char dataAddress, std::vector<unsigned char> data);
+  static bool i2cReadByteData(int fileDescriptor, unsigned char deviceAddress, unsigned char dataAddress, unsigned char& res);
+
 private:
   class V4L2Setting
   {
@@ -111,12 +142,11 @@ private:
     int command = 0;
     int value = 0;
 
+    CameraSettings::Collection::CameraSetting notChangableWhile = CameraSettings::Collection::numOfCameraSettings;
     int invert = true;
 
-    CameraSettings::CameraSetting notChangableWhile = CameraSettings::numOfCameraSettings;
-
     V4L2Setting() = default;
-    V4L2Setting(int command, int value, int min, int max, CameraSettings::CameraSetting notChangableWhile = CameraSettings::numOfCameraSettings, int invert = 0);
+    V4L2Setting(int command, int value, int min, int max, CameraSettings::Collection::CameraSetting notChangableWhile = CameraSettings::Collection::numOfCameraSettings, int invert = 0);
 
     bool operator==(const V4L2Setting& other) const;
     bool operator!=(const V4L2Setting& other) const;
@@ -131,7 +161,7 @@ private:
 
   struct CameraSettingsCollection
   {
-    std::array<V4L2Setting, CameraSettings::numOfCameraSettings> settings;
+    std::array<V4L2Setting, CameraSettings::Collection::numOfCameraSettings> settings;
     static constexpr size_t sizeOfAutoExposureWeightTable = AutoExposureWeightTable::width * AutoExposureWeightTable::height;
     std::array<V4L2Setting, sizeOfAutoExposureWeightTable> autoExposureWeightTable;
 
@@ -145,7 +175,6 @@ private:
   {
     V4L2Setting verticalFlip;
     V4L2Setting horizontalFlip;
-    V4L2Setting doAutoWhiteBallance;
 
     CameraSettingsSpecial();
   };
@@ -155,7 +184,7 @@ private:
   CameraSettingsCollection appliedSettings; /**< The camera settings that are known to be applied. */
   CameraSettingsSpecial specialSettings; /**< Special settings that are only set */
 
-  static const constexpr unsigned frameBufferCount = 3; /**< Amount of available frame buffers. */
+  static constexpr unsigned frameBufferCount = 3; /**< Amount of available frame buffers. */
 
   unsigned WIDTH; /**< The width of the yuv 422 image */
   unsigned HEIGHT; /**< The height of the yuv 422 image */
@@ -165,7 +194,7 @@ private:
   struct v4l2_buffer* buf = nullptr; /**< Reusable parameter struct for some ioctl calls. */
   struct v4l2_buffer* currentBuf = nullptr; /**< The last dequeued frame buffer. */
   bool first = true; /**< First image grabbed? */
-  unsigned long long timeStamp = 0; /**< Timestamp of the last captured image in microseconds. */
+  unsigned long long timestamp = 0; /**< Timestamp of the last captured image in microseconds. */
 
   bool checkSettingsAvailability();
 
@@ -178,25 +207,6 @@ private:
    */
   bool getControlSetting(V4L2Setting& setting);
 
-    /**
-   * Get the current value of a register.
-   * @param address The address of the register.
-   * @param value The value returned. Although the command could return two bytes,
-   *              actual tests showed that only a single byte is read.
-   * @return Could the register be read?
-   */
-  bool getRegister(unsigned short address, unsigned short& value) const;
-
-    /**
-   * Set a camera register.
-   * @param address The address of the register.
-   * @param value The value to set. Although the command could set two bytes,
-   *              actual tests showed that only a single byte is set.
-   * @return Was the call successful?
-   */
-  bool setRegister(unsigned short address, unsigned short value) const;
-
-
   /**
    * Sets the value of a camera control setting to camera.
    * @param id The setting id.
@@ -205,8 +215,7 @@ private:
    */
   bool setControlSetting(V4L2Setting& setting);
 
-  bool assertCameraSetting(CameraSettings::CameraSetting setting);
-  bool assertAutoExposureWeightTableEntry(size_t entry);
+  bool assertCameraSetting(CameraSettings::Collection::CameraSetting setting);
 
   bool setImageFormat();
 
@@ -248,5 +257,4 @@ private:
   {
     return queryXU(false, control, const_cast<T*>(&value), static_cast<unsigned short>(sizeof(T)));
   }
-
 };

@@ -12,9 +12,9 @@
 #include "Platform/BHAssert.h"
 #include "Tools/Math/Geometry.h"
 #include "Tools/Math/Eigen.h"
-#include "Representations/Infrastructure/RoboCupGameControlData.h"
+#include "Representations/Communication/TeamInfo.h"
 #include "Tools/Debugging/DebugDrawings.h"
-#include "Tools/Settings.h"
+#include "Tools/Module/Blackboard.h"
 #include <algorithm>
 
 using namespace std;
@@ -29,21 +29,22 @@ private:
   const char* entry = nullptr; /**< The name of the current entry processed. */
 
 public:
-  InSymbolicMapFile(const std::string& name) : InMapFile(name) {}
+  InSymbolicMapFile(const std::string& name, const std::unordered_map<std::string, float>& values = {})
+  : InMapFile(name), values(values) {}
 
-  virtual void select(const char* name, int type, const char* (*enumToString)(int))
+  void select(const char* name, int type, const char* enumType) override
   {
     Streaming::trimName(name);
-    InMapFile::select(name, type, enumToString);
+    InMapFile::select(name, type, enumType);
     entry = name;
   }
 
 protected:
   /**
    * When reading a float, read a string instead. Try to replace symbolic value.
-   * Symbolic value can be preceeded by a minus sign (without whitespace in between).
+   * Symbolic value can be preceded by a minus sign (without whitespace in between).
    */
-  virtual void inFloat(float& value)
+  void inFloat(float& value) override
   {
     std::string buf;
     inString(buf);
@@ -54,11 +55,11 @@ protected:
       buf = buf.substr(1);
     }
 
-    std::unordered_map<std::string, float>::const_iterator i = values.find(buf);
+    const auto i = values.find(buf);
     if(i != values.end())
       value = i->second * sign;
     else if(!buf.empty() && (isdigit(buf[0]) || buf[0] == '.'))
-      value = static_cast<float>(strtod(buf.c_str(), 0)) * sign;
+      value = static_cast<float>(strtod(buf.c_str(), nullptr)) * sign;
     else
       OUTPUT_ERROR("fieldDimensions.cfg: Unknown symbol '" << buf << "'");
 
@@ -96,6 +97,7 @@ Pose2f FieldDimensions::randomPoseOnCarpet() const
 
 void FieldDimensions::draw() const
 {
+  drawPolygons();
   drawLines();
   drawGoalFrame();
   drawCorners();
@@ -105,9 +107,9 @@ void FieldDimensions::drawGoalFrame() const
 {
   DEBUG_DRAWING("goal frame", "drawingOnField")
   {
+    const ColorRGBA lineColor(224, 224, 224);
     for(const LinesTable::Line& l : goalFrameLines.lines)
     {
-      ColorRGBA lineColor(192, 192, 192);
       LINE("goal frame", l.from.x(), l.from.y(), l.to.x(), l.to.y(), fieldLinesWidth * 0.7, Drawings::solidPen, lineColor);
     }
   }
@@ -117,60 +119,21 @@ void FieldDimensions::drawLines() const
 {
   DEBUG_DRAWING("field lines", "drawingOnField")
   {
-    ASSERT(carpetBorder.lines.size() <= 4);
     Vector2f points[4];
-    for(unsigned i = 0; i < carpetBorder.lines.size(); ++i)
-      points[i] = carpetBorder.lines[i].from;
-    POLYGON("field lines", static_cast<int>(carpetBorder.lines.size()), points, 0, Drawings::solidPen, ColorRGBA(0, 180, 0), Drawings::solidBrush, ColorRGBA(0, 140, 0));
+    points[0].x() = points[1].x() = xPosOpponentFieldBorder;
+    points[2].x() = points[3].x() = xPosOwnFieldBorder;
+    points[0].y() = points[3].y() = yPosLeftFieldBorder;
+    points[1].y() = points[2].y() = yPosRightFieldBorder;
+    POLYGON("field lines", 4, points, 0, Drawings::solidPen, ColorRGBA(0, 140, 0), Drawings::solidBrush, ColorRGBA(0, 140, 0));
 
-    ColorRGBA lineColor(192, 192, 192);
+    const ColorRGBA lineColor(224, 224, 224);
     for(vector<LinesTable::Line>::const_iterator i = fieldLines.lines.begin(); i != fieldLines.lines.end(); ++i)
     {
-      LINE("field lines", i->from.x(), i->from.y(), i->to.x(), i->to.y(), fieldLinesWidth, Drawings::solidPen, lineColor);
-    }
-  }
-
-  if(Global::settingsExist() && Global::getSettings().location == "MZH1400")
-  {
-    DEBUG_DRAWING("foil cuts", "drawingOnField")
-    {
-      LINE("foil cuts", -3000, yPosLeftFieldBorder, -3000, yPosRightFieldBorder, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", -1000, yPosLeftFieldBorder, -1000, yPosRightFieldBorder, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 1000, yPosLeftFieldBorder, 1000, yPosRightFieldBorder, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 3000, yPosLeftFieldBorder, 3000, yPosRightFieldBorder, 50, Drawings::dashedPen, ColorRGBA::black);
-
-      LINE("foil cuts", xPosOwnFieldBorder, 2500, -3000, 2500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", -1000, 2500, 1000, 2500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 3000, 2500, xPosOpponentFieldBorder, 2500, 50, Drawings::dashedPen, ColorRGBA::black);
-
-      LINE("foil cuts", xPosOwnFieldBorder, 1500, -3000, 1500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", -1000, 1500, 1000, 1500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 3000, 1500, xPosOpponentFieldBorder, 1500, 50, Drawings::dashedPen, ColorRGBA::black);
-
-      LINE("foil cuts", xPosOwnFieldBorder, -1500, -3000, -1500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", -1000, -1500, 1000, -1500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 3000, -1500, xPosOpponentFieldBorder, -1500, 50, Drawings::dashedPen, ColorRGBA::black);
-
-      LINE("foil cuts", xPosOwnFieldBorder, -2500, -3000, -2500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", -1000, -2500, 1000, -2500, 50, Drawings::dashedPen, ColorRGBA::black);
-      LINE("foil cuts", 3000, -2500, xPosOpponentFieldBorder, -2500, 50, Drawings::dashedPen, ColorRGBA::black);
+      if(!i->isPartOfCircle)
+        LINE("field lines", i->from.x(), i->from.y(), i->to.x(), i->to.y(), fieldLinesWidth, Drawings::solidPen, lineColor);
     }
 
-    DEBUG_DRAWING("highlight praum parts", "drawingOnField")
-    {
-      ColorRGBA color(192, 192, 192, 60);
-      FILLED_RECTANGLE("highlight praum parts", xPosOwnFieldBorder, yPosLeftFieldBorder, -3000, 2500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", xPosOwnFieldBorder, 1500, -3000, -1500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", xPosOwnFieldBorder, yPosRightFieldBorder, -3000, -2500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-
-      FILLED_RECTANGLE("highlight praum parts", 1000, yPosLeftFieldBorder, -1000, 2500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", 1000, 1500, -1000, -1500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", 1000, -2500, -1000, yPosRightFieldBorder, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-
-      FILLED_RECTANGLE("highlight praum parts", xPosOpponentFieldBorder, yPosLeftFieldBorder, 3000, 2500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", xPosOpponentFieldBorder, 1500, 3000, -1500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-      FILLED_RECTANGLE("highlight praum parts", xPosOpponentFieldBorder, yPosRightFieldBorder, 3000, -2500, 1, Drawings::noPen, ColorRGBA::black, Drawings::solidBrush, color);
-    }
+    CIRCLE("field lines", centerCircle.center.x(), centerCircle.center.y(), centerCircle.radius, fieldLinesWidth, Drawings::solidPen, lineColor, Drawings::noBrush, ColorRGBA::black);
   }
 
   DEBUG_DRAWING("half meter grid", "drawingOnField")
@@ -189,42 +152,54 @@ void FieldDimensions::drawLines() const
   }
 }
 
-void FieldDimensions::drawPolygons(int ownColor) const
+void FieldDimensions::drawPolygons() const
 {
-  DEBUG_DRAWING("field polygons", "drawingOnField")
+  if(Blackboard::getInstance().exists("OwnTeamInfo") && Blackboard::getInstance().exists("OpponentTeamInfo"))
   {
-    static const ColorRGBA colors[] =
+    const OwnTeamInfo& ownTeamInfo = static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]);
+    const OpponentTeamInfo& opponentTeamInfo = static_cast<const OpponentTeamInfo&>(Blackboard::getInstance()["OpponentTeamInfo"]);
+
+    DEBUG_DRAWING("field polygons", "drawingOnField")
     {
-      ColorRGBA(50, 120, 127),
-      ColorRGBA(127, 80, 80),
-      ColorRGBA(127, 120, 50),
-      ColorRGBA(80, 80, 80)
-    };
-    const ColorRGBA& own = colors[ownColor];
-    const ColorRGBA& opp = colors[1 ^ ownColor];
+      static const ColorRGBA colors[] =
+      {
+        ColorRGBA(50, 120, 127),
+        ColorRGBA(127, 80, 80),
+        ColorRGBA(127, 120, 50),
+        ColorRGBA(40, 40, 40),
+        ColorRGBA(180, 180, 180),
+        ColorRGBA(40, 80, 40),
+        ColorRGBA(127, 120, 0),
+        ColorRGBA(120, 20, 127),
+        ColorRGBA(127, 80, 20),
+        ColorRGBA(120, 120, 120)
+      };
+      const ColorRGBA& own = colors[ownTeamInfo.teamColor];
+      const ColorRGBA& opp = colors[opponentTeamInfo.teamColor];
 
-    Vector2f goal[4];
-    goal[0] = Vector2f(xPosOwnGroundline - fieldLinesWidth * 0.5f, yPosLeftGoal);
-    goal[1] = Vector2f(xPosOwnGroundline - fieldLinesWidth * 0.5f, yPosRightGoal);
-    goal[2] = Vector2f(xPosOwnGoal, yPosRightGoal);
-    goal[3] = Vector2f(xPosOwnGoal, yPosLeftGoal);
-    POLYGON("field polygons", 4, goal, 0, Drawings::solidPen, own, Drawings::solidBrush, own);
+      Vector2f goal[4];
+      goal[0] = Vector2f(xPosOwnGroundLine - fieldLinesWidth * 0.5f, yPosLeftGoal);
+      goal[1] = Vector2f(xPosOwnGroundLine - fieldLinesWidth * 0.5f, yPosRightGoal);
+      goal[2] = Vector2f(xPosOwnGoal, yPosRightGoal);
+      goal[3] = Vector2f(xPosOwnGoal, yPosLeftGoal);
+      POLYGON("field polygons", 4, goal, 0, Drawings::solidPen, own, Drawings::solidBrush, own);
 
-    goal[0] = Vector2f(xPosOpponentGroundline + fieldLinesWidth * 0.5f, yPosLeftGoal);
-    goal[1] = Vector2f(xPosOpponentGroundline + fieldLinesWidth * 0.5f, yPosRightGoal);
-    goal[2] = Vector2f(xPosOpponentGoal, yPosRightGoal);
-    goal[3] = Vector2f(xPosOpponentGoal, yPosLeftGoal);
-    POLYGON("field polygons", 4, goal, 0, Drawings::solidPen, opp, Drawings::solidBrush, opp);
+      goal[0] = Vector2f(xPosOpponentGroundLine + fieldLinesWidth * 0.5f, yPosLeftGoal);
+      goal[1] = Vector2f(xPosOpponentGroundLine + fieldLinesWidth * 0.5f, yPosRightGoal);
+      goal[2] = Vector2f(xPosOpponentGoal, yPosRightGoal);
+      goal[3] = Vector2f(xPosOpponentGoal, yPosLeftGoal);
+      POLYGON("field polygons", 4, goal, 0, Drawings::solidPen, opp, Drawings::solidBrush, opp);
 
-    CIRCLE("field polygons", xPosOpponentGoalPost, yPosLeftGoal, 50, 0, Drawings::solidPen,
-           ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
-    CIRCLE("field polygons", xPosOpponentGoalPost, yPosRightGoal, 50, 0, Drawings::solidPen,
-           ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
+      CIRCLE("field polygons", xPosOpponentGoalPost, yPosLeftGoal, 50, 0, Drawings::solidPen,
+             ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
+      CIRCLE("field polygons", xPosOpponentGoalPost, yPosRightGoal, 50, 0, Drawings::solidPen,
+             ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
 
-    CIRCLE("field polygons", xPosOwnGoalPost, yPosLeftGoal, 50, 0, Drawings::solidPen,
-           ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
-    CIRCLE("field polygons", xPosOwnGoalPost, yPosRightGoal, 50, 0, Drawings::solidPen,
-           ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
+      CIRCLE("field polygons", xPosOwnGoalPost, yPosLeftGoal, 50, 0, Drawings::solidPen,
+             ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
+      CIRCLE("field polygons", xPosOwnGoalPost, yPosRightGoal, 50, 0, Drawings::solidPen,
+             ColorRGBA::white, Drawings::solidBrush, ColorRGBA::white);
+    }
   }
 }
 
@@ -232,11 +207,11 @@ void FieldDimensions::drawCorners() const
 {
   DECLARE_DEBUG_DRAWING("field corners", "drawingOnField");
   CornerClass c = xCorner;
-  MODIFY_ENUM("fieldDimensions:cornerClass", c);
+  MODIFY("fieldDimensions:cornerClass", c);
   COMPLEX_DRAWING("field corners")
   {
     for(auto i = corners[c].begin(); i != corners[c].end(); ++i)
-      LARGE_DOT("field corners", i->x(), i->y(), ColorRGBA(255, 255, 255), ColorRGBA(255, 255, 255));
+      LARGE_DOT("field corners", i->x(), i->y(), ColorRGBA(255, 0, 0), ColorRGBA(255, 0, 0));
   }
 }
 
@@ -247,109 +222,6 @@ void FieldDimensions::LinesTable::push(const Vector2f& from, const Vector2f& to,
   line.to = to;
   line.isPartOfCircle = isPartOfCircle;
   lines.push_back(line);
-}
-
-bool FieldDimensions::LinesTable::getClosestIntersection(const Geometry::Line& l, Vector2f& outIntersection) const
-{
-  int wayne;
-  return getClosestIntersection(l, wayne, outIntersection);
-}
-
-bool FieldDimensions::LinesTable::getClosestIntersection(const Geometry::Line& l, int& outLineIndex, Vector2f& outIntersection) const
-{
-  float currentMinimumDistance = std::numeric_limits<float>::max(); //square distance
-  Vector2f closestPoint(-100000.f, -1000000.f);
-  bool found = false;
-  for(int i = 0; i < (int)lines.size(); ++i)
-  {
-    const Line& fieldLine = lines[i];
-    Vector2f intersection;
-    Geometry::Line line(fieldLine.from, (fieldLine.to - fieldLine.from).normalized());
-    if(Geometry::getIntersectionOfLines(l, line, intersection))
-    {
-      //we already know that the intersection is on the line,
-      //just need to know if it is inside the rectangle defined by the field line coordinates
-      Rangef xRange(std::min(fieldLine.from.x(), fieldLine.to.x()), std::max(fieldLine.from.x(), fieldLine.to.x()));
-      Rangef yRange(std::min(fieldLine.from.y(), fieldLine.to.y()), std::max(fieldLine.from.y(), fieldLine.to.y()));
-      if(xRange.isInside(intersection.x()) &&
-         yRange.isInside(intersection.y()))
-      {
-        const float squareDist = (l.base - intersection).squaredNorm();
-        if(squareDist < currentMinimumDistance)
-        {
-          found = true;
-          outLineIndex = i;
-          currentMinimumDistance = squareDist;
-          closestPoint = intersection;
-        }
-      }
-    }
-  }
-  if(found)
-    outIntersection = closestPoint;
-  return found;
-}
-
-Vector2f FieldDimensions::LinesTable::getClosestPoint(const Vector2f& point) const
-{
-  float currentMinimumDistance = std::numeric_limits<float>::max();
-  Vector2f closestPoint(-1.f, -1.f);
-  Vector2f tempClosestPoint(-1.f, -1.f);
-
-  for(vector<Line>::const_iterator i = lines.begin(); i != lines.end(); ++i)
-  {
-    Geometry::Line line(i->from, (i->to - i->from).normalized());
-    //calculate orthogonal projection of point onto line (see http://de.wikipedia.org/wiki/Orthogonalprojektion)
-    const float numerator = (point - line.base).dot(line.direction);
-    const Vector2f projection = line.base + (line.direction * numerator);
-
-    //check if projected point is on the line segment
-    //We already know that it is on the line, therefore we just need to check
-    //if it is inside the rectangle created by start and end point of the line
-    const Vector2f& a = line.base; //a, b and c only exist to make the following if readable
-    const Vector2f& b = i->to;
-    const Vector2f& c = projection;
-
-    float distance = -1;
-    //not optimized expression
-//    if(c.x >= b.x && c.x <= a.x && c.y >= b.y && c.y <= a.y ||
-//       c.x >= a.x && c.x <= b.x && c.y >= a.y && c.y <= b.y ||
-//       c.x >= a.x && c.x <= b.x && c.y >= b.y && c.y <= a.y ||
-//       c.x >= b.x && c.x <= a.x && c.y >= a.y && c.y <= b.y)
-    //optimized expression
-    if(((c.y() >= b.y() && c.y() <= a.y()) || (c.y() >= a.y() && c.y() <= b.y())) &&
-       ((c.x() >= b.x() && c.x() <= a.x()) || (c.x() >= a.x() && c.x() <= b.x())))
-    {
-      //If projection is on the line segment just calculate the distance between the point
-      //and it's projection.
-      distance = (projection - point).norm();
-      tempClosestPoint = projection;
-    }
-    else
-    {
-      //If the projection is not on the line segment it is either left or
-      //right of the line segment. Therefore use distance to edge
-      const float distBase = (line.base - point).norm();
-      const float distEnd = (i->to - point).norm();
-      if(distBase <= distEnd)
-      {
-        distance = distBase;
-        tempClosestPoint = line.base;
-      }
-      else
-      {
-        distance = distEnd;
-        tempClosestPoint = i->to;
-      }
-    }
-
-    if(distance < currentMinimumDistance)
-    {
-      currentMinimumDistance = distance;
-      closestPoint = tempClosestPoint;
-    }
-  }
-  return closestPoint;
 }
 
 void FieldDimensions::LinesTable::pushCircle(const Vector2f& center, float radius, int numOfSegments)
@@ -373,144 +245,96 @@ void FieldDimensions::LinesTable::pushCircle(const Vector2f& center, float radiu
   }
 }
 
-bool FieldDimensions::LinesTable::isInside(const Vector2f& v) const
+void FieldDimensions::read(In& stream)
 {
-  //note:
-  //This function assumes that the point (0,0) is inside and
-  //that for any point inside the area the line to (0,0) belongs to the area too.
+  In* theStream = &stream;
 
-  Geometry::Line testLine(v, -v);
-  for(vector<Line>::const_iterator i = lines.begin(); i != lines.end(); ++i)
+  // read from a file?
+  if(dynamic_cast<InMapFile*>(theStream))
   {
-    float factor;
-    Geometry::Line border(i->from, i->to - i->from);
-    if(Geometry::getIntersectionOfRaysFactor(border, testLine, factor))
-      return false;
+    // if yes, try to load JSON file instead
+#ifdef TARGET_ROBOT
+    InMapFile jsonStream("/media/usb/field_dimensions.json", ~bit(InMap::missingAttribute));
+#else
+    InMapFile jsonStream("field_dimensions.json", ~0);
+#endif
+    if(jsonStream.exists())
+    {
+      STREAMABLE(Dimensions,
+      {
+        STREAMABLE(Field,
+        {,
+          (float) length,
+          (float) width,
+          (float) penaltyCrossSize,
+          (float)(-1.f) goalBoxAreaLength,
+          (float)(-1.f) goalBoxAreaWidth,
+          (float) penaltyAreaLength,
+          (float) penaltyAreaWidth,
+          (float) penaltyCrossDistance,
+          (float) centerCircleDiameter,
+          (float) borderStripWidth,
+        });
+
+        STREAMABLE(Goal,
+        {,
+          (float) postDiameter,
+          (float) height,
+          (float) innerWidth,
+          (float) depth,
+        }),
+
+        (Field) field,
+        (Goal) goal,
+      }) dims;
+
+      jsonStream >> dims;
+
+      const float lineWidth = 0.05f;
+
+      // pre-define some values and use a template for field dimensions to generate everything else
+      theStream = new InSymbolicMapFile(dims.field.goalBoxAreaLength != -1.f
+                                        && (std::abs(dims.field.goalBoxAreaLength - dims.field.penaltyAreaLength) > 0.001f
+                                            || std::abs(dims.field.goalBoxAreaWidth - dims.field.penaltyAreaWidth) > 0.001f)
+                                        ? "fieldDimensions2020.cfg" : "fieldDimensions2015.cfg",
+      {
+        {"xPosOpponentFieldBorder", dims.field.length * 500.f + dims.field.borderStripWidth * 1000.f},
+        {"xPosOpponentGoal", dims.field.length * 500.f - lineWidth * 500.f + dims.goal.depth * 1000.f},
+        {"xPosOpponentGoalPost", dims.field.length * 500.f + lineWidth * 500.f},
+        {"xPosOpponentGroundLine", dims.field.length * 500.f},
+        {"xPosOpponentPenaltyArea", dims.field.length * 500.f - dims.field.penaltyAreaLength * 1000.f},
+        {"xPosOpponentPenaltyMark", dims.field.length * 500.f - dims.field.penaltyCrossDistance * 1000.f},
+        {"xPosOpponentGoalArea", dims.field.length * 500.f - dims.field.goalBoxAreaLength * 1000.f},
+        {"yPosLeftFieldBorder", dims.field.width * 500.f + dims.field.borderStripWidth * 1000},
+        {"yPosLeftSideline", dims.field.width * 500.f},
+        {"yPosLeftPenaltyArea", dims.field.penaltyAreaWidth * 500.f},
+        {"yPosLeftGoal", dims.goal.innerWidth * 500.f + dims.goal.postDiameter * 500.f},
+        {"yPosLeftGoalArea", dims.field.goalBoxAreaWidth * 500.f},
+        {"fieldLinesWidth", lineWidth * 1000.f},
+        {"centerCircleRadius", dims.field.centerCircleDiameter * 500.f},
+        {"goalPostRadius", dims.goal.postDiameter * 500.f},
+        {"goalHeight", dims.goal.height * 1000.f},
+        {"penaltyMarkSize", dims.field.penaltyCrossSize * 1000.f},
+        {"xPenaltyMarkClose", dims.field.length * 500.f - dims.field.penaltyCrossDistance * 1000.f - dims.field.penaltyCrossSize * 500.f},
+        {"xPenaltyMarkFar", dims.field.length * 500.f - dims.field.penaltyCrossDistance * 1000.f + dims.field.penaltyCrossSize * 500.f},
+        {"penaltyMarkRadius", dims.field.penaltyCrossSize * 500.f}
+      });
+    }
   }
-  return true;
-}
 
-float FieldDimensions::LinesTable::clip(Vector2f& v) const
-{
-  if(isInside(v))
-    return 0;
-  else
   {
-    const Vector2f old = v;
-    Vector2f v2;
-    float minDist = 100000;
-    for(vector<Line>::const_iterator i = lines.begin(); i != lines.end(); ++i)
-    {
-      if(old == i->from)
-        v2 = i->from;
-      else
-      {
-        float a = (old - i->from).dot(i->to - i->from) / (i->to - i->from).dot(i->to - i->from);
-        if(a <= 0)
-          v2 = i->from;
-        else if(a >= 1.f)
-          v2 = i->to;
-        else
-          v2 = i->from + a * (i->to - i->from);
-      }
-      float dist = (old - v2).norm();
-      if(minDist > dist)
-      {
-        minDist = dist;
-        v = v2;
-      }
-    }
-    return (v - old).norm();
-  }
-}
+    In& stream = *theStream;
 
-bool FieldDimensions::LinesTable::getClosestPoint(Vector2f& vMin, const Pose2f& p, int numberOfRotations, float minLength) const
-{
-  int trueNumberOfRotations = numberOfRotations;
-  if(numberOfRotations == 2)
-    numberOfRotations = 4;
+    STREAM_BASE(SimpleFieldDimensions);
 
-  // target angle -> target index
-  float r = p.rotation / pi2 * numberOfRotations + 0.5f;
-  if(r < 0)
-    r += numberOfRotations;
-  int targetRot = int(r);
-  ASSERT(targetRot >= 0 && targetRot < numberOfRotations);
-  targetRot %= trueNumberOfRotations;
-  Vector2f v2;
-  float minDist = 100000;
-  for(vector<Line>::const_iterator i = lines.begin(); i != lines.end(); ++i)
-    if((i->to - i->from).squaredNorm() >= sqr(minLength))
-    {
-      // angle -> index
-      float r = ((i->to - i->from).angle() + pi_2) / pi2 * numberOfRotations + 0.5f;
-      if(r < 0)
-        r += numberOfRotations;
-      else if(r >= numberOfRotations)
-        r -= numberOfRotations;
-      int rot = int(r);
-      ASSERT(rot >= 0 && rot < numberOfRotations);
-      rot %= trueNumberOfRotations;
+    std::vector<LinesTable::Line>& fieldLines(straightFieldLines.lines);
+    std::vector<LinesTable::Line>& goalFrameLines(this->goalFrameLines.lines);
 
-      // index must be target index
-      if(rot == targetRot)
-      {
-        if(p.translation == i->from)
-          v2 = i->from;
-        else
-        {
-          float a = (p.translation - i->from).dot(i->to - i->from) / ((p.translation - i->from).norm() * (i->to - i->from).norm());
-          if(a <= 0)
-            v2 = i->from;
-          else if(a >= 1.f)
-            v2 = i->to;
-          else
-            v2 = i->from + a * (i->to - i->from);
-        }
-        const Vector2f vDiff = v2 - p.translation;
-        float dist = vDiff.norm();
-        if(minDist > dist)
-        {
-          minDist = dist;
-          vMin = v2;
-        }
-      }
-    }
-  return (minDist < 100000);
-}
+    STREAM(goalFrameLines);
+    STREAM(fieldLines);
+    STREAM(centerCircle);
+    STREAM(corners);
 
-float FieldDimensions::LinesTable::getDistance(const Pose2f& pose) const
-{
-  float minDist = 100000;
-  for(vector<Line>::const_iterator i = lines.begin(); i != lines.end(); ++i)
-    if(i->from.y() < 0 && i->to.y() > 0)
-    {
-      const float dist = i->from.x() + (i->to.x() - i->from.x()) * -i->from.y() / (i->to.y() - i->from.y());
-      if(dist >= 0 && dist < minDist)
-        minDist = dist;
-    }
-  return minDist == 100000 ? -1 : minDist;
-}
-
-void FieldDimensions::serialize(In* in, Out* out)
-{
-  std::vector<LinesTable::Line>& carpetBorder(this->carpetBorder.lines);
-  std::vector<LinesTable::Line>& fieldBorder(this->fieldBorder.lines);
-  std::vector<LinesTable::Line>& fieldLines(straightFieldLines.lines);
-  std::vector<LinesTable::Line>& goalFrameLines(this->goalFrameLines.lines);
-
-  STREAM_REGISTER_BEGIN;
-  STREAM_BASE(SimpleFieldDimensions)
-  STREAM(carpetBorder);
-  STREAM(goalFrameLines);
-  STREAM(fieldBorder);
-  STREAM(fieldLines);
-  STREAM(centerCircle);
-  STREAM(corners);
-  STREAM_REGISTER_FINISH;
-
-  if(in)
-  {
     // merge straightFieldLines and centerCircle to fieldLines
     this->fieldLines = straightFieldLines;
     this->fieldLines.pushCircle(centerCircle.center, centerCircle.radius, centerCircle.numOfSegments);
@@ -522,4 +346,30 @@ void FieldDimensions::serialize(In* in, Out* out)
     for(LinesTable::Line& line : goalFrameLines)
       fieldLinesWithGoalFrame.lines.push_back(line);
   }
+
+  if(theStream != &stream)
+    delete theStream;
+}
+
+void FieldDimensions::write(Out& stream) const
+{
+  STREAM_BASE(SimpleFieldDimensions);
+
+  const std::vector<LinesTable::Line>& fieldLines(straightFieldLines.lines);
+  const std::vector<LinesTable::Line>& goalFrameLines(this->goalFrameLines.lines);
+
+  STREAM(goalFrameLines);
+  STREAM(fieldLines);
+  STREAM(centerCircle);
+  STREAM(corners);
+}
+
+void FieldDimensions::reg()
+{
+  PUBLISH(reg);
+  REG_CLASS_WITH_BASE(FieldDimensions, SimpleFieldDimensions);
+  REG(std::vector<LinesTable::Line>, goalFrameLines);
+  REG(std::vector<LinesTable::Line>, fieldLines);
+  REG(centerCircle);
+  REG(corners);
 }

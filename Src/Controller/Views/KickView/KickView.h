@@ -15,6 +15,7 @@
 #include <QString>
 #include <QIcon>
 
+struct FrameInfo;
 struct JointAngles;
 struct JointLimits;
 struct MotionRequest;
@@ -28,20 +29,21 @@ public:
   QString fullName;
   QIcon icon;
   RobotConsole& console;
-  const MotionRequest& motionRequest;
+  const FrameInfo& frameInfo;
   const JointAngles& jointAngles;
   const JointLimits& jointLimits;
+  const MotionRequest& motionRequest;
   const RobotDimensions& robotDimensions;
   const std::string& motionRequestCommand;
   SimRobotCore2::Body* robot;
 
-  KickView(const QString& fullName, RobotConsole& console, const MotionRequest& motionRequest, const JointAngles& jointAngles,
+  KickView(const QString& fullName, RobotConsole& console, const MotionRequest& motionRequest, const JointAngles& jointAngles, const FrameInfo& frameInfo,
            const JointLimits& jointLimits, const RobotDimensions& robotDimensions, const std::string& mr, SimRobotCore2::Body* robot);
 
 private:
-  virtual SimRobot::Widget* createWidget();
-  virtual const QString& getFullName() const { return fullName; }
-  virtual const QIcon* getIcon() const { return &icon; }
+  SimRobot::Widget* createWidget() override;
+  const QString& getFullName() const override { return fullName; }
+  const QIcon* getIcon() const override { return &icon; }
 };
 
 class KickViewHeaderedWidget : public HeaderedWidget, public SimRobot::Widget
@@ -53,19 +55,17 @@ public:
 
   KickViewHeaderedWidget(KickView& kickView);
 
-  virtual QWidget* getWidget() { return this; }
-  virtual void update();
-  virtual QMenu* createFileMenu() const;
-  virtual QMenu* createEditMenu() const;
-  virtual bool canClose();
+  QWidget* getWidget() override { return this; }
+  void update() override;
+  QMenu* createFileMenu() const override;
+  QMenu* createEditMenu() const override;
+  bool canClose() override;
   void addStateToUndoList();
 
 private:
   KickEngineParameters parameters;
   QString fileName;
   std::vector<KickEngineParameters> undo, redo;
-
-  void writeParametersToFile(const std::string& name);
 
 signals:
   void undoAvailable(bool available);

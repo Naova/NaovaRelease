@@ -1,0 +1,3 @@
+vfd worldState cognition:Reset
+vfd worldState skill:DribbleToGoal:direction
+vfd worldState skill:DribbleToGoal:step

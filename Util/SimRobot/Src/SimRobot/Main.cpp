@@ -1,13 +1,15 @@
 /**
-* @file SimRobot/Main.cpp
-* Implementation of the main function of SimRobot
-* @author Colin Graf
-*/
+ * @file SimRobot/Main.cpp
+ * Implementation of the main function of SimRobot
+ * @author Colin Graf
+ */
 
 #include <QApplication>
 
 #ifdef WINDOWS
 #include <crtdbg.h>
+#else
+#include <clocale>
 #endif
 
 #include "MainWindow.h"
@@ -16,7 +18,7 @@
 #include <QFileOpenEvent>
 
 /** The address of the main window object used by the following class. */
-static MainWindow* mainWindow;
+MainWindow* mainWindow;
 
 /**
  * A helper for opening files when they were launched from the Finder.
@@ -26,11 +28,11 @@ static MainWindow* mainWindow;
 class SimRobotApp : public QApplication
 {
 public:
-  SimRobotApp(int &argc, char **argv)
+  SimRobotApp(int& argc, char** argv)
     : QApplication(argc, argv) {}
 
 protected:
-  bool event(QEvent *ev)
+  bool event(QEvent* ev)
   {
     if(ev->type() == QEvent::FileOpen)
     {
@@ -61,13 +63,7 @@ const char* _fromQString(const QString& string)
 }
 #endif // MACOS
 
-/**
- * Qt produces some annoying console messages on different platforms. This is a
- * helper to suppress these messages.
- */
-static void ignoreMessageOutput(QtMsgType, const QMessageLogContext&, const QString&) {}
-
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
 #ifdef WINDOWS
   _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG));
@@ -78,19 +74,22 @@ int main(int argc, char *argv[])
   QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
   QApplication app(argc, argv);
+#ifndef WINDOWS
+  setlocale(LC_NUMERIC, "C");
+#endif
   MainWindow mainWindow(argc, argv);
-
-  qInstallMessageHandler(ignoreMessageOutput);
 
 #ifdef WINDOWS
   app.setStyle("fusion");
 #elif defined MACOS
-  QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
-  app.setStyle("macintosh");
   ::mainWindow = &mainWindow;
 #endif
 
   app.setApplicationName("SimRobot");
+
+#ifdef MACOS
+  mainWindow.show();
+#endif
 
   // open file from commandline
   for(int i = 1; i < argc; i++)
@@ -100,6 +99,9 @@ int main(int argc, char *argv[])
       break;
     }
 
+#ifndef MACOS
   mainWindow.show();
+#endif
+
   return app.exec();
 }

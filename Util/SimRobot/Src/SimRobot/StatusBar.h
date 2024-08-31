@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <QStatusBar>
@@ -36,12 +35,12 @@ private:
   };
 
   QAction* toggleViewAct;
-  QList<RegisteredLabel> registeredLables;
+  QList<RegisteredLabel> registeredLabels;
   QString userMessage;
   QString latestMessage;
 
-  virtual void hideEvent(QHideEvent* event);
-  virtual void showEvent(QShowEvent* event);
+  void hideEvent(QHideEvent* event) override;
+  void showEvent(QShowEvent* event) override;
 
 private slots:
   void messageChanged(const QString& message);

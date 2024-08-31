@@ -19,34 +19,32 @@ class InMessage;
 /**
  * @class DebugDataTable
  *
- * A singleton class that maintains the debug data table.
+ * A class that maintains the debug data table.
  */
-class DebugDataTable
+class DebugDataTable final
 {
 private:
   std::unordered_map<std::string, char*> table;
 
-  friend class Process; /**< A process is allowed to create the instance. */
-
+public:
   /**
-   * No other instance of this class is allowed except the one accessible via getDebugDataTable
-   * therefore the constructor is private.
+   * Default constructor.
    */
   DebugDataTable() = default;
+
   DebugDataTable(const DebugDataTable&) = delete;
 
-public:
   ~DebugDataTable();
 
   /**
    * Registers the object with the debug data table and updates the object if the
    * respective entry in the table has been modified through RobotControl.
    */
-  template<class T> void updateObject(const char* name, T& t, bool once);
+  template<typename T> void updateObject(const char* name, T& t, bool once);
   void processChangeRequest(InMessage& in);
 };
 
-template<class T> void DebugDataTable::updateObject(const char* name, T& t, bool once)
+template<typename T> void DebugDataTable::updateObject(const char* name, T& t, bool once)
 {
   // Find entry in debug data table
   std::unordered_map<std::string, char*>::iterator iter = table.find(name);

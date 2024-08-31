@@ -1,26 +1,25 @@
 /**
-* @file SensorWidget.cpp
-* Implementation of class SensorWidget
-*/
+ * @file SensorWidget.cpp
+ * Implementation of class SensorWidget
+ */
 
-#include <sstream>
-#include <iomanip>
-
-#include <QMenu>
-#include <QApplication>
-#include <QClipboard>
-#include <QMimeData>
-#include <QLocale>
 
 #include "SensorWidget.h"
 #include "CoreModule.h"
-
 #include "Simulation/Simulation.h"
+#include "Tools/Math/Constants.h"
+#include <QApplication>
+#include <QClipboard>
+#include <QLocale>
+#include <QMenu>
+#include <QMimeData>
+#include <iomanip>
+#include <sstream>
 
 static inline float toDeg(float angleInRad)
-{ return (angleInRad * 180.f / float(M_PI));}
+{ return (angleInRad * 180.f / pi);}
 
-SensorWidget::SensorWidget(SimRobotCore2::SensorPort* sensor) : pen(QColor::fromRgb(255, 0, 0)), sensor(sensor), mineData(0)
+SensorWidget::SensorWidget(SimRobotCore2::SensorPort* sensor) : pen(QColor::fromRgb(255, 0, 0)), sensor(sensor)
 {
   setFocusPolicy(Qt::StrongFocus);
 
@@ -34,7 +33,7 @@ SensorWidget::~SensorWidget()
     QApplication::clipboard()->clear(); // hack, prevents crash on exit
 }
 
-void SensorWidget::paintEvent(QPaintEvent *event)
+void SensorWidget::paintEvent(QPaintEvent*)
 {
   float minValue, maxValue;
   bool hasMinAndMax = sensor->getMinAndMax(minValue, maxValue);
@@ -50,18 +49,18 @@ void SensorWidget::paintEvent(QPaintEvent *event)
       if(hasMinAndMax)
       {
         sensorValue -= minValue;
-        sensorValue /= (maxValue-minValue);
-        QBrush brush(QColor::fromRgb((int) (sensorValue*255), (int) (sensorValue*255), (int) (sensorValue*255)));
+        sensorValue /= (maxValue - minValue);
+        QBrush brush(QColor::fromRgb(static_cast<int>(sensorValue * 255), static_cast<int>(sensorValue * 255), static_cast<int>(sensorValue * 255)));
         painter.setBrush(brush);
       }
       else
       {
-        QBrush brush(QColor::fromRgb(0,0,0));
+        QBrush brush(QColor::fromRgb(0, 0, 0));
         painter.setBrush(brush);
       }
-      painter.drawRect(0,0, this->width(), this->height());
+      painter.drawRect(0, 0, this->width(), this->height());
       painter.setPen(pen);
-      painter.drawText(this->width()/2, this->height()/2, tr(str_val));
+      painter.drawText(this->width() / 2, this->height() / 2, tr(str_val));
       break;
     }
     case SimRobotCore2::SensorPort::floatArraySensor:
@@ -87,21 +86,20 @@ void SensorWidget::paintEvent(QPaintEvent *event)
     }
     case SimRobotCore2::SensorPort::cameraSensor:
     {
-      int xsize = dimensions[0], ysize = dimensions[1];
-      const unsigned char *vals = sensor->getValue().byteArray;
-      //const unsigned char* end = vals + xsize * ysize * 3;
-      unsigned char* buffer = new unsigned char[xsize * ysize * 4];
+      int xSize = dimensions[0], ySize = dimensions[1];
+      const unsigned char* vals = sensor->getValue().byteArray;
+      unsigned char* buffer = new unsigned char[xSize * ySize * 4];
       unsigned char* pDest = buffer;
-      for(int y = ysize - 1; y >= 0; --y)
-        for(const unsigned char* pSrc = vals + xsize * 3 * y, * end = pSrc + xsize * 3; pSrc < end; pSrc += 3)
+      for(int y = ySize - 1; y >= 0; --y)
+        for(const unsigned char* pSrc = vals + xSize * 3 * y, * end = pSrc + xSize * 3; pSrc < end; pSrc += 3)
         {
           *pDest++ = pSrc[2];
           *pDest++ = pSrc[1];
           *pDest++ = pSrc[0];
           *pDest++ = 0xff;
         }
-      QImage img(buffer, xsize, ysize, QImage::Format_RGB32);
-      painter.drawImage(0,0, img.scaled(this->width(), this->height()));
+      QImage img(buffer, xSize, ySize, QImage::Format_RGB32);
+      painter.drawImage(0, 0, img.scaled(this->width(), this->height()));
       delete [] buffer;
       break;
     }
@@ -114,8 +112,8 @@ void SensorWidget::paintEvent(QPaintEvent *event)
 void SensorWidget::paintBoolSensor()
 {
   const bool value = sensor->getValue().boolValue;
-  QBrush brush(value ? QColor::fromRgb(255,255,255) : QColor::fromRgb(0,0,0));
-  pen.setColor(value ? QColor::fromRgb(0,0,0) : QColor::fromRgb(255,255,255));
+  QBrush brush(value ? QColor::fromRgb(255, 255, 255) : QColor::fromRgb(0, 0, 0));
+  pen.setColor(value ? QColor::fromRgb(0, 0, 0) : QColor::fromRgb(255, 255, 255));
   painter.setPen(pen);
   painter.fillRect(0, 0, this->width(), this->height(), brush);
   painter.drawText(0, 0, this->width(), this->height(), Qt::AlignCenter, (value ? "true" : "false"));
@@ -135,13 +133,13 @@ void SensorWidget::paintFloatArrayWithDescriptionsSensor()
   for(int i = 0; i < sensorDimensions[0]; i++)
   {
     float value = conversionToDegreesNeeded ?
-      toDeg(data.floatArray[i]) : data.floatArray[i];
+                  toDeg(data.floatArray[i]) : data.floatArray[i];
     std::stringstream valueStream;
     valueStream << std::fixed << std::setprecision(4) << value;
-    painter.drawText(0, 20*i, this->width(), 20, Qt::AlignLeft,
-      " " + descriptions[i]);
-    painter.drawText(0, 20*i, this->width(), 20, Qt::AlignRight,
-      tr((QString(valueStream.str().c_str()) + " " + unitForDisplay + " ").toUtf8().data()));
+    painter.drawText(0, 20 * i, this->width(), 20, Qt::AlignLeft,
+                     " " + descriptions[i]);
+    painter.drawText(0, 20 * i, this->width(), 20, Qt::AlignRight,
+                     tr((QString(valueStream.str().c_str()) + " " + unitForDisplay + " ").toUtf8().data()));
   }
 }
 
@@ -150,20 +148,20 @@ void SensorWidget::paintFloatArrayWithLimitsAndWithoutDescriptions()
   float minValue, maxValue;
   if(!sensor->getMinAndMax(minValue, maxValue))
     maxValue = 1;
-  QBrush brush(QColor::fromRgb(255,255,255));
-  QBrush brush2(QColor::fromRgb(0,255,0));
+  QBrush brush(QColor::fromRgb(255, 255, 255));
+  QBrush brush2(QColor::fromRgb(0, 255, 0));
   painter.fillRect(0, 0, this->width(), this->height(), brush);
-  pen.setColor(QColor::fromRgb(0,0,0));
+  pen.setColor(QColor::fromRgb(0, 0, 0));
   painter.setPen(pen);
   const float* valueArray = sensor->getValue().floatArray;
-  float widthPerValue = this->width()/(float)sensorDimensions[0];
-  if(widthPerValue < 1.0)
-    widthPerValue = 1.0;
+  float widthPerValue = this->width() / static_cast<float>(sensorDimensions[0]);
+  if(widthPerValue < 1.f)
+    widthPerValue = 1.f;
   for(int i = 0; i < sensorDimensions[0]; i++)
   {
     float factor = valueArray[i] / maxValue;
-    painter.fillRect(QRectF(i*widthPerValue, this->height()*(1-factor), widthPerValue, this->height()*factor), brush2);
-    painter.drawRect(QRectF(i*widthPerValue, this->height()*(1-factor), widthPerValue, this->height()*factor));
+    painter.fillRect(QRectF(i * widthPerValue, this->height() * (1 - factor), widthPerValue, this->height()*factor), brush2);
+    painter.drawRect(QRectF(i * widthPerValue, this->height() * (1 - factor), widthPerValue, this->height()*factor));
   }
 }
 
@@ -176,15 +174,15 @@ void SensorWidget::paint2DFloatArrayWithLimitsAndWithoutDescriptions()
     maxValue = 1;
   }
   double scale = (6 << 8) / (maxValue - minValue);
-  int xsize = sensorDimensions[0], ysize = sensorDimensions[1];
-  const float *vals = sensor->getValue().floatArray;
-  unsigned char* buffer = new unsigned char[xsize * ysize * 4];
+  int xSize = sensorDimensions[0], ySize = sensorDimensions[1];
+  const float* vals = sensor->getValue().floatArray;
+  unsigned char* buffer = new unsigned char[xSize * ySize * 4];
   unsigned char* pDest = buffer;
-  for(int y = ysize - 1; y >= 0; --y)
-    for(const float* pSrc = vals + xsize * y, * end = pSrc + xsize; pSrc < end; ++pSrc)
+  for(int y = ySize - 1; y >= 0; --y)
+    for(const float* pSrc = vals + xSize * y, * end = pSrc + xSize; pSrc < end; ++pSrc)
     {
       unsigned value = unsigned((*pSrc - minValue) * scale);
-      unsigned char c = (unsigned char) value;
+      unsigned char c = static_cast<unsigned char>(value);
       switch(value >> 8)
       {
         case 0:
@@ -225,12 +223,12 @@ void SensorWidget::paint2DFloatArrayWithLimitsAndWithoutDescriptions()
       }
       *pDest++ = 0xff;
     }
-  QImage img(buffer, xsize, ysize, QImage::Format_RGB32);
-  painter.drawImage(0,0, img.scaled(this->width(), this->height()));
+  QImage img(buffer, xSize, ySize, QImage::Format_RGB32);
+  painter.drawImage(0, 0, img.scaled(this->width(), this->height()));
   delete [] buffer;
 }
 
-QSize SensorWidget::sizeHint () const
+QSize SensorWidget::sizeHint() const
 {
   if(sensorType != SimRobotCore2::SensorPort::cameraSensor)
     return QSize(200, 200); // some dummy default
@@ -268,8 +266,7 @@ void SensorWidget::copy()
 
 void SensorWidget::setClipboardGraphics(QMimeData& mimeData)
 {
-  QPixmap pixmap(QPixmap::grabWidget(this));
-  mimeData.setImageData(QVariant(pixmap.toImage()));
+  mimeData.setImageData(QVariant(grab().toImage()));
 }
 
 void SensorWidget::setClipboardText(QMimeData& mimeData)
@@ -299,14 +296,14 @@ void SensorWidget::setClipboardText(QMimeData& mimeData)
     {
       pDouble = new float[dimSize[0] * dimSize[1] * dimSize[2]];
       deletePDouble = true;
-      const unsigned char *vals = sensor->getValue().byteArray;
+      const unsigned char* vals = sensor->getValue().byteArray;
       for(int i = dimSize[0] * dimSize[1] * dimSize[2] - 1; i >= 0; --i)
         pDouble[i] = vals[i];
       break;
     }
     case SimRobotCore2::SensorPort::floatArraySensor:
     {
-      pDouble = (float*)sensor->getValue().floatArray;
+      pDouble = const_cast<float*>(sensor->getValue().floatArray);
       break;
     }
     case SimRobotCore2::SensorPort::noSensor:

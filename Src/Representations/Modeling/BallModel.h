@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "Tools/Streams/AutoStreamable.h"
+#include "Tools/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Math/Eigen.h"
-#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
+#include "Tools/Streams/AutoStreamable.h"
 
 /**
  * @struct BallState
@@ -33,9 +33,9 @@ STREAMABLE(BallState,
  */
 STREAMABLE(BallModel, COMMA public NaovaMessageParticule<idBallModel>
 {
-  /** NaovaMessageParticle functions */
-  void operator >> (NaovaMessage& m) const override;
-  void operator << (const NaovaMessage& m) override;
+  /** NaovaMessageParticule functions */
+  void operator>>(NaovaMessage& m) const override;
+  void operator<<(const NaovaMessage& m) override;
 
   /** Verifies that the ball model contains valid values. */
   void verify() const;
@@ -47,7 +47,6 @@ STREAMABLE(BallModel, COMMA public NaovaMessageParticule<idBallModel>
   (unsigned)(0) timeWhenLastSeen, /**< Time stamp, indicating what its name says */
   (unsigned)(0) timeWhenDisappeared, /**< The time when the ball was not seen in the image altough it should have been there */
   (unsigned char)(0) seenPercentage, /**< How often was the ball seen in the recent past (0%...100%). */
-  (float)(0.f) confidenceLevel,
 });
 
 /**
@@ -55,11 +54,11 @@ STREAMABLE(BallModel, COMMA public NaovaMessageParticule<idBallModel>
  * The same as the BallModel, but - in general - provided by an external
  * source that has ground truth quality
  */
-struct GroundTruthBallModel : public BallModel
+STREAMABLE_WITH_BASE(GroundTruthBallModel, BallModel,
 {
   /** Draws something*/
-  void draw() const;
-};
+  void draw() const,
+});
 
 /**
  * @struct BallState
@@ -88,5 +87,4 @@ STREAMABLE(BallModel3D,
   (unsigned)(0) timeWhenLastSeen, /**< Time stamp, indicating what its name says */
   (unsigned)(0) timeWhenDisappeared, /**< The time when the ball was not seen in the image altough it should have been there */
   (unsigned char)(0) seenPercentage, /**< How often was the ball seen in the recent past (0%...100%). */
-  (float)(0.f) confidenceLevel,
 });

@@ -41,7 +41,7 @@ protected:
    * @param p The address the data is located at.
    * @param size The number of bytes to be written.
    */
-  virtual void writeToStream(const void* p, size_t size);
+  void writeToStream(const void* p, size_t size) override;
 };
 
 /**
@@ -62,7 +62,7 @@ public:
    * The function returns whether this is a binary stream.
    * @return Does it output data in binary format?
    */
-  virtual bool isBinary() const {return true;}
+  bool isBinary() const override {return true;}
 };
 
 /**
@@ -100,7 +100,7 @@ public:
  *
  * An Interface for writing messages into a MessageQueue.
  *
- * Use the bin or text member for formated writing into a message queue.
+ * Use the bin or text member for formatted writing into a message queue.
  */
 class OutMessage
 {
@@ -154,6 +154,6 @@ public:
   /** gives the operator that copies a InMessage to another queue access to protected members */
   friend void operator>>(InMessage& message, MessageQueue& queue);
 
-  /** gives the In streaming opeator access to protected members */
+  /** gives the In streaming operator access to protected members */
   friend In& operator>>(In& stream, MessageQueue& messageQueue);
 };

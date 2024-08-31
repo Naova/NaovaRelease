@@ -14,19 +14,18 @@ STREAMABLE(ScanGrid,
     Line() = default;
     Line(int x, int y, unsigned yMaxIndex),
 
-    (int) x, /**< x coordinate of the scanline. */
+    (int) x, /**< x coordinate of the scanLine. */
     (int) yMax, /**< Maximum y coordinate (exclusive). */
-    (unsigned) yMaxIndex, /**< Index of the lowest y coordinate relevant for this scanline. */
+    (unsigned) yMaxIndex, /**< Index of the lowest y coordinate relevant for this scanLine. */
   });
 
   void draw() const,
 
   (std::vector<int>) y, /**< All possible y coordinates of pixels to be scanned. */
-  (std::vector<Line>) lines, /**< Decription of all scanlines. */
-  (int)(0) fieldLimit, /**< Upper bound for all scanlines (exclusive). */
+  (std::vector<Line>) lines, /**< Description of all scanLines. */
+  (int)(0) fieldLimit, /**< Upper bound for all scanLines (exclusive). */
   (unsigned)(0) lowResStart, /**< First index of low res grid. */
   (unsigned)(1) lowResStep, /**< Steps between low res grid lines. */
-  (std::vector<int>) yStarts, /**< Information about the yStarts of the different resolutions. (for UnionPlayersPerceptor)*/
 });
 
 inline ScanGrid::Line::Line(int x, int yMax, unsigned yMaxIndex) :

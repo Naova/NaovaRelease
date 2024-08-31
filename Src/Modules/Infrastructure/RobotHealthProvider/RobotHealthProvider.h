@@ -8,15 +8,11 @@
 
 #include "Tools/Module/Module.h"
 #include "Tools/RingBufferWithSum.h"
+#include "Representations/Communication/NaovaMessage.h"
 #include "Representations/Infrastructure/RobotHealth.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
 #include "Representations/Infrastructure/SensorData/SystemSensorData.h"
-#include "Representations/Perception/BallPercepts/BallPercept.h"
-#include "Representations/Perception/FieldPercepts/FieldLines.h"
-#ifdef TARGET_ROBOT
-#include "Platform/Nao/NaoBody.h"
-#endif
 
 MODULE(RobotHealthProvider,
 {,
@@ -28,10 +24,10 @@ MODULE(RobotHealthProvider,
   PROVIDES(RobotHealth),
   LOADS_PARAMETERS(
   {,
-    (char) batteryLow,                    /**< The voltage below which the robot gives low battery warnings. */
+    (char) batteryLow, /**< The voltage below which the robot gives low battery warnings. */
     (int) cpuHeat,
     (unsigned) timeBetweenHeatScreams,
-    (bool) enableName,                    /**< The robots mentions its name when complaining, if true */
+    (bool) enableName, /**< The robots mentions its name when complaining, if true */
   }),
 });
 
@@ -49,13 +45,13 @@ class RobotHealthProvider : public RobotHealthProviderBase
   bool batteryVoltageFalling = false;
   unsigned highTemperatureSince = 0;
   unsigned highCPUTemperatureSince = 0;
+  unsigned lastMotionFrameDropTimestamp = 0;
 #ifdef TARGET_ROBOT
-  NaoBody naoBody;
   unsigned int lastWlanCheckedTime = 0;
 #endif
 
   /** The main function, called every cycle
    * @param robotHealth The data struct to be filled
    */
-  void update(RobotHealth& robotHealth);
+  void update(RobotHealth& robotHealth) override;
 };

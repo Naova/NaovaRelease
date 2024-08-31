@@ -9,26 +9,23 @@
 
 ModuleBase* ModuleBase::first = nullptr;
 
-void loadModuleParameters(Streamable& parameters, const char* moduleName, const char* fileName, bool failOnMissing)
+void loadModuleParameters(Streamable& parameters, const char* moduleName, const char* fileName, const char* prefix)
 {
   std::string name;
   if(!fileName)
   {
     name = moduleName;
     name[0] = static_cast<char>(tolower(name[0]));
-    if(name.size() > 1 && isupper(name[1])){
+    if(name.size() > 1 && isupper(name[1]))
       for(int i = 1; i + 1 < static_cast<int>(name.size()) && isupper(name[i + 1]); ++i)
         name[i] = static_cast<char>(tolower(name[i]));
-    }
     name += ".cfg";
-  }else{
+  }
+  else
     name = fileName;
-  }
+  if(prefix)
+    name = prefix + name;
   InMapFile stream(name);
-  if(stream.exists())
-    stream >> parameters;
-  else{
-    ASSERT(!failOnMissing);
-  }
-  
+  ASSERT(stream.exists());
+  stream >> parameters;
 }

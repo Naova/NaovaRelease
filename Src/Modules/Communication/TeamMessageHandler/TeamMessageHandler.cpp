@@ -7,51 +7,83 @@
 #include "TeamMessageHandler.h"
 #include "Tools/MessageQueue/OutMessage.h"
 #include "Tools/Global.h"
+#include "Tools/Settings.h"
+#include "Platform/File.h"
 #include "Platform/Time.h"
 
 //#define SITTING_TEST
 //#define SELF_TEST
 
-/**
- * A macro for broadcasting team messages.
- * @param type The type of the message from the MessageID enum in MessageIDs.h
- * @param format The message format of the message (bin or text).
- * @param expression A streamable expression.
- */
-#define TEAM_OUTPUT(type,format,expression) \
-  { Global::getTeamOut().format << expression;\
-    Global::getTeamOut().finishMessage(type); }
+MAKE_MODULE(TeamMessageHandler, communication);
 
-MAKE_MODULE(TeamMessageHandler, communication)
+// BNTP, RobotStatus, RobotPose, FieldCoverage, RobotHealth and FieldFeatureOverview cannot be part of this for technical reasons.
+#define FOREACH_TEAM_MESSAGE_REPRESENTATION(_) \
+  _(FrameInfo); \
+  _(BallModel); \
+  _(ObstacleModel); \
+  _(Whistle); \
+  _(BehaviorStatus); \
+  _(TeamBehaviorStatus); \
+  _(TeamTalk);
+
+struct TeamMessage
+{};
+
+void TeamMessageHandler::regTeamMessage()
+{
+  PUBLISH(regTeamMessage);
+  const char* name = typeid(TeamMessage).name();
+  TypeRegistry::addClass(name, nullptr);
+#define REGISTER_TEAM_MESSAGE_REPRESENTATION(x) TypeRegistry::addAttribute(name, typeid(x).name(), "the" #x)
+
+  REGISTER_TEAM_MESSAGE_REPRESENTATION(RobotStatus);
+  REGISTER_TEAM_MESSAGE_REPRESENTATION(RobotPose);
+  FOREACH_TEAM_MESSAGE_REPRESENTATION(REGISTER_TEAM_MESSAGE_REPRESENTATION);
+}
+
+TeamMessageHandler::TeamMessageHandler() :
+  theBNTP(theFrameInfo, theRobotInfo)
+{
+  File f("teamMessage.def", "r");
+  ASSERT(f.exists());
+  std::string source(f.getSize(), 0);
+  f.read(source.data(), source.length());
+  teamCommunicationTypeRegistry.addTypes(source);
+  teamCommunicationTypeRegistry.compile();
+  teamMessageType = teamCommunicationTypeRegistry.getTypeByName("TeamMessage");
+}
 
 void TeamMessageHandler::update(NaovaMessageOutputGenerator& outputGenerator)
 {
-  outputGenerator.theBHumanArbitraryMessage.queue.clear();
-
-  DEBUG_RESPONSE_ONCE("module:TeamMessageHandler:toggleLogging") {
-    loggingIsEnabled = !loggingIsEnabled;
-  }
+  DEBUG_RESPONSE_ONCE("module:TeamMessageHandler:generateTCMPluginClass")
+    teamCommunicationTypeRegistry.generateTCMPluginClass("BHumanStandardMessage.java", static_cast<const CompressedTeamCommunication::RecordType*>(teamMessageType));
 
   outputGenerator.sendThisFrame =
 #ifndef SITTING_TEST
 #ifdef TARGET_ROBOT
-    !(theMotionRequest.motion == MotionRequest::specialAction && theMotionRequest.specialActionRequest.specialAction == SpecialActionRequest::playDead) &&
-    !(theMotionInfo.motion == MotionRequest::specialAction && theMotionInfo.specialActionRequest.specialAction == SpecialActionRequest::playDead) &&
+    theMotionRequest.motion != MotionRequest::playDead &&
+    theMotionInfo.executedPhase != MotionPhase::playDead &&
 #endif
 #endif // !SITTING_TEST
     sendMessage();
+
+  theRobotStatus.hasGroundContact = theGroundContactState.contact && theMotionInfo.executedPhase != MotionPhase::getUp && theMotionRequest.motion != MotionRequest::getUp;
+  theRobotStatus.isUpright = theFallDownState.state == FallDownState::upright || theFallDownState.state == FallDownState::staggering || theFallDownState.state == FallDownState::squatting;
+  if(theRobotStatus.hasGroundContact)
+    theRobotStatus.timeOfLastGroundContact = theFrameInfo.time;
+  if(theRobotStatus.isUpright)
+    theRobotStatus.timeWhenLastUpright = theFrameInfo.time;
 
   outputGenerator.generate = [this, &outputGenerator](RoboCup::SPLStandardMessage* const m)
   {
     generateMessage(outputGenerator);
     writeMessage(outputGenerator, m);
+
     // snap current data before sent
     snap.lastPose = theRobotPose.translation;
     snap.lastTimeSendMessage = Time::getCurrentSystemTime();
     snap.lastPenaltyState = theRobotInfo.penalty;
-    snap.lastMessageRole = theBehaviorStatus.role;
     snap.lastBallPosition = theBallModel.estimate.position;
-    snap.lastGameState = theGameInfo.state;
   };
 }
 
@@ -60,43 +92,33 @@ void TeamMessageHandler::generateMessage(NaovaMessageOutputGenerator& outputGene
 #define SEND_PARTICLE(particle) \
   the##particle >> outputGenerator
 
-  outputGenerator.theNaovaSPLStandardMessage.playerNum = static_cast<uint8_t>(theRobotInfo.number);
-  outputGenerator.theNaovaSPLStandardMessage.teamNum = static_cast<uint8_t>(Global::getSettings().teamNumber);
+  outputGenerator.theNaovaStandardMessage.number = static_cast<uint8_t>(theRobotInfo.number);
   outputGenerator.theNaovaStandardMessage.magicNumber = Global::getSettings().magicNumber;
 
   outputGenerator.theNaovaStandardMessage.timestamp = Time::getCurrentSystemTime();
 
-  outputGenerator.theNaovaStandardMessage.hasGroundContact = theGroundContactState.contact && theMotionInfo.motion != MotionInfo::getUp && theMotionRequest.motion != MotionRequest::getUp;
-  outputGenerator.theNaovaStandardMessage.isUpright = theFallDownState.state == theFallDownState.upright;
-  outputGenerator.theNaovaStandardMessage.isPenalized = theRobotInfo.penalty != PENALTY_NONE;
+  theRobotStatus.isPenalized = theRobotInfo.penalty != PENALTY_NONE;
 
-  outputGenerator.theNaovaSPLStandardMessage.fallen = !outputGenerator.theNaovaStandardMessage.hasGroundContact || ! outputGenerator.theNaovaStandardMessage.isUpright;
+  outputGenerator.theNaovaStandardMessage.compressedContainer.reserve(SPL_STANDARD_MESSAGE_DATA_SIZE);
+  CompressedTeamCommunicationOut stream(outputGenerator.theNaovaStandardMessage.compressedContainer, outputGenerator.theNaovaStandardMessage.timestamp,
+                                        teamMessageType, !outputGenerator.sentMessages);
+  outputGenerator.theNaovaStandardMessage.out = &stream;
 
-  // SEND_PARTICLE(BNTP);
-  SEND_PARTICLE(RawGameInfo);
-  // SEND_PARTICLE(OwnTeamInfo);
+  SEND_PARTICLE(RobotStatus);
 
-  SEND_PARTICLE(BallModel);
-  SEND_PARTICLE(RobotPose);
+  if(sendMirroredRobotPose)
+  {
+    RobotPose theMirroredRobotPose = theRobotPose;
+    theMirroredRobotPose.translation *= -1.f;
+    theMirroredRobotPose.rotation = Angle::normalize(theMirroredRobotPose.rotation + pi);
+    SEND_PARTICLE(MirroredRobotPose);
+  }
+  else
+    SEND_PARTICLE(RobotPose);
 
-  // SEND_PARTICLE(SideConfidence);
-  // SEND_PARTICLE(TeammateRoles);
-  SEND_PARTICLE(BehaviorStatus);
-  // SEND_PARTICLE(SPLStandardBehaviorStatus);
+  FOREACH_TEAM_MESSAGE_REPRESENTATION(SEND_PARTICLE);
 
-  SEND_PARTICLE(Whistle);
-
-  //Send this last of important data, because they are the biggest
-  // SEND_PARTICLE(ObstacleModel);
-  SEND_PARTICLE(FieldCoverage);
-
-  //Send this last, because it is unimportant for robots, (so it is ok, if it gets dropped)
-  // SEND_PARTICLE(RobotHealth);
-  // SEND_PARTICLE(FieldFeatureOverview);
-
-  outputGenerator.theNaovaSPLStandardMessage.numOfDataBytes =
-    static_cast<uint16_t>(outputGenerator.theNaovaStandardMessage.sizeOfNaovaMessage()
-                          + outputGenerator.theBHumanArbitraryMessage.sizeOfArbitraryMessage());
+  outputGenerator.theNaovaStandardMessage.out = nullptr;
 }
 
 void TeamMessageHandler::writeMessage(NaovaMessageOutputGenerator& outputGenerator, RoboCup::SPLStandardMessage* const m) const
@@ -104,60 +126,41 @@ void TeamMessageHandler::writeMessage(NaovaMessageOutputGenerator& outputGenerat
   ASSERT(outputGenerator.sendThisFrame);
 
   outputGenerator.theNaovaStandardMessage.write(reinterpret_cast<void*>(m->data));
-  int offset = outputGenerator.theNaovaStandardMessage.sizeOfNaovaMessage();
 
-  const int restBytes = SPL_STANDARD_MESSAGE_DATA_SIZE - offset;
-  ASSERT(restBytes > 10);
-
-  int sizeOfArbitraryMessage = outputGenerator.theBHumanArbitraryMessage.sizeOfArbitraryMessage();
-  // fprintf(stderr, "Before NumofByte: %d\n", sizeOfArbitraryMessage); // TODO Remove avant merge
-  if(sizeOfArbitraryMessage > restBytes + 1)
-  {
-    // OUTPUT_ERROR("outputGenerator.theBHumanArbitraryMessage.sizeOfArbitraryMessage() > restBytes "
-                //  "-- with size of " << sizeOfArbitraryMessage << " and restBytes:" << int(restBytes));
-
-    do
-      outputGenerator.theBHumanArbitraryMessage.queue.removeLastMessage();
-    while((sizeOfArbitraryMessage = outputGenerator.theBHumanArbitraryMessage.sizeOfArbitraryMessage()) > restBytes
-          && !outputGenerator.theBHumanArbitraryMessage.queue.isEmpty());
-  }
-  sizeOfArbitraryMessage = outputGenerator.theBHumanArbitraryMessage.sizeOfArbitraryMessage();
-  ASSERT(sizeOfArbitraryMessage <= restBytes);
-
-  outputGenerator.theBHumanArbitraryMessage.write(reinterpret_cast<void*>(m->data + offset));
-
-  outputGenerator.theNaovaSPLStandardMessage.numOfDataBytes = static_cast<uint16_t>(offset + sizeOfArbitraryMessage);
-  // fprintf(stderr, "After NumofByte: %d\n", outputGenerator.theNaovaSPLStandardMessage.numOfDataBytes); // TODO avant merge
-  outputGenerator.theNaovaSPLStandardMessage.write(reinterpret_cast<void*>(&m->header[0]));
+  ASSERT(outputGenerator.theNaovaStandardMessage.sizeOfNaovaMessage() <= SPL_STANDARD_MESSAGE_DATA_SIZE);
 
   outputGenerator.sentMessages++;
-  timeLastSent = theFrameInfo.time;
-  nbSentMessages = outputGenerator.sentMessages;
+  if(theFrameInfo.getTimeSince(timeLastSent) >= 2 * sendInterval)
+    timeLastSent = theFrameInfo.time;
+  else
+    timeLastSent += sendInterval;
 }
 
 void TeamMessageHandler::update(TeamData& teamData)
 {
-  teamData.generate = [this, &teamData](const RoboCup::SPLStandardMessage* const m)
+  teamData.generate = [this, &teamData](const SPLStandardMessageBufferEntry* const m)
   {
     if(readSPLStandardMessage(m))
-      return parseMessageIntoBMate(getBMate(teamData));
+    {
+      if (receivedMessageContainer.theNaovaStandardMessage.number != theRobotInfo.number)
+        parseMessageIntoBMate(getBMate(teamData));
+      return;
+    }
 
-    if(receivedMessageContainer.lastErrorCode == ReceivedBHumanMessage::myOwnMessage
+    if(receivedMessageContainer.lastErrorCode == ReceivedNaovaMessage::myOwnMessage
 #ifndef NDEBUG
-       || receivedMessageContainer.lastErrorCode == ReceivedBHumanMessage::magicNumberDidNotMatch
+       || receivedMessageContainer.lastErrorCode == ReceivedNaovaMessage::magicNumberDidNotMatch
 #endif
       ) return;
 
     //the message had an parsing error
-    if(theFrameInfo.getTimeSince(timeWhenLastMimimi) > minTimeBetween2RejectSounds && SystemCall::playSound("intruder-alert.wav"))
+    if(theFrameInfo.getTimeSince(timeWhenLastMimimi) > minTimeBetween2RejectSounds && SystemCall::playSound("intruderAlert.wav"))
       timeWhenLastMimimi = theFrameInfo.time;
 
     ANNOTATION("intruder-alert", "error code: " << receivedMessageContainer.lastErrorCode);
   };
 
-  teamData.canSendMessages = (limitMessages - getRemainingMessages()) < (limitMessages - securityMessage);
   maintainBMateList(teamData);
-  
 }
 
 void TeamMessageHandler::maintainBMateList(TeamData& teamData) const
@@ -168,21 +171,25 @@ void TeamMessageHandler::maintainBMateList(TeamData& teamData) const
     // (new information has already been coming via handleMessages)
     for(auto& teammate : teamData.teammates)
     {
+      Teammate::Status newStatus = Teammate::PLAYING;
       if(teammate.isPenalized || theOwnTeamInfo.players[teammate.number - 1].penalty != PENALTY_NONE)
-        teammate.status = Teammate::PENALIZED;
+        newStatus = Teammate::PENALIZED;
       else if(!teammate.isUpright || !teammate.hasGroundContact)
-        teammate.status = Teammate::FALLEN;
-      else
-        teammate.status = Teammate::PLAYING;
+        newStatus = Teammate::FALLEN;
+
+      if(newStatus != teammate.status)
+      {
+        teammate.status = newStatus;
+        teammate.timeWhenStatusChanged = theFrameInfo.time;
+      }
 
       teammate.isGoalkeeper = teammate.number == 1;
     }
-
     // Remove elements that are too old:
     auto teammate = teamData.teammates.begin();
     while(teammate != teamData.teammates.end())
     {
-      if(teammate->isPenalized) // Condition pour enlever un teammate de la liste
+      if(teammate->isPenalized)
         teammate = teamData.teammates.erase(teammate);
       else
         ++teammate;
@@ -200,29 +207,13 @@ void TeamMessageHandler::maintainBMateList(TeamData& teamData) const
   }
 }
 
-#define PARSING_ERROR(outputText) { OUTPUT_ERROR(outputText); receivedMessageContainer.lastErrorCode = ReceivedBHumanMessage::parsingError;  return false; }
-bool TeamMessageHandler::readSPLStandardMessage(const RoboCup::SPLStandardMessage* const m)
+#define PARSING_ERROR(outputText) { OUTPUT_ERROR(outputText); receivedMessageContainer.lastErrorCode = ReceivedNaovaMessage::parsingError;  return false; }
+bool TeamMessageHandler::readSPLStandardMessage(const SPLStandardMessageBufferEntry* const m)
 {
-  if(!receivedMessageContainer.theNaovaSPLStandardMessage.read(&m->header[0]))
-    PARSING_ERROR("BSPL" " message part reading failed");
-
-#ifndef SELF_TEST
-  if(receivedMessageContainer.theNaovaSPLStandardMessage.playerNum == theRobotInfo.number)
-    return (receivedMessageContainer.lastErrorCode = ReceivedBHumanMessage::myOwnMessage) && false;
-#endif // !SELF_TEST
-
-  if(receivedMessageContainer.theNaovaSPLStandardMessage.playerNum < Settings::lowestValidPlayerNumber ||
-     receivedMessageContainer.theNaovaSPLStandardMessage.playerNum > Settings::highestValidPlayerNumber)
-    PARSING_ERROR("Invalid robot number received");
-
-  if(receivedMessageContainer.theNaovaSPLStandardMessage.teamNum != static_cast<uint8_t>(Global::getSettings().teamNumber))
-    PARSING_ERROR("Invalid team number received");
-
-  if(!receivedMessageContainer.theNaovaStandardMessage.read(m->data))
+  if(!receivedMessageContainer.theNaovaStandardMessage.read(m->message.data))
     PARSING_ERROR(NAOVA_STANDARD_MESSAGE_STRUCT_HEADER " message part reading failed");
 
-  if(receivedMessageContainer.theNaovaStandardMessage.magicNumber != Global::getSettings().magicNumber)
-    return (receivedMessageContainer.lastErrorCode = ReceivedBHumanMessage::magicNumberDidNotMatch) && false;
+  receivedMessageContainer.timestamp = m->timestamp;
 
   return true;
 }
@@ -230,10 +221,9 @@ bool TeamMessageHandler::readSPLStandardMessage(const RoboCup::SPLStandardMessag
 Teammate& TeamMessageHandler::getBMate(TeamData& teamData) const
 {
   teamData.receivedMessages++;
-  nbReceivedMessages = teamData.receivedMessages;
 
   for(auto& teammate : teamData.teammates)
-    if(teammate.number == receivedMessageContainer.theNaovaSPLStandardMessage.playerNum)
+    if(teammate.number == receivedMessageContainer.theNaovaStandardMessage.number)
       return teammate;
 
   teamData.teammates.emplace_back();
@@ -243,188 +233,108 @@ Teammate& TeamMessageHandler::getBMate(TeamData& teamData) const
 #define RECEIVE_PARTICLE(particle) currentTeammate.the##particle << receivedMessageContainer
 void TeamMessageHandler::parseMessageIntoBMate(Teammate& currentTeammate)
 {
-  // fprintf(stderr,
-  //    "-----------------------------------------------------------------------------\n\nNaovaSPLStandardMessage : \n version : %d\n playerNum : %d\n teamNum : %d\n fallen : %d\n pose : %f %f %f\n ballAge : %f\n ball : %f %f\n",
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.version,
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.playerNum,
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.teamNum,
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.fallen,
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.pose[0],receivedMessageContainer.theNaovaSPLStandardMessage.pose[1], receivedMessageContainer.theNaovaSPLStandardMessage.pose[2],
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.ballAge,
-  //    receivedMessageContainer.theNaovaSPLStandardMessage.ball[0], receivedMessageContainer.theNaovaSPLStandardMessage.ball[1]);
-  // fprintf(stderr,
-  //    "NaovaStandardMessage : \n magicNumber : %d\n ballLastPerceptX : %d\n ballLastPerceptY : %d\n ballLastPerceptY : %d\n ballCovariance : %f %f %f\n robotPoseDeviation: %f\n",
-  //   //  receivedMessageContainer.theNaovaStandardMessage.version,
-  //    receivedMessageContainer.theNaovaStandardMessage.magicNumber,
-  //   //  receivedMessageContainer.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage,
-  //    receivedMessageContainer.theNaovaStandardMessage.ballLastPerceptX,
-  //    receivedMessageContainer.theNaovaStandardMessage.ballLastPerceptY,
-  //    receivedMessageContainer.theNaovaStandardMessage.ballCovariance[0], receivedMessageContainer.theNaovaStandardMessage.ballCovariance[1], receivedMessageContainer.theNaovaStandardMessage.ballCovariance[2],
-  //    receivedMessageContainer.theNaovaStandardMessage.robotPoseDeviation);
-  // fprintf(stderr,
-  //    " robotPoseValidity : %d\n isPenalized : %s\n isUpright : %s\n hasGroundContact : %s\n timestamp : %d\n",
-  //   //  outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[0], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[1], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[2], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[3], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[4], outTeamMessage.theNaovaStandardMessage.robotPoseCovariance[5],
-  //    receivedMessageContainer.theNaovaStandardMessage.robotPoseValidity,
-  //    receivedMessageContainer.theNaovaStandardMessage.isPenalized ? "true" : "false",
-  //    receivedMessageContainer.theNaovaStandardMessage.isUpright ? "true" : "false",
-  //    receivedMessageContainer.theNaovaStandardMessage.hasGroundContact ? "true" : "false",
-  //    receivedMessageContainer.theNaovaStandardMessage.timestamp);
-  //   //  outTeamMessage.theNaovaStandardMessage.keeperIsPlaying ? "true" : "false",
-  //   //  outTeamMessage.theNaovaStandardMessage.passTarget,
-  //   //  receivedMessageContainer.theNaovaStandardMessage.timeWhenReachBall,
-  //   //  receivedMessageContainer.theNaovaStandardMessage.timeWhenReachBallStriker);
-  //    fprintf(stderr,
-  //    " timestampLastJumped :  %d\n ballTimeWhenLastSeen : %d\n lastTimeWhistleDetected : %d\n--------------------------------------------------\n\n",
-  //    receivedMessageContainer.theNaovaStandardMessage.timestampLastJumped,
-  //    receivedMessageContainer.theNaovaStandardMessage.ballTimeWhenLastSeen,
-  //    receivedMessageContainer.theNaovaStandardMessage.lastTimeWhistleDetected
-  //   //  outTeamMessage.theNaovaStandardMessage.requestsNTPMessage ? "true" : "false"
-  //   );
-    
-  currentTeammate.number = receivedMessageContainer.theNaovaSPLStandardMessage.playerNum;
-  theBNTP << receivedMessageContainer;
-
-  snap.lastMessageTeammateNumber = currentTeammate.number;
+  currentTeammate.number = receivedMessageContainer.theNaovaStandardMessage.number;
 
   receivedMessageContainer.bSMB = theBNTP[currentTeammate.number];
   currentTeammate.bSMB = theBNTP[currentTeammate.number];
-  currentTeammate.timeWhenLastPacketReceived = theFrameInfo.time;
+  currentTeammate.timeWhenLastPacketSent = receivedMessageContainer.toLocalTimestamp(receivedMessageContainer.theNaovaStandardMessage.timestamp);
+  currentTeammate.timeWhenLastPacketReceived = receivedMessageContainer.timestamp;
 
-  // currentTeammate.theRawGCData = receivedMessageContainer.theNaovaStandardMessage.gameControlData;
+  CompressedTeamCommunicationIn stream(receivedMessageContainer.theNaovaStandardMessage.compressedContainer,
+                                       receivedMessageContainer.theNaovaStandardMessage.timestamp, teamMessageType,
+                                       [this](unsigned u) { return receivedMessageContainer.toLocalTimestamp(u); });
+  receivedMessageContainer.theNaovaStandardMessage.in = &stream;
 
-  currentTeammate.hasGroundContact = receivedMessageContainer.theNaovaStandardMessage.hasGroundContact;
-  currentTeammate.isPenalized = receivedMessageContainer.theNaovaStandardMessage.isPenalized;
-  currentTeammate.isUpright = receivedMessageContainer.theNaovaStandardMessage.isUpright;
+  RobotStatus robotStatus;
+  robotStatus << receivedMessageContainer;
 
-  // RECEIVE_PARTICLE(SideConfidence);
+  currentTeammate.isPenalized = robotStatus.isPenalized;
+  currentTeammate.isUpright = robotStatus.isUpright;
+  currentTeammate.hasGroundContact = robotStatus.hasGroundContact;
+  currentTeammate.timeWhenLastUpright = robotStatus.timeWhenLastUpright;
+  currentTeammate.timeOfLastGroundContact = robotStatus.timeOfLastGroundContact;
+
   RECEIVE_PARTICLE(RobotPose);
-  RECEIVE_PARTICLE(BallModel);
-  // RECEIVE_PARTICLE(ObstacleModel);
-  RECEIVE_PARTICLE(BehaviorStatus);
-  // RECEIVE_PARTICLE(SPLStandardBehaviorStatus);
-  RECEIVE_PARTICLE(Whistle);
-  // RECEIVE_PARTICLE(TeammateRoles);
-  RECEIVE_PARTICLE(FieldCoverage);
-  // RECEIVE_PARTICLE(RobotHealth);
+  FOREACH_TEAM_MESSAGE_REPRESENTATION(RECEIVE_PARTICLE);
 
-  receivedMessageContainer.theBHumanArbitraryMessage.queue.handleAllMessages(currentTeammate);
+  receivedMessageContainer.theNaovaStandardMessage.in = nullptr;
+
 }
 
-
+//@author #iloveCatarina
 bool TeamMessageHandler::sendMessage(){
+  if (theFrameInfo.getTimeSince(timeLastSent) >= sendInterval && enableCommunication1s)
+    return true;
 
   if (getRemainingMessages() <= securityMessage) {
     return false;
   }
 
-  // Reset snap.firstMessage for half
-  if (theGameInfo.state == STATE_INITIAL) {
-    log("RESETTING snap.firstMessage for half", "COMM INFO");
-    snap.firstMessage = true;
-  }
+  bool send = false;
+  uint8_t stateGameInfo;
 
-  // Reset snap.firsMessage when a goal is scored
-  if (theGameInfo.state == STATE_READY && snap.lastGameState == STATE_PLAYING) {
-    log("RESETTING snap.firstMessage for goal", "COMM INFO");
-    snap.firstMessage = true;
-    return false;
-  }
-
-  // Always send message at begining of both halfs
-  if ((theGameInfo.state == STATE_READY || theGameInfo.state == STATE_PLAYING) && snap.firstMessage) { 
-    log("Sending first message", "COMM INFO");
-    snap.firstMessage = false;
-    return true;
-  }
-
-  // DON'T send messages if the game is not in playing
-  if (theGameInfo.state != STATE_PLAYING){
-    return false;
-  }
-
-  // Uncomment desired system
-  return eventBasedSystem();
-  //return timeBasedSystem();
-}
-
-bool TeamMessageHandler::eventBasedSystem() {
-  // Send message when a whistle is heard
-  // if (theGameInfo.state == STATE_SET) {
-  //   if (getScoreWhistleSET() >= minScore) {
-  //     log("I HEARD A WHISTLE. Sending a message", "COMM INFO");
-  //     return true;
-  //   } else {
-  //     return false;
-  //   }
-  // }
-
-  adjustScore();
-
-  int scoreRobotMoved = getScoreRobotMoved();
-  int scoreBallMoved = getScoreBallMoved();
-  int scoreBallDetected = getScoreBallDetected();
-  int scoreFallen = getScoreFallen();
-  //int scoreWhistle = getScoreWhistle();
-  int scorePenalized = getScorePenalized();
-  int scoreUnpenalized = getScoreUnpenalized();
-  int scoreRoleChanged = getScoreRoleChanged();
+  #ifdef TARGET_ROBOT
+    stateGameInfo = theExtendedGameInfo.gameStateLastFrame;
+  #else
+    if ((theRawGameInfo.state == STATE_READY || theRawGameInfo.state == STATE_PLAYING) && snap.firstMessage) { 
+      snap.firstMessage = false;
+      return true;
+    }  
+    stateGameInfo = theRawGameInfo.state;
+  #endif
   
+  switch (stateGameInfo)
+    {
+    case STATE_INITIAL:
+      snap.firstMessage = true;
+      break;
+    case STATE_READY:
+      send = theExtendedGameInfo.gameStateBeforeCurrent != STATE_INITIAL ? getScoreRobotMoved() >= minScore : false;
+      break;
+    case STATE_SET: // Send message when a whistle is heard
+      if (getScoreWhistleSET() >= minScore && (theFrameInfo.getTimeSince(snap.lastTimeSendMessage) >= sendInterval)) {
+        send = true;
+      } 
+      break;
+    default: // STATE_PLAYING
+      adjustScore();
 
-  int scoreTotal = scoreFallen + scoreBallMoved + scoreBallDetected + scorePenalized + scoreUnpenalized + scoreRobotMoved + scoreRoleChanged; //+ scoreWhistle;
+      int scoreRobotMoved = getScoreRobotMoved();
+      int scoreBallMoved = getScoreBallMoved();
+      int scoreBallDetected = getScoreBallDetected();
+      int scoreFallen = getScoreFallen();
+      int scoreWhistle = getScoreWhistle();
+      int scorePenalized = getScorePenalized();
+      int scoreUnpenalized = getScoreUnpenalized();
+      
 
-  if (scoreTotal >= minScore && loggingIsEnabled) {
-
-    std::map<std::string, std::string> valuesToLog;
-    valuesToLog["theOwnTeamInfo.messageBudget"] = std::to_string(getRemainingMessages());
-    valuesToLog["scoreRobotMoved"] = std::to_string(scoreRobotMoved);
-    valuesToLog["scoreBallMoved"] = std::to_string(scoreBallMoved);
-    valuesToLog["scoreBallDetected"] = std::to_string(scoreBallDetected);
-    valuesToLog["scoreFallen"] = std::to_string(scoreFallen);
-    valuesToLog["scorePenalized"] = std::to_string(scorePenalized);
-    valuesToLog["scoreUnpenalized"] = std::to_string(scoreUnpenalized);
-    valuesToLog["scoreRoleChanged"] = std::to_string(scoreRoleChanged);
-    //valuesToLog["scoreWhistle"] = std::to_string(scoreWhistle);
-    valuesToLog["scoreTotal"] = std::to_string(scoreTotal);
-    valuesToLog["minScore"] = std::to_string(minScore);
-    valuesToLog["theGameInfo.state"] = std::to_string(theGameInfo.state);
-    valuesToLog["nbSentMessages"] = std::to_string(nbSentMessages);
-    log(valuesToLog, "MESSAGE CAN BE SENT");
+      int scoreTotal = scoreFallen + scoreBallMoved + scoreBallDetected + scorePenalized + scoreUnpenalized + scoreRobotMoved;
+      send = scoreTotal >= minScore;
+      break;
   }
-
-  return scoreTotal >= minScore;
-}
-
-bool TeamMessageHandler::timeBasedSystem() {
-  if (theFrameInfo.getTimeSince(snap.lastTimeSendMessage) > minTimeBetweenMessages) {
-    return true;
-  }
-  return false;
+  
+  return send;
 }
 
 void TeamMessageHandler::log(std::map<std::string, std::string> values, std::string reasonForLogging) {
-  if (theOwnTeamInfo.teamNumber == 1) {
-    OUTPUT_TEXT("\n\n\n(" << theRobotInfo.number << "): " << reasonForLogging << " ---------------------------------------------------------------");
-    OUTPUT_TEXT("(" << theRobotInfo.number << "): currentSystemTime: " << Time::getCurrentSystemTime() << "\n");
-    for(auto v : values) {
-      OUTPUT_TEXT("(" << theRobotInfo.number << "): " << v.first << ": " << v.second << "\n");
-    }
+  OUTPUT_TEXT("\n\n\n(" << theRobotInfo.number << "): " << reasonForLogging << " ---------------------------------------------------------------");
+  OUTPUT_TEXT("(" << theRobotInfo.number << "): currentSystemTime: " << Time::getCurrentSystemTime() << "\n");
+  for(auto v : values) {
+    OUTPUT_TEXT("(" << theRobotInfo.number << "): " << v.first << ": " << v.second << "\n");
   }
 }
 
 void TeamMessageHandler::log(std::string value, std::string reasonForLogging) {
-  if (loggingIsEnabled && theOwnTeamInfo.teamNumber == 1) {
-    OUTPUT_TEXT("\n\n\n(" << theRobotInfo.number << "): " << reasonForLogging << " ---------------------------------------------------------------");
-    OUTPUT_TEXT("(" << theRobotInfo.number << "): " << value);
-  }
+  OUTPUT_TEXT("\n\n\n(" << theRobotInfo.number << "): " << reasonForLogging << " ---------------------------------------------------------------");
+  OUTPUT_TEXT("(" << theRobotInfo.number << "): " << value);
 }
 
 void TeamMessageHandler::adjustScore(){
-  // La valeur de theGameInfo.secsInHalf n'est pas correctement attribuee (0 ou 32590?????) 600 = theGameInfo.secsInHalf
-  int secsInHalf = 600;
-  int remainingSeconds = theGameInfo.firstHalf == 1 ? secsInHalf + theGameInfo.secsRemaining : theGameInfo.secsRemaining;
+  int secsInHalf = totalSecsGame/2;
+  int remainingSeconds = theRawGameInfo.firstHalf == 1 ? secsInHalf + theRawGameInfo.secsRemaining : theRawGameInfo.secsRemaining;
   int elapsedSeconds = (secsInHalf*2)-remainingSeconds;
 
-  float scoreSlopeDeltaX = (float)((limitMessages*2)/8); // the more we decrease this value, the more drastic the score adjustment will be
+  float scoreSlopeDeltaX = (float)((limitMessages*2)/8);
   float scoreSlope = (float)(scoreFloor-scoreCeiling)/scoreSlopeDeltaX;
   float targetSentPacketsSlope = (float)((limitMessages)/(secsInHalf*2));
 
@@ -433,7 +343,6 @@ void TeamMessageHandler::adjustScore(){
 
   int minScoreTemp = (int)(scoreSlope*(expectedNumberOfSentPackets-actualNumberOfSentPackets) + defaultMinScore);
 
-  // Enforce score threshold lower and upper bounds
   if (minScoreTemp < scoreFloor) {
     minScore = scoreFloor;
   } else if (minScoreTemp > scoreCeiling) {
@@ -445,36 +354,16 @@ void TeamMessageHandler::adjustScore(){
 
 
 int TeamMessageHandler::getScoreBallMoved(){
-  // Score based on the distance between the current ball position and last sent ball position
-  Vector2f currentBallPosition = theBallModel.estimate.position;
 
-  // ** peut etre quil serait mieux de calculer le deplacement entre theBallmodel.estimate.position et theBallModel.lastPerception **
-  // ** OU calculer le deplacement entre theBallModel.estimate.position et theTeamBallModel.position **
+  Vector2f currentBallPosition = theBallModel.estimate.position;
   Vector2f lastBallPosition = snap.lastBallPosition;
   float difference = (currentBallPosition - lastBallPosition).norm();
 
-  if (difference < minBallRadius){
+  if (difference < minBallRadius || theBallPercept.status != BallPercept::seen ){
     return 0;
   }
 
-  // Si on voit la balle, mais sa position est tres proche de la derniere position de balle envoyee --> lower score
-  int ballDetectedScore = (int)(ballMoved * (difference/(maxBallRadius-minBallRadius)));
-
-  if (loggingIsEnabled) {
-    std::map<std::string, std::string> valuesToLog;
-    valuesToLog["currentBallPosition.X"] = std::to_string(currentBallPosition.x());
-    valuesToLog["currentBallPosition.Y"] = std::to_string(currentBallPosition.y());
-    valuesToLog["lastBallPosition.X"] = std::to_string(lastBallPosition.x());
-    valuesToLog["lastBallPosition.Y"] = std::to_string(lastBallPosition.y());
-    valuesToLog["difference"] = std::to_string(difference);
-    valuesToLog["ballDetectedScore"] = std::to_string(ballDetectedScore);
-    valuesToLog["theBallPercept.status"] = std::to_string(theBallPercept.status);
-    valuesToLog["theBallPercept.confidenceLevel"] = std::to_string(theBallPercept.confidenceLevel);
-    valuesToLog["theBallModel.seenPercentage"] = std::to_string(theBallModel.seenPercentage);
-    //log(valuesToLog, "BALL MOVEMENT SCORE");
-  }
-
-  return ballDetectedScore;
+  return (ballMoved * (int)(difference/(maxBallRadius - minBallRadius)));
 }
 
 int TeamMessageHandler::getScoreBallDetected() {
@@ -486,7 +375,6 @@ int TeamMessageHandler::getScoreBallDetected() {
 }
 
 int TeamMessageHandler::getScoreRobotMoved(){
-  // Comparer la position du robot depuis le dernier envoie 
   Vector2f lastPosition = snap.lastPose;
   Vector2f currentPosition = theRobotPose.translation;
 
@@ -496,37 +384,14 @@ int TeamMessageHandler::getScoreRobotMoved(){
     return 0;
   }
 
-  if (loggingIsEnabled) {
-    std::map<std::string, std::string> valuesToLog;
-    valuesToLog["lastSentPosition.X"] = std::to_string(lastPosition.x());
-    valuesToLog["lastSentPosition.Y"] = std::to_string(lastPosition.y());
-    valuesToLog["currentPosition.X"] = std::to_string(currentPosition.x());
-    valuesToLog["currentPosition.Y"] = std::to_string(currentPosition.y());
-    valuesToLog["difference"] = std::to_string(difference);
-    //log(valuesToLog, "ROBOT MOVED SCORE");
-  }
-
-  // multiplier if robot moved more, bigger score (minDistance->0, maxDistance-> robotMoved)
-  int robotMovedScore = (int)(robotMoved * (difference/(maxDistanceRobot-minDistanceRobot)));
-
-  return robotMovedScore;
+  return (robotMoved * (int)(difference/(maxDistanceRobot-minDistanceRobot)));
 }
 
 int TeamMessageHandler::getScoreFallen(){
-  if (loggingIsEnabled) {
-    std::map<std::string, std::string> valuesToLog;
-    valuesToLog["FallDownState::State::falling"] = std::to_string(FallDownState::State::falling);
-    valuesToLog["FallDownState::State::fallen"] = std::to_string(FallDownState::State::fallen);
-    valuesToLog["theFallDownState.state"] = std::to_string(theFallDownState.state);
-    valuesToLog["theBallModel.estimate.position.norm()"] = std::to_string(theBallModel.estimate.position.norm());
-    //log(valuesToLog, "ROBOT FALLEN SCORE");
-  }
-
   if (theFallDownState.state != FallDownState::State::fallen && theFallDownState.state != FallDownState::State::falling){
     return 0;
   }
 
-  // Verifier la position du robot par rapport a la balle. Donc en fonction de la distance entre le robot et la balle
   float distanceRobotBall = theBallModel.estimate.position.norm();
 
   if (distanceRobotBall > maxFallenDistance){
@@ -546,13 +411,7 @@ int TeamMessageHandler::getScoreWhistle(){
 }
 
 int TeamMessageHandler::getScoreWhistleSET() {
-  if (loggingIsEnabled) {
-    std::map<std::string, std::string> valuesToLog;
-    valuesToLog["theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected)"] = std::to_string(theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected));
-    valuesToLog["theWhistle.confidenceOfLastWhistleDetection"] = std::to_string(theWhistle.confidenceOfLastWhistleDetection);
-    log(valuesToLog, "ROBOT WHISTLE SCORE");
-  }
-  if (theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) <= maxWhistleTime && theWhistle.confidenceOfLastWhistleDetection > minWhistleConfidence) {
+  if (theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) <= maxWhistleTime && theWhistle.confidenceOfLastWhistleDetection >= minWhistleConfidence) {
     return minScore;
   }
   return 0;
@@ -564,14 +423,6 @@ int TeamMessageHandler::getScorePenalized(){
 
 int TeamMessageHandler::getScoreUnpenalized(){
   return theRobotInfo.penalty == PENALTY_NONE && snap.lastPenaltyState != PENALTY_NONE ? minScore : 0;
-}
-
-int TeamMessageHandler::getScoreRoleChanged(){
-  if (theFrameInfo.getTimeSince(snap.lastTimeRoleChanged) > minRoleChangedTime && theBehaviorStatus.role != snap.lastMessageRole) {
-    snap.lastTimeRoleChanged = theFrameInfo.time;
-    return minScore;
-  }
-  return 0;
 }
 
 int TeamMessageHandler::getRemainingMessages(){

@@ -8,7 +8,7 @@
  * @param angle code in rad
  * @return angle coded in degrees
  */
-template<class V>
+template<typename V>
 constexpr V toDegrees(V angle) { return angle * V(180.f / pi); }
 
 /**
@@ -36,7 +36,7 @@ public:
    * @param data angle coded in rad
    * @return normalized angle coded in rad
    */
-  template<class V>
+  template<typename V>
   static V normalize(V data);
 
   Angle diffAbs(Angle b) const { return std::abs(normalize(value - b)); }
@@ -70,14 +70,14 @@ inline constexpr Angle operator "" _rad(long double angle)
   return Angle(static_cast<float>(angle));
 }
 
-template<class V>
+template<typename V>
 V Angle::normalize(V data)
 {
   if(data >= -V(pi) && data < V(pi))
     return data;
   else
   {
-    data = data - static_cast<int>(data / V(pi2)) * V(pi2);
+    data = data - static_cast<float>(static_cast<int>(data / V(pi2))) * V(pi2);
     return data >= V(pi) ? V(data - V(pi2)) : data < -V(pi) ? V(data + V(pi2)) : data;
   }
 }

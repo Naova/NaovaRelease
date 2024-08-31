@@ -1,9 +1,11 @@
 /**
  * @file SelfLocalizationHypotheses.cpp
  *
- * List of robot pose hypotheses that are currently evaluated by the self-localization module
+ * List of robot pose hypotheses that are currently evaluated by the self-localization module.
+ * This information is not used as input for further computations but is logged and
+ * helps during the debugging of localization problems.
  *
- * @author <A href="mailto:tlaue@uni-bremen.de">Tim Laue</A>
+ * @author Tim Laue
  */
 
 #include "SelfLocalizationHypotheses.h"
@@ -32,7 +34,7 @@ void SelfLocalizationHypotheses::draw() const
       cov(1, 1) = h.yVariance;
       cov(1, 0) = h.xyCovariance;
       cov(0, 1) = h.xyCovariance;
-      COVARIANCE2D("representation:SelfLocalizationHypotheses:covariance", cov, h.pose.translation);
+      COVARIANCE_ELLIPSES_2D("representation:SelfLocalizationHypotheses:covariance", cov, h.pose.translation);
     }
   }
 }

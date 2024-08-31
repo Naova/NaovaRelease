@@ -1,6 +1,6 @@
 /**
  * @file FactoryController
- * 
+ *
  * Controller for the simple factory demo specified in Factory.ros2.
  * Three distance sensors determine the height of a box. Afterwards,
  * the boxes is pushed to the right trap door which senses contact to
@@ -32,71 +32,72 @@
 class FactoryController : public SimRobot::Module
 {
 private:
-  SimRobot::Application&          simRobot;        /** Reference to the SimRobot application */
-  SimRobotCore2::SensorPort*      distanceSensor1; /**< Access to the first distance sensor **/
-  SimRobotCore2::SensorPort*      distanceSensor2; /**< Access to the second distance sensor **/
-  SimRobotCore2::SensorPort*      distanceSensor3; /**< Access to the third distance sensor **/
-  SimRobotCore2::ActuatorPort*    sliderActuator;  /**< Access for controlling the slider joint */
-  SimRobotCore2::SensorPort*      sliderSensor;    /**< Access for measuring the slider joint's position */
-  SimRobotCore2::SensorPort*      trapDoor1Bumper; /**< Access to the first trap door's collision detector**/
-  SimRobotCore2::SensorPort*      trapDoor2Bumper; /**< Access to the second trap door's collision detector **/
-  SimRobotCore2::SensorPort*      trapDoor3Bumper; /**< Access to the third trap door's collision detector **/
-  SimRobotCore2::ActuatorPort*    trapDoor1Hinge;  /**< Access to the first trap door's hinge actuator */
-  SimRobotCore2::ActuatorPort*    trapDoor2Hinge;  /**< Access to the second trap door's hinge actuator */
-  SimRobotCore2::ActuatorPort*    trapDoor3Hinge;  /**< Access to the third trap door's hinge actuator */
-  SimRobotCore2::Scene*           simPort;         /**< Access to some general simulation information */
+  SimRobot::Application&       simRobot;        /** Reference to the SimRobot application */
+  SimRobotCore2::SensorPort*   distanceSensor1; /**< Access to the first distance sensor **/
+  SimRobotCore2::SensorPort*   distanceSensor2; /**< Access to the second distance sensor **/
+  SimRobotCore2::SensorPort*   distanceSensor3; /**< Access to the third distance sensor **/
+  SimRobotCore2::ActuatorPort* sliderActuator;  /**< Access for controlling the slider joint */
+  SimRobotCore2::SensorPort*   sliderSensor;    /**< Access for measuring the slider joint's position */
+  SimRobotCore2::SensorPort*   trapDoor1Bumper; /**< Access to the first trap door's collision detector**/
+  SimRobotCore2::SensorPort*   trapDoor2Bumper; /**< Access to the second trap door's collision detector **/
+  SimRobotCore2::SensorPort*   trapDoor3Bumper; /**< Access to the third trap door's collision detector **/
+  SimRobotCore2::ActuatorPort* trapDoor1Hinge;  /**< Access to the first trap door's hinge actuator */
+  SimRobotCore2::ActuatorPort* trapDoor2Hinge;  /**< Access to the second trap door's hinge actuator */
+  SimRobotCore2::ActuatorPort* trapDoor3Hinge;  /**< Access to the third trap door's hinge actuator */
+  SimRobotCore2::Scene*        simPort;         /**< Access to some general simulation information */
 
   enum FactoryState
   {
-    MEASURING=0,
+    MEASURING = 0,
     PUSHING_BLOCK1,
     PUSHING_BLOCK2,
     PUSHING_BLOCK3,
     RETURNING
   };
 
-  FactoryState currentState;          /**< Current operational state of simple factory */
-  FactoryState nextState;             /**< Next operational state of simple factory */
-  float sliderPositions[RETURNING];   /**< Positions for the slider to go to */
-  double startOfWaitingTime;           /**< A time stamp for delaying some actions */
+  FactoryState currentState;        /**< Current operational state of simple factory */
+  FactoryState nextState;           /**< Next operational state of simple factory */
+  float sliderPositions[RETURNING]; /**< Positions for the slider to go to */
+  double startOfWaitingTime;        /**< A time stamp for delaying some actions */
 
 public:
-   /** Constructor */
-  FactoryController(SimRobot::Application& simRobot):simRobot(simRobot)
+  /** Constructor */
+  FactoryController(SimRobot::Application& simRobot) : simRobot(simRobot)
   {}
 
   /** Initialization of sensor and actuator ports, states, and positions*/
-  bool compile()
+  bool compile() override
   {
     // Get all necessary actuator and sensor objects
-    SimRobotCore2::Object* rootObj = (SimRobotCore2::Object*)simRobot.resolveObject("Factory", SimRobotCore2::scene);
+    SimRobotCore2::Object* rootObj = static_cast<SimRobotCore2::Object*>(simRobot.resolveObject("Factory", SimRobotCore2::scene));
     QVector<QString> parts;
     parts.resize(1);
     parts[0] = "distance1.distance";
-    distanceSensor1 = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    distanceSensor1 = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "distance2.distance";
-    distanceSensor2 = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    distanceSensor2 = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "distance3.distance";
-    distanceSensor3 = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    distanceSensor3 = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "sliderJoint.position";
-    sliderActuator = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort);
-    sliderSensor = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    sliderActuator = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort));
+    sliderSensor = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "trapDoor1Sensor.contact";
-    trapDoor1Bumper = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    trapDoor1Bumper = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "trapDoor2Sensor.contact";
-    trapDoor2Bumper = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    trapDoor2Bumper = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "trapDoor3Sensor.contact";
-    trapDoor3Bumper = (SimRobotCore2::SensorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort);
+    trapDoor3Bumper = static_cast<SimRobotCore2::SensorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::sensorPort));
     parts[0] = "trapDoor1Hinge.position";
-    trapDoor1Hinge = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort);
+    trapDoor1Hinge = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort));
     parts[0] = "trapDoor2Hinge.position";
-    trapDoor2Hinge = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort);
+    trapDoor2Hinge = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort));
     parts[0] = "trapDoor3Hinge.position";
-    trapDoor3Hinge = (SimRobotCore2::ActuatorPort*)simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort);
-    simPort = (SimRobotCore2::Scene*)simRobot.resolveObject("Factory", SimRobotCore2::scene);
+    trapDoor3Hinge = static_cast<SimRobotCore2::ActuatorPort*>(simRobot.resolveObject(parts, rootObj, SimRobotCore2::actuatorPort));
+    simPort = static_cast<SimRobotCore2::Scene*>(simRobot.resolveObject("Factory", SimRobotCore2::scene));
     currentState = MEASURING;
     nextState = MEASURING;
     startOfWaitingTime = 0.0;
+
     // Slider target positions:
     sliderPositions[MEASURING] = 0.02f;
     sliderPositions[PUSHING_BLOCK1] = 0.35f;
@@ -105,15 +106,14 @@ public:
     return true;
   }
 
-
   /** This function becomes called in every execution cycle of the simulation*/
-  void update()
+  void update() override
   {
     /** Always check for open trap doors and close them */
     bool trapDoor1State = trapDoor1Bumper->getValue().boolValue;
     bool trapDoor2State = trapDoor2Bumper->getValue().boolValue;
     bool trapDoor3State = trapDoor3Bumper->getValue().boolValue;
-     
+
     /** Waiting for box and measuring it */
     if(currentState == MEASURING)
     {
@@ -121,6 +121,7 @@ public:
       float dist1 = distanceSensor1->getValue().floatValue;
       float dist2 = distanceSensor2->getValue().floatValue;
       float dist3 = distanceSensor3->getValue().floatValue;
+
       // Determine box
       if(dist3 < 0.40)
         nextState = PUSHING_BLOCK3;
@@ -128,6 +129,7 @@ public:
         nextState = PUSHING_BLOCK2;
       else if(dist1 < 0.40)
         nextState = PUSHING_BLOCK1;
+
       // Wait some cycles before changing to pushing mode since slider crosses sensor
       if(nextState && startOfWaitingTime == 0)
         startOfWaitingTime = simPort->getTime();
@@ -141,13 +143,13 @@ public:
       }
       sliderActuator->setValue(sliderPositions[MEASURING]);
     }
-    /** Pushing the box number 1 */
+    // Pushing the box number 1
     else if(currentState == PUSHING_BLOCK1)
     {
       sliderActuator->setValue(sliderPositions[PUSHING_BLOCK1]);
       if(trapDoor1State)
       {
-        trapDoor1Hinge->setValue((float) -M_PI/3.0f);
+        trapDoor1Hinge->setValue(static_cast<float>(-M_PI) / 3.0f);
         if(startOfWaitingTime == 0.0)
           startOfWaitingTime = simPort->getTime();
       }
@@ -158,13 +160,13 @@ public:
         currentState = RETURNING;
       }
     }
-    /** Pushing the box number 2 */
+    // Pushing the box number 2
     else if(currentState == PUSHING_BLOCK2)
     {
       sliderActuator->setValue(sliderPositions[PUSHING_BLOCK2]);
       if(trapDoor2State)
       {
-        trapDoor2Hinge->setValue((float) -M_PI/3.0f);
+        trapDoor2Hinge->setValue(static_cast<float>(-M_PI) / 3.0f);
         if(startOfWaitingTime == 0.0)
           startOfWaitingTime = simPort->getTime();
       }
@@ -175,13 +177,13 @@ public:
         currentState = RETURNING;
       }
     }
-    /** Pushing the box number 3 */
+    // Pushing the box number 3
     else if(currentState == PUSHING_BLOCK3)
     {
       sliderActuator->setValue(sliderPositions[PUSHING_BLOCK3]);
       if(trapDoor3State)
       {
-        trapDoor3Hinge->setValue((float) -M_PI/3.0f);
+        trapDoor3Hinge->setValue(static_cast<float>(-M_PI) / 3.0f);
         if(startOfWaitingTime == 0.0)
           startOfWaitingTime = simPort->getTime();
       }
@@ -192,7 +194,7 @@ public:
         currentState = RETURNING;
       }
     }
-    /** Return to start */
+    // Return to start
     else if(currentState == RETURNING)
     {
       sliderActuator->setValue(sliderPositions[MEASURING]);
@@ -210,7 +212,6 @@ public:
 #endif
   };
 };
-
 
 extern "C" DLL_EXPORT SimRobot::Module* createModule(SimRobot::Application& simRobot)
 {

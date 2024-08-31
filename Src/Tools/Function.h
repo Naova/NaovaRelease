@@ -6,7 +6,7 @@
  * assigned. Instead, nothing happens. If the function is supposed to return data, a
  * default value is returned instead, i.e. the value created by the default constructor of
  * the return type. For Eigen types, the result of Zero() is returned instead.
- * The macro also ensures that the blackboard is able to identifiy representations that
+ * The macro also ensures that the blackboard is able to identify representations that
  * contains functions. Thereby, it can reset these representations when their provider
  * changes.
  *
@@ -50,12 +50,12 @@ namespace FunctionImpl
  * Declare the type of a function. For instance: FUNCTION(void()) fn;
  * @param ... The type of the function.
  */
-#define FUNCTION(...) friend struct HasSerialize; FunctionImpl::Function<__VA_ARGS__>
+#define FUNCTION(...) friend struct HasReadWrite; FunctionImpl::Function<__VA_ARGS__>
 
 /**
  * If a class is derived from a class that has functions, but the derived
- * class does not declare new functions, but overrides "serialize", this macro must be used
- * inside the class' body. If a class is derived using STREAMABLE_WITH_BASE, "serialize"
- * is automatically overridden, i.e. this macro must be used if a base class contains functions.
+ * class does not declare new functions, but overrides "read" and "write, this macro must be used
+ * inside the class' body. If a class is derived using STREAMABLE_WITH_BASE, "read" and "write"
+ * are automatically overridden, i.e. this macro must be used if a base class contains functions.
  */
-#define BASE_HAS_FUNCTION friend struct HasSerialize;
+#define BASE_HAS_FUNCTION friend struct HasReadWrite;

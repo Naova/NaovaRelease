@@ -32,7 +32,7 @@ SubpixelMaximizer::FitMatrix::FitMatrix()
   memset(data, 0, sizeof(data));
   for(int i = 0; i < 10; i++)
     for(int j = 0; j < 27; j++)
-      ((short*)&data[i][0])[j] = (short) rawData[i][j];
+      reinterpret_cast<short*>(&data[i][0])[j] = static_cast<short>(rawData[i][j]);
   assert(aligned16(data));
 }
 
@@ -43,7 +43,7 @@ void SubpixelMaximizer::fitUsingSSE3(float coef[FitMatrix::ROWS], const signed s
   const short* localFitMatrix = fitMatrix();
   // Load data into four SSE Registers
   __m128i x[4];
-  signed short* dataFlat = (signed short*) data; // flat arraw of 27 signed shorts
+  signed short* dataFlat = const_cast<signed short*>(reinterpret_cast<const signed short*>(data)); // flat array of 27 signed shorts
   x[0] = _mm_loadu_si128((__m128i*)(dataFlat + 0));
   x[1] = _mm_loadu_si128((__m128i*)(dataFlat + 8));
   x[2] = _mm_loadu_si128((__m128i*)(dataFlat + 16));
@@ -77,7 +77,7 @@ void SubpixelMaximizer::fitUsingC(float coef[10], const signed short data[3][3][
           sum += int(fitMatrix(i, j) * data[1 + j1][1 + j2][1 + j3]);
           j++;
         }
-    coef[i] = (float) sum;
+    coef[i] = static_cast<float>(sum);
   }
 }
 
@@ -151,7 +151,7 @@ bool SubpixelMaximizer::cholesky(const float A[3][3], float L[3][3])
   if(sum > 0)
   {
     // (0,0)
-    L[0][0] = sqrtf(sum);
+    L[0][0] = std::sqrt(sum);
 
     // (1,0)
     sum = A[1][0];
@@ -173,7 +173,7 @@ bool SubpixelMaximizer::cholesky(const float A[3][3], float L[3][3])
   if(sum > 0)
   {
     // (1,1)
-    L[1][1] = sqrtf(sum);
+    L[1][1] = std::sqrt(sum);
 
     // (2,1)
     sum = A[2][1] - L[1][0] * L[2][0];
@@ -194,7 +194,7 @@ bool SubpixelMaximizer::cholesky(const float A[3][3], float L[3][3])
   if(sum > 0)
   {
     // (2,2)
-    L[2][2] = sqrtf(sum);
+    L[2][2] = std::sqrt(sum);
   }
   else
     L[2][2] = 0;

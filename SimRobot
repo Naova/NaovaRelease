@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [ $OSTYPE == 'darwin'* ]; then
+  Make/macOS/compile
+  Build/macOS/SimRobot/Develop/SimRobot.app/Contents/MacOS/SimRobot
+
+else
+  Make/Linux/compile SimRobot
+  if [ $# -ge 1 ]; then
+    Build/Linux/SimRobot/Develop/SimRobot Config/Scenes/$1.ros2
+  else
+    Build/Linux/SimRobot/Develop/SimRobot
+  fi
+fi

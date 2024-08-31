@@ -7,8 +7,11 @@
 #pragma once
 
 #include "Tools/Module/Module.h"
+#include "Representations/Configuration/BallSpecification.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/CameraInfo.h"
+#include "Representations/Infrastructure/FrameInfo.h"
+#include "Representations/Modeling/WorldModelPrediction.h"
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldPercepts/LinesPercept.h"
@@ -16,24 +19,34 @@
 
 MODULE(IntersectionsProvider,
 {,
+  REQUIRES(BallSpecification),
   REQUIRES(CameraInfo),
   REQUIRES(CameraMatrix),
   REQUIRES(CirclePercept), // Just to make sure that lines on the circle are marked as such
   REQUIRES(FieldDimensions),
+  REQUIRES(FrameInfo),
   REQUIRES(LinesPercept),
+  REQUIRES(WorldModelPrediction),
   PROVIDES(IntersectionsPercept),
   LOADS_PARAMETERS(
   {,
-    (float)(0.15f) maxAllowedIntersectionAngleDifference, /**<The angle between two intersecting lines should not differ more from 90° than this number (in rad) */
-    (float)(0.8f) maxLengthUnrecognizedProportion,  /**< the length of the recognized line multiplied by this value could maximal imagine */
-    (float)(10.f) maxOverheadToDecleareAsEnd,  /**< the max of pixel an end can be farther away to declear as end*/
+    (float) maxAllowedIntersectionAngleDifference, /**<The angle between two intersecting lines should not differ more from 90° than this number (in rad) */
+    (float) maxLengthUnrecognizedProportion,  /**< the length of the recognized line multiplied by this value could maximal imagine */
+    (float) maxIntersectionGap,  /**< the maximum distance between the intersection and one end of the line (if the intersection is not on the line) */
+    (float) maxOverheadToDecleareAsEnd,  /**< the max of pixel an end can be farther away to declear as end*/
+    (float) minimumBallExclusionCheckDistance, /**< When a ball is at least this far away, it is used to exclude intersections*/
+    (float) ballRadiusInImageScale, /**< Enlarge ball radius in image by this factor */
   }),
 });
 
 class IntersectionsProvider : public IntersectionsProviderBase
 {
 public:
-  void update(IntersectionsPercept& intersectionsPercept);
+  /** Constructor. */
+  IntersectionsProvider();
+
+private:
+  void update(IntersectionsPercept& intersectionsPercept) override;
 
   /**
    * Returns the distance of the closer point to target.
@@ -50,4 +63,9 @@ public:
 
   /**enforces that horizontal is +90° of vertical*/
   void enforceTIntersectionDirections(const Vector2f& vertical, Vector2f& horizontal) const;
+
+  bool ballIsInImageAndCanBeUsed;           // True, if the center of the ball is currently inside the image
+  Vector2f ballPositionInFieldCoordinates;  // Ball position in global coordinates
+  Vector2f ballPositionInImage;             // Ball position in image coordinates
+  float ballRadiusInImageScaled;            // Ball radius in image, scaled by ballRadiusInImageScale
 };

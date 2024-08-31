@@ -1,0 +1,17 @@
+#!/bin/bash
+
+read -p "Path SBRImage (.opn):"  pathSBRImage
+
+echo "Install package"
+sudo apt install bzip2 debootstrap patchelf -y
+
+echo "create root image $pathSBRImage"
+./createRootImage $pathSBRImage
+
+echo "create home archive"
+./createHomeArchive
+
+echo "create OPN"
+./createOPN -r root.etx3 -H home.tar.gz
+
+echo "Image done"

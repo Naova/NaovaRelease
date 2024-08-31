@@ -1,19 +1,18 @@
 /**
-* @file Simulation/Appearances/SphereAppearance.cpp
-* Implementation of class SphereAppearance
-* @author Colin Graf
-*/
+ * @file Simulation/Appearances/SphereAppearance.cpp
+ * Implementation of class SphereAppearance
+ * @author Colin Graf
+ */
 
+#include "SphereAppearance.h"
 #include "Platform/OpenGL.h"
 
-#include "Simulation/Appearances/SphereAppearance.h"
-
-void SphereAppearance::assembleAppearances() const
+void SphereAppearance::assembleAppearances(SurfaceColor color) const
 {
   glPushMatrix();
   glMultMatrixf(transformation);
 
-  surface->set(false);
+  surface->set(color, false);
 
   GLUquadricObj* q = gluNewQuadric();
   gluQuadricNormals(q, GLU_SMOOTH);
@@ -23,6 +22,6 @@ void SphereAppearance::assembleAppearances() const
 
   surface->unset(false);
 
-  GraphicalObject::assembleAppearances();
+  GraphicalObject::assembleAppearances(color);
   glPopMatrix();
 }

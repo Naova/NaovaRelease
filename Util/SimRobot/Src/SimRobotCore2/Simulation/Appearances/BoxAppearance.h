@@ -1,17 +1,17 @@
 /**
-* @file Simulation/Appearances/BoxAppearance.h
-* Declaration of class BoxAppearance
-* @author Colin Graf
-*/
+ * @file Simulation/Appearances/BoxAppearance.h
+ * Declaration of class BoxAppearance
+ * @author Colin Graf
+ */
 
 #pragma once
 
 #include "Simulation/Appearances/Appearance.h"
 
 /**
-* @class BoxAppearance
-* The graphical representation of a simple box
-*/
+ * @class BoxAppearance
+ * The graphical representation of a simple box
+ */
 class BoxAppearance : public Appearance
 {
 public:
@@ -21,5 +21,5 @@ public:
 
 private:
   /** Draws appearance primitives of the object (including children) on the currently selected OpenGL context (in order to create a display list) */
-  virtual void assembleAppearances() const;
+  void assembleAppearances(SurfaceColor color) const override;
 };

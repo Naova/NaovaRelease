@@ -1,66 +1,227 @@
 /**
- * @author Alexis Tsogias
- * @author <a href="mailto:jesse@tzi.de">Jesse Richter-Klug</a>
+ * @file Thumbnail.cpp
+ *
+ * Contains functionality for the thumbnail image.
+ *
+ * @author Felix Thielke
  */
 
 #include "Thumbnail.h"
+#include "Tools/ImageProcessing/SIMD.h"
 
-void Thumbnail::toImage(Image& dest) const
+void Thumbnail::toYUYV(Image<PixelTypes::YUYVPixel>& dest) const
 {
-  Image::Pixel pixel;
-  if(grayscale)
+  dest.setResolution(imageY.width / 2, imageY.height);
+
+  const __m128i* srcY = reinterpret_cast<const __m128i*>(imageY[0]);
+  __m128i* pDest = reinterpret_cast<__m128i*>(dest[0]);
+
+  if(mode != Thumbnail::yuv)
   {
-    pixel.cb = pixel.cr = 127;
-    dest.setResolution(imageGrayscale.width * scale / 2, imageGrayscale.height * scale / 2, true);
-    for(int y = 0; y < dest.height * 2; ++y)
+    for(size_t n = imageY.width * imageY.height / 16; n; --n)
     {
-      Image::Pixel* pDest = dest[y / 2] + y % 2 * dest.width;
-      for(const ThumbnailImageGrayscale::PixelType* pSrc = imageGrayscale[y / scale], *pEnd = pSrc + imageGrayscale.width; pSrc < pEnd; ++pSrc)
-      {
-        pixel.yCbCrPadding = pixel.y = *pSrc;
-        for(int x = 0; x < scale / 2; ++x)
-          *pDest++ = pixel;
-      }
+      const __m128i y = _mm_load_si128(srcY++);
+      _mm_store_si128(pDest, _mm_unpacklo_epi8(y, _mm_set1_epi16(0x7F7F)));
+      _mm_store_si128(pDest + 1, _mm_unpackhi_epi8(y, _mm_set1_epi16(0x7F7F)));
+      pDest += 2;
     }
   }
   else
   {
-    compressedImage.uncompress(*(const_cast<ThumbnailImage*>(&image)));
-
-    dest.setResolution(image.width * scale / 2, image.height * scale / 2, true);
-    for(int y = 0; y < dest.height * 2; ++y)
+    const __m128i* srcUV = reinterpret_cast<const __m128i*>(imageUV[0]);
+    if(size_t overshoot = imageUV.width % 8)
     {
-      Image::Pixel* pDest = dest[y / 2] + y % 2 * dest.width;
-      for(const ThumbnailImage::PixelType* pSrc = image[y / scale], *pEnd = pSrc + image.width; pSrc < pEnd; ++pSrc)
+      overshoot = 8 - overshoot;
+      for(size_t nY = imageUV.height; nY; --nY)
       {
-        pixel.yCbCrPadding = pixel.y = pSrc->y;
-        pixel.cb = pSrc->cb;
-        pixel.cr = pSrc->cr;
-        for(int x = 0; x < scale / 2; ++x)
-          *pDest++ = pixel;
+        const __m128i* const baseSrcUV = srcUV;
+        for(size_t i = 2; i; --i)
+        {
+          for(size_t nX = imageUV.width / 8 + 1; nX; --nX)
+          {
+            const __m128i y = _mm_loadu_si128(srcY);
+            const __m128i uv = _mm_loadu_si128(srcUV);
+            srcY++;
+            srcUV++;
+
+            _mm_storeu_si128(pDest, _mm_unpacklo_epi8(y, uv));
+            _mm_storeu_si128(pDest + 1, _mm_unpackhi_epi8(y, uv));
+            pDest += 2;
+          }
+
+          srcY = reinterpret_cast<const __m128i*>(reinterpret_cast<const short*>(srcY) - overshoot);
+          pDest = reinterpret_cast<__m128i*>(reinterpret_cast<unsigned int*>(pDest) - overshoot);
+          srcUV = baseSrcUV;
+        }
+
+        srcUV = reinterpret_cast<const __m128i*>(reinterpret_cast<const short*>(srcUV) + imageUV.width);
+      }
+    }
+    else
+    {
+      for(size_t nY = imageUV.height; nY; --nY)
+      {
+        const __m128i* const baseSrcUV = srcUV;
+        for(size_t i = 2; i; --i)
+        {
+          for(size_t nX = imageUV.width / 8; nX; --nX)
+          {
+            const __m128i y = _mm_load_si128(srcY++);
+            const __m128i uv = _mm_load_si128(srcUV++);
+
+            _mm_store_si128(pDest, _mm_unpacklo_epi8(y, uv));
+            _mm_store_si128(pDest + 1, _mm_unpackhi_epi8(y, uv));
+            pDest += 2;
+          }
+
+          srcUV = baseSrcUV;
+        }
+
+        srcUV += imageUV.width / 8;
       }
     }
   }
 }
 
-void Thumbnail::serialize(In* in, Out* out)
+void Thumbnail::toECImage(ECImage& dest) const
 {
-  char grayscale = static_cast<char>(this->grayscale) | (char)(this->grayscale && hasGrayscaleColorData ? 0xF0 : 0); //< this is done for compatibility reasons
-  STREAM_REGISTER_BEGIN;
-  STREAM(grayscale);
-  STREAM(scale);
-  if((this->grayscale = ((grayscale & 0xF) != 0)))
+  dest.grayscaled.setResolution(imageY.width * scale, imageY.height * scale);
+  dest.hued.setResolution(imageY.width * scale, imageY.height * scale);
+  dest.saturated.setResolution(imageY.width * scale, imageY.height * scale);
+
+  std::fill_n(dest.hued[0], dest.hued.width * dest.hued.height, PixelTypes::HuePixel(0));
+  std::fill_n(dest.saturated[0], dest.saturated.width * dest.saturated.height, 0);
+
+  // Expand horizontally
+  const __m128i* srcY = reinterpret_cast<const __m128i*>(imageY[0]);
+  __m128i* pDestY = reinterpret_cast<__m128i*>(dest.grayscaled[0]);
+
+  for(size_t n = imageY.width * imageY.height / 16; n; --n)
   {
-    STREAM(imageGrayscale);
-    if((grayscale & 0xF0) != 0)
+    const std::function<void(const __m128i, const size_t)> expand = [&expand, &pDestY](const __m128i p, const size_t scale)
     {
-      STREAM(imageU);
-      STREAM(imageV);
+      if(scale > 1)
+      {
+        expand(_mm_unpacklo_epi8(p, p), scale >> 1);
+        expand(_mm_unpackhi_epi8(p, p), scale >> 1);
+      }
+      else
+        _mm_store_si128(pDestY++, _mm_and_si128(p, _mm_set1_epi8(char(0xFC))));
+    };
+    expand(_mm_load_si128(srcY++), scale);
+  }
+
+
+  // Expand vertically
+  for(int y = imageY.height - 1; y >= 0; --y)
+    for(unsigned int i = 0; i < scale; i++)
+      memcpy(dest.grayscaled[0] + dest.grayscaled.width * y * scale + i * dest.grayscaled.width, dest.grayscaled[0] + dest.grayscaled.width * y, dest.grayscaled.width);
+}
+
+void Thumbnail::toCameraImage(CameraImage& dest) const
+{
+  dest.setResolution(imageY.width * scale / 2, imageY.height * scale);
+
+  // Expand horizontally
+  if(mode == grayscale)
+  {
+    const __m128i* srcY = reinterpret_cast<const __m128i*>(imageY[0]);
+    __m128i* pDest = reinterpret_cast<__m128i*>(dest[0]);
+    for(size_t n = imageY.width * imageY.height / 16; n; --n)
+    {
+      const std::function<void(const __m128i, const size_t)> expand = [&expand, &pDest](const __m128i p, const size_t scale)
+      {
+        if(scale > 1)
+        {
+          expand(_mm_unpacklo_epi8(p, p), scale >> 1);
+          expand(_mm_unpackhi_epi8(p, p), scale >> 1);
+        }
+        else
+        {
+          _mm_storeu_si128(pDest++, _mm_unpacklo_epi8(p, _mm_set1_epi16(0x7F7F)));
+          _mm_storeu_si128(pDest++, _mm_unpackhi_epi8(p, _mm_set1_epi16(0x7F7F)));
+        }
+      };
+      expand(_mm_load_si128(srcY++), scale);
     }
   }
   else
   {
-    STREAM(compressedImage);
+    const __m128i* srcY = reinterpret_cast<const __m128i*>(imageY[0]);
+    const __m128i* srcUV = reinterpret_cast<const __m128i*>(imageUV[0]);
+    __m128i* pDest = reinterpret_cast<__m128i*>(dest[0]);
+
+    if(size_t overshoot = imageUV.width % 8)
+    {
+      overshoot = 8 - overshoot;
+      for(size_t nY = imageUV.height; nY; --nY)
+      {
+        const __m128i* const baseSrcUV = srcUV;
+        for(size_t i = 2; i; --i)
+        {
+          for(size_t nX = imageUV.width / 8 + 1; nX; --nX)
+          {
+            const std::function<void(const __m128i, const __m128i, const size_t)> expand = [&expand, &pDest](const __m128i y, const __m128i uv, const size_t scale)
+            {
+              if(scale > 1)
+              {
+                expand(_mm_unpacklo_epi8(y, y), _mm_unpacklo_epi16(uv, uv), scale >> 1);
+                expand(_mm_unpackhi_epi8(y, y), _mm_unpackhi_epi16(uv, uv), scale >> 1);
+              }
+              else
+              {
+                _mm_storeu_si128(pDest, _mm_unpacklo_epi8(y, uv));
+                _mm_storeu_si128(pDest + 1, _mm_unpackhi_epi8(y, uv));
+                pDest += 2;
+              }
+            };
+            expand(_mm_loadu_si128(srcY++), _mm_loadu_si128(srcUV++), scale);
+          }
+
+          srcY = reinterpret_cast<const __m128i*>(reinterpret_cast<const short*>(srcY) - overshoot);
+          pDest = reinterpret_cast<__m128i*>(reinterpret_cast<unsigned int*>(pDest) - scale * overshoot);
+          srcUV = baseSrcUV;
+        }
+
+        srcUV = reinterpret_cast<const __m128i*>(reinterpret_cast<const short*>(srcUV) + imageUV.width);
+      }
+    }
+    else
+    {
+      for(size_t nY = imageUV.height; nY; --nY)
+      {
+        const __m128i* const baseSrcUV = srcUV;
+        for(size_t i = 2; i; --i)
+        {
+          for(size_t nX = imageUV.width / 8; nX; --nX)
+          {
+            const std::function<void(const __m128i, const __m128i, const size_t)> expand = [&expand, &pDest](const __m128i y, const __m128i uv, const size_t scale)
+            {
+              if(scale > 1)
+              {
+                expand(_mm_unpacklo_epi8(y, y), _mm_unpacklo_epi16(uv, uv), scale >> 1);
+                expand(_mm_unpackhi_epi8(y, y), _mm_unpackhi_epi16(uv, uv), scale >> 1);
+              }
+              else
+              {
+                _mm_storeu_si128(pDest, _mm_unpacklo_epi8(y, uv));
+                _mm_storeu_si128(pDest + 1, _mm_unpackhi_epi8(y, uv));
+                pDest += 2;
+              }
+            };
+            expand(_mm_load_si128(srcY++), _mm_load_si128(srcUV++), scale);
+          }
+
+          srcUV = baseSrcUV;
+        }
+
+        srcUV += imageUV.width / 8;
+      }
+    }
   }
-  STREAM_REGISTER_FINISH;
+
+  // Expand vertically
+  for(int y = imageY.height - 1; y >= 0; --y)
+    for(unsigned int i = 0; i < scale; i++)
+      memcpy(dest[0] + dest.width * y * scale + i * dest.width, dest[0] + dest.width * y, dest.width * 4);
 }

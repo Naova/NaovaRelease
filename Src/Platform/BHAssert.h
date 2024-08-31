@@ -10,7 +10,6 @@
 #undef ASSERT
 #undef FAIL
 #undef VERIFY
-#undef TRACE
 
 #include <string>
 #include <sstream>
@@ -21,7 +20,6 @@
 class Assert
 {
 public:
-#ifndef NDEBUG
   /**
    * Prints a formated message to stdout
    * @param file The name of the current file (__FILE__)
@@ -35,7 +33,6 @@ public:
    * Aborts the execution of the program
    */
   static void abort();
-#endif // NDEBUG
 
 #ifdef TARGET_ROBOT
   /**
@@ -55,11 +52,11 @@ public:
   static void logAdd(int track, const char* file, int line, const std::string& message);
 
   /**
-   * Dumps the content of the log message ring buffers to stderr or /home/nao/logs
-   * @param toStderr Whether to dump the content to stderr or /home/nao/logs
+   * Dumps the content of the log message ring buffers to stderr or /home/nao/bhdump.log
+   * @param toStderr Whether to dump the content to stderr or /home/nao/bhdump.log
    * @param termSignal A signal that was emitted to terminate the bhuman process
    */
-  static void logDump(int termSignal);
+  static void logDump(bool toStderr, int termSignal);
 #endif // TARGET_ROBOT
 };
 
@@ -69,13 +66,13 @@ public:
  * @param c The condition to be checked.
  */
 #ifdef NDEBUG
-#define ASSERT(cond) ((void)0)
+#define ASSERT(cond) static_cast<void>(0)
 #elif defined TARGET_ROBOT
-#define ASSERT(cond) ((void)((cond) ? 0 : (Assert::logAdd(0, __FILE__, __LINE__, "ASSERT(" #cond ") failed"), Assert::abort(), 0)))
-#elif defined WINDOWS
-#define ASSERT(cond) ((void)((cond) ? 0 : (Assert::abort(), 0)))
+#define ASSERT(cond) static_cast<void>((cond) ? 0 : (Assert::logAdd(0, __FILE__, __LINE__, "ASSERT(" #cond ") failed"), Assert::abort(), 0))
+#elif defined WINDOWS && !defined TARGET_TOOL
+#define ASSERT(cond) static_cast<void>((cond) ? 0 : (Assert::abort(), 0))
 #else
-#define ASSERT(cond) ((void)((cond) ? 0 : (Assert::print(__FILE__, __LINE__, "ASSERT(%s) failed", #cond), Assert::abort(), 0)))
+#define ASSERT(cond) static_cast<void>((cond) ? 0 : (Assert::print(__FILE__, __LINE__, "ASSERT(%s) failed", #cond), Assert::abort(), 0))
 #endif
 
 /**
@@ -91,10 +88,10 @@ public:
 
 /**
  * FAIL is equivalent to ASSERT(false) and additionally prints a text.
- * This text is passed into a std::strigstream, thus FAIL("error " << 1) is a valid expression.
+ * This text is passed into a std::stringstream, thus FAIL("error " << 1) is a valid expression.
  */
 #ifdef NDEBUG
-#define FAIL(text) ((void)0)
+#define FAIL(text) static_cast<void>(0)
 #else
 #if defined TARGET_ROBOT
 #define _FAIL_OUTPUT Assert::logAdd(0, __FILE__, __LINE__, sstream.str());
@@ -118,22 +115,13 @@ public:
  * @param c The condition to be checked.
  */
 #ifdef NDEBUG
-#define VERIFY(cond) ((void)(cond))
-#elif defined WINDOWS
-#define VERIFY(cond) ((void)((cond) ? 0 : (Assert::abort(), 0)))
+#define VERIFY(cond) static_cast<void>(cond)
+#elif defined WINDOWS && !defined TARGET_TOOL
+#define VERIFY(cond) static_cast<void>((cond) ? 0 : (Assert::abort(), 0))
 #elif defined TARGET_ROBOT
-#define VERIFY(cond) ((void)((cond) ? 0 : (Assert::logAdd(0, __FILE__, __LINE__, "VERIFY(" #cond ") failed"), Assert::abort(), 0)))
+#define VERIFY(cond) static_cast<void>((cond) ? 0 : (Assert::logAdd(0, __FILE__, __LINE__, "VERIFY(" #cond ") failed"), Assert::abort(), 0))
 #else
-#define VERIFY(cond) ((void)((cond) ? 0 : (Assert::print(__FILE__, __LINE__, "VERIFY(%s) failed", #cond), Assert::abort(), 0)))
-#endif
-
-/**
- * TRACE prints a message if NDEBUG is not defined.
- */
-#ifdef NDEBUG
-#define TRACE(...) ((void)0)
-#else
-#define TRACE(...) Assert::print(__FILE__, __LINE__, __VA_ARGS__)
+#define VERIFY(cond) static_cast<void>((cond) ? 0 : (Assert::print(__FILE__, __LINE__, "VERIFY(%s) failed", #cond), Assert::abort(), 0))
 #endif
 
 /**
@@ -142,7 +130,7 @@ public:
  * @return Whether the initialization was successful
  */
 #if defined NDEBUG || !defined TARGET_ROBOT
-#define BH_TRACE_INIT(name) ((void)0)
+#define BH_TRACE_INIT(name) static_cast<void>(0)
 #else
 #define BH_TRACE_INIT(name) VERIFY(Assert::logInit(name))
 #endif
@@ -152,7 +140,7 @@ public:
  * @param message The message to be added
  */
 #if defined NDEBUG || !defined TARGET_ROBOT
-#define BH_TRACE_MSG(message) ((void)0)
+#define BH_TRACE_MSG(message) static_cast<void>(0)
 #else
 #define BH_TRACE_MSG(message) Assert::logAdd(0, __FILE__, __LINE__, message)
 #endif
@@ -161,7 +149,7 @@ public:
  * Adds the current line of code to the log message ring buffer
  */
 #if defined NDEBUG || !defined TARGET_ROBOT
-#define BH_TRACE ((void)0)
+#define BH_TRACE static_cast<void>(0)
 #else
 #define BH_TRACE Assert::logAdd(0, __FILE__, __LINE__, "")
 #endif

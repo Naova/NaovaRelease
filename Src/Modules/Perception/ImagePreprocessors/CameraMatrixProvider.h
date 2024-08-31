@@ -6,12 +6,11 @@
 
 #pragma once
 
-#include "Tools/Module/Module.h"
+#include "Representations/Communication/RobotInfo.h"
 #include "Representations/Configuration/CameraCalibration.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Infrastructure/FrameInfo.h"
-#include "Representations/Infrastructure/RobotInfo.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
 #include "Representations/Modeling/RobotPose.h"
 #include "Representations/MotionControl/MotionInfo.h"
@@ -19,6 +18,7 @@
 #include "Representations/Sensing/FallDownState.h"
 #include "Representations/Sensing/RobotModel.h"
 #include "Representations/Sensing/TorsoMatrix.h"
+#include "Tools/Module/Module.h"
 
 MODULE(CameraMatrixProvider,
 {,
@@ -33,14 +33,14 @@ MODULE(CameraMatrixProvider,
   REQUIRES(RobotModel),
   REQUIRES(RobotInfo),
   REQUIRES(TorsoMatrix),
-  USES(RobotPose), // for debug drawing
+  REQUIRES(RobotPose), // for debug drawing
   PROVIDES(CameraMatrix),
 });
 
 class CameraMatrixProvider : public CameraMatrixProviderBase
 {
 private:
-  void update(CameraMatrix& cameraMatrix);
+  void update(CameraMatrix& cameraMatrix) override;
 
   void camera2image(const Vector3f& camera, Vector2f& image) const;
   bool intersectLineWithCullPlane(const Vector3f& lineBase, const Vector3f& lineDir,
@@ -51,8 +51,8 @@ private:
   {,
     (std::vector<float>) thighPoints,
     (std::vector<int>) thighIndex,
-    (std::vector<float>) shinePoints,
-    (std::vector<int>) shineIndex,
+    (std::vector<float>) shinPoints,
+    (std::vector<int>) shinIndex,
     (std::vector<float>) footPoints,
     (std::vector<int>) footIndex,
   });

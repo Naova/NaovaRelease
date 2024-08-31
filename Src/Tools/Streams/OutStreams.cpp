@@ -7,8 +7,11 @@
  * @author Martin Lötzsch
  */
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
+#include <regex>
 
 #include "OutStreams.h"
 #include "Platform/File.h"
@@ -16,6 +19,7 @@
 #include "Tools/Motion/SensorData.h"
 #include "Tools/Debugging/Debugging.h"
 #include "Tools/Math/Angle.h"
+#include "Tools/Streams/TypeRegistry.h"
 
 void OutBinary::writeString(const char* d, PhysicalOutStream& stream)
 {
@@ -63,7 +67,7 @@ void OutText::writeString(const char* value, PhysicalOutStream& stream)
 void OutText::writeData(const void* p, size_t size, PhysicalOutStream& stream)
 {
   for(size_t i = 0; i < size; ++i)
-    writeChar(*((const char*&)p)++, stream);
+    writeChar(*reinterpret_cast<const char*&>(p)++, stream);
 }
 
 void OutText::writeChar(char d, PhysicalOutStream& stream)
@@ -148,7 +152,7 @@ void OutTextRaw::writeString(const char* value, PhysicalOutStream& stream)
 void OutTextRaw::writeData(const void* p, size_t size, PhysicalOutStream& stream)
 {
   for(size_t i = 0; i < size; ++i)
-    writeChar(*((const char*&)p)++, stream);
+    writeChar(*reinterpret_cast<const char*&>(p)++, stream);
 }
 
 void OutTextRaw::writeChar(char d, PhysicalOutStream& stream)
@@ -207,7 +211,7 @@ void OutTextRaw::writeDouble(double d, PhysicalOutStream& stream)
 
 void OutTextRaw::writeAngle(const Angle& d, PhysicalOutStream& stream)
 {
-  if(d == static_cast<float>(SensorData::off))
+  if(d == SensorData::off)
     sprintf(buf, "%g", static_cast<float>(d));
   else
     sprintf(buf, "%gdeg", d.toDegrees());
@@ -224,6 +228,15 @@ OutFile::~OutFile()
 {
   if(stream != nullptr)
     delete stream;
+}
+
+OutFile& OutFile::operator=(OutFile&& other)
+{
+  if(stream)
+    delete stream;
+  stream = other.stream;
+  other.stream = nullptr;
+  return *this;
 }
 
 bool OutFile::exists() const
@@ -247,47 +260,121 @@ void OutFile::writeToStream(const void* p, size_t size)
     stream->write(p, size);
 }
 
-std::string OutFile::getFullName() const
+OutMemory::OutMemory(OutMemory&& other)
+: buffer(other.buffer),
+  reserved(other.reserved),
+  bytes(other.bytes),
+  dynamic(other.dynamic)
 {
-  ASSERT(stream);
-  return stream->getFullName();
+  other.buffer = nullptr;
+  other.reserved = 0;
+  other.bytes = 0;
+  other.dynamic = true;
+}
+
+OutMemory& OutMemory::operator=(OutMemory&& other)
+{
+  if(dynamic && buffer)
+    std::free(buffer);
+  buffer = other.buffer;
+  reserved = other.reserved;
+  bytes = other.bytes;
+  dynamic = other.dynamic;
+  other.buffer = nullptr;
+  other.reserved = 0;
+  other.bytes = 0;
+  other.dynamic = true;
+  return *this;
 }
 
 void OutMemory::writeToStream(const void* p, size_t size)
 {
-  if(memory != nullptr)
+  if(bytes + size > reserved)
   {
-    memcpy(memory, p, size);
-    memory += size;
-    length += size;
+    if(dynamic)
+    {
+      reserved = std::max(std::min(reserved, std::numeric_limits<size_t>::max() / 2) * 2, bytes + size);
+      buffer = reinterpret_cast<char*>(std::realloc(buffer, reserved));
+    }
+    else
+    {
+      reserved = bytes;
+      return;
+    }
+  }
+  std::memcpy(buffer + bytes, p, size);
+  bytes += size;
+}
+
+char* OutMemory::obtainData()
+{
+  char* data = buffer;
+  buffer = nullptr;
+  bytes = reserved = 0;
+  dynamic = true;
+  return data;
+}
+
+void OutMemoryForText::addTerminatingZero()
+{
+  if(!OutMemory::size() || OutMemory::data()[OutMemory::size() - 1])
+  {
+    char c = 0;
+    writeToStream(&c, sizeof(c));
   }
 }
 
-OutMap::OutMap(Out& stream, bool singleLine) :
-  stream(stream), singleLine(singleLine)
+OutMap::OutMap(Out& stream, Mode mode, size_t maxCollapsedLength) :
+  stream(&stream), target(stream), mode(mode), maxCollapsedLength(maxCollapsedLength)
 {}
 
 void OutMap::writeLn()
 {
-  if(singleLine)
-    stream << " ";
+  if(mode == singleLine)
+    *stream << " ";
   else
-    stream << endl;
+    *stream << endl;
+}
+
+void OutMap::flush(bool singleLine)
+{
+  if(stream == &buffer)
+  {
+    char* data = buffer.obtainData();
+    if(singleLine)
+    {
+      static std::regex inBetweenSpace("(.)\n *([^ }\\]])");
+      static std::regex otherSpace("\n *");
+      std::string temp = std::regex_replace(data, inBetweenSpace, "$1 $2");
+      temp = std::regex_replace(temp, otherSpace, "");
+      if(temp.size() <= maxCollapsedLength)
+        target << temp.data();
+      else
+        target << data;
+    }
+    else
+      target << data;
+    std::free(data);
+    stream = &target;
+  }
 }
 
 void OutMap::outUChar(unsigned char value)
 {
   Entry& e = stack.back();
-  if(e.enumToString)
-    stream << e.enumToString(value);
+  if(e.enumType)
+  {
+    const char* constant = TypeRegistry::getEnumName(e.enumType, value);
+    *stream << (constant ? constant : "UNKNOWN");
+  }
   else
-    stream << static_cast<unsigned>(value);
+    *stream << static_cast<unsigned>(value);
 }
 
 void OutMap::outUInt(unsigned int value)
 {
   if(stack.back().type != -1)
-    stream << value;
+    *stream << value;
 }
 
 void OutMap::outString(const char* value)
@@ -295,28 +382,28 @@ void OutMap::outString(const char* value)
   char buf[2] = {0};
   bool containsSpecialChars = !*value || *value == '"' || strcspn(value, " \n\r\t=,;]}") < strlen(value);
   if(containsSpecialChars)
-    stream << "\"";
+    *stream << "\"";
   for(; *value; ++value)
     if(*value == '"' && containsSpecialChars)
-      stream << "\\\"";
+      *stream << "\\\"";
     else if(*value == '\n')
-      stream << "\\n";
+      *stream << "\\n";
     else if(*value == '\r')
-      stream << "\\r";
+      *stream << "\\r";
     else if(*value == '\t')
-      stream << "\\t";
+      *stream << "\\t";
     else if(*value == '\\')
-      stream << "\\\\";
+      *stream << "\\\\";
     else
     {
       buf[0] = *value;
-      stream << buf;
+      *stream << buf;
     }
   if(containsSpecialChars)
-    stream << "\"";
+    *stream << "\"";
 }
 
-void OutMap::select(const char* name, int type, const char* (*enumToString)(int))
+void OutMap::select(const char* name, int type, const char* enumType)
 {
   Streaming::trimName(name);
   if(!stack.empty())
@@ -327,15 +414,25 @@ void OutMap::select(const char* name, int type, const char* (*enumToString)(int)
     {
       if(e.type == -1) // array
       {
-        stream << "[";
+        *stream << "[";
+        if(mode == singleLineInnermost)
+        {
+          flush();
+          stream = &buffer;
+        }
         writeLn();
       }
       else // other attribute or array element
       {
-        stream << "{";
+        *stream << "{";
+        if(mode == singleLineInnermost)
+        {
+          flush();
+          stream = &buffer;
+        }
         writeLn();
       }
-      if(!singleLine)
+      if(mode != singleLine)
         indentation += "  ";
       e.hasSubEntries = true;
     }
@@ -343,20 +440,20 @@ void OutMap::select(const char* name, int type, const char* (*enumToString)(int)
 
   if(type < 0) // attribute
   {
-    stream << indentation;
+    *stream << indentation;
     if(name)
-      stream << name << " = ";
+      *stream << name << " = ";
   }
   else if(type == 0) // first array element
-    stream << indentation;
-  else if(type > 0) // further array elements
+    *stream << indentation;
+  else // further array elements
   {
-    stream << ",";
+    *stream << ",";
     writeLn();
-    stream << indentation;
+    *stream << indentation;
   }
 
-  stack.push_back(Entry(type, enumToString));
+  stack.push_back(Entry(type, enumType));
 }
 
 void OutMap::deselect()
@@ -364,34 +461,36 @@ void OutMap::deselect()
   Entry& e = stack.back();
   if(e.hasSubEntries)
   {
-    if(!singleLine)
+    if(mode != singleLine)
       indentation = indentation.substr(2);
     if(e.type == -1) // array
     {
       writeLn();
-      stream << indentation << "]";
+      *stream << indentation << "]";
     }
     else // other attribute or array element
-      stream << indentation << "}";
+      *stream << indentation << "}";
+    if(mode == singleLineInnermost)
+      flush(true);
   }
   else if(e.type == -1) // empty array
-    stream << "[]";
+    *stream << "[]";
 
   if(e.type < 0) // attribute
   {
-    stream << ";";
+    *stream << ";";
     writeLn();
   }
   stack.pop_back();
 }
 
-void OutMap::write(const void* p, size_t size)
+void OutMap::write(const void*, size_t)
 {
   FAIL("Unsupported operation.");
 }
 
-OutMapFile::OutMapFile(const std::string& name, bool singleLine) : OutMap(stream, singleLine), stream(name) {}
+OutMapFile::OutMapFile(const std::string& name, bool singleLineInnermost, size_t maxCollapsedLength)
+  : OutMap(stream, singleLineInnermost ? OutMap::singleLineInnermost : multiLine, maxCollapsedLength), stream(name) {}
 
-OutMapMemory::OutMapMemory(void* memory, bool singleLine) : OutMap(stream, singleLine), stream(memory) {}
-
-OutMapSize::OutMapSize(bool singleLine) : OutMap(stream, singleLine) {}
+OutMapMemory::OutMapMemory(bool singleLine, size_t capacity, char* buffer)
+  : OutMap(stream, singleLine ? OutMap::singleLine : multiLine), stream(capacity, buffer) {}

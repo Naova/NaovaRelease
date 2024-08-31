@@ -22,20 +22,8 @@ STREAMABLE(ImageRegions,
   (std::vector<Boundaryi>) regions,
 });
 
-/** The regions that must be searched for the center of the ball. */
-struct BallRegions : ImageRegions
-{
-  void draw() const
-  {
-    DEBUG_DRAWING("representation:BallRegions", "drawingOnImage")
-      for(const Boundaryi& region : regions)
-        RECTANGLE("representation:BallRegions", region.x.min, region.y.min,
-                  region.x.max, region.y.max, 1, Drawings::solidPen, ColorRGBA::orange);
-  }
-};
-
-/** The regions that the CNS must be calculated of to search for the ball. */
-struct CNSRegions : public ImageRegions
+/** The regions that the CNS must be calculated of. */
+STREAMABLE_WITH_BASE(CNSRegions, ImageRegions,
 {
   void draw() const
   {
@@ -43,11 +31,11 @@ struct CNSRegions : public ImageRegions
       for(const Boundaryi& region : regions)
         RECTANGLE("representation:CNSRegions", region.x.min, region.y.min,
                   region.x.max, region.y.max, 1, Drawings::solidPen, ColorRGBA::red);
-  }
-};
+  },
+});
 
 /** The regions that must be searched for the center of a penalty mark. */
-struct PenaltyMarkRegions : ImageRegions
+STREAMABLE_WITH_BASE(PenaltyMarkRegions, ImageRegions,
 {
   void draw() const
   {
@@ -55,11 +43,11 @@ struct PenaltyMarkRegions : ImageRegions
       for(const Boundaryi& region : regions)
         RECTANGLE("representation:PenaltyMarkRegions", region.x.min, region.y.min,
                   region.x.max, region.y.max, 1, Drawings::solidPen, ColorRGBA::magenta);
-  }
-};
+  },
+});
 
 /** The regions that the CNS must be calculated of to search for a penalty mark. */
-struct CNSPenaltyMarkRegions : public ImageRegions
+STREAMABLE_WITH_BASE(CNSPenaltyMarkRegions, ImageRegions,
 {
   void draw() const
   {
@@ -67,5 +55,5 @@ struct CNSPenaltyMarkRegions : public ImageRegions
       for(const Boundaryi& region : regions)
         RECTANGLE("representation:CNSPenaltyMarkRegions", region.x.min, region.y.min,
                   region.x.max, region.y.max, 1, Drawings::solidPen, ColorRGBA::blue);
-  }
-};
+  },
+});

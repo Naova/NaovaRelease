@@ -1,14 +1,14 @@
 /**
-* @file SimRobotCore2/SimRobotCore2.h
-* Declaration of an interface to the SimRobotCore2
-* @author Colin Graf
-*/
+ * @file SimRobotCore2/SimRobotCore2.h
+ * Declaration of an interface to the SimRobotCore2
+ * @author Colin Graf
+ */
 
 #pragma once
 
-#include "../SimRobot/SimRobot.h"
+#include <SimRobot.h>
 
-template <typename T> class QList;
+template<typename T> class QList;
 class QStringList;
 
 namespace SimRobotCore2
@@ -29,7 +29,7 @@ namespace SimRobotCore2
   class SensorPort;
   class ActuatorPort;
 
-  /** The different SimRobotCore objet types */
+  /** The different SimRobotCore2 object types */
   enum Kind
   {
     body = 2, /**< An object of the type SimRobotCore2::Body */
@@ -40,14 +40,14 @@ namespace SimRobotCore2
     sensor, /**< An object of the type SimRobotCore2::Sensor */
     compound, /**< An object of the type SimRobotCore2::Compound */
     scene, /**< An object of the type SimRobotCore2::Scene */
-    actuatorPort, /**< An object of the type SimRobotCore2::Actuator */
-    sensorPort, /**< An object of the type SimRobotCore2::Sensor */
+    actuatorPort, /**< An object of the type SimRobotCore2::ActuatorPort */
+    sensorPort, /**< An object of the type SimRobotCore2::SensorPort */
   };
 
   /**
-  * @class Renderer
-  * An interface to a renderer that can be used to render objects on an OpenGL context
-  */
+   * @class Renderer
+   * An interface to a renderer that can be used to render objects on an OpenGL context
+   */
   class Renderer
   {
   public:
@@ -111,76 +111,78 @@ namespace SimRobotCore2
     /** Virtual destructor */
     virtual ~Renderer() = default;
 
-    /** Initializes the currently selected OpenGL context.
-    * @parem hasSharedDisplayLists Whether the OpenGL has shared display lists and textures with another context that is already initialized.
-    */
+    /**
+     * Initializes the currently selected OpenGL context.
+     * @param hasSharedDisplayLists Whether the OpenGL has shared display lists and textures with another context that is already initialized.
+     */
     virtual void init(bool hasSharedDisplayLists) = 0;
 
     /** Draws the scene object on the currently selected OpenGL context. */
     virtual void draw() = 0;
 
-    /** Sets the size of the currently selected OpenGL renderer device. Call this once at the begining to initialize the size.
-    * @param width The width of the renderer device
-    * @param height The height of the renderer device
-    */
+    /**
+     * Sets the size of the currently selected OpenGL renderer device. Call this once at the beginning to initialize the size.
+     * @param width The width of the renderer device
+     * @param height The height of the renderer device
+     */
     virtual void resize(float fovy, unsigned int width, unsigned int height) = 0;
 
     /**
-    * Accesses the size of the OpenGL rendering device that has been set using \c resize before
-    * @param width The width of the rendering device
-    * @param width The height of the rendering device
-    */
+     * Accesses the size of the OpenGL rendering device that has been set using \c resize before
+     * @param width The width of the rendering device
+     * @param width The height of the rendering device
+     */
     virtual void getSize(unsigned int& width, unsigned int& height) const = 0;
 
     /**
-    * Sets the ShadeMode that is used to render appearances.
-    * @param shadeMode The shade mode
-    */
+     * Sets the ShadeMode that is used to render appearances.
+     * @param shadeMode The shade mode
+     */
     virtual void setSurfaceShadeMode(ShadeMode shadeMode) = 0;
 
     /**
-    * Returns the ShadeMode used to render appearances
-    * @return The mode currently used
-    */
+     * Returns the ShadeMode used to render appearances
+     * @return The mode currently used
+     */
     virtual ShadeMode getSurfaceShadeMode() const = 0;
 
     /**
-    * Sets the ShadeMode that is used to render physical primitives
-    * @return The ShadeMode used to render physics
-    */
+     * Sets the ShadeMode that is used to render physical primitives
+     * @return The ShadeMode used to render physics
+     */
     virtual void setPhysicsShadeMode(ShadeMode shadeMode) = 0;
 
     /**
-    * Returns the ShadeMode used to render physics
-    * @return The mode currently used
-    */
+     * Returns the ShadeMode used to render physics
+     * @return The mode currently used
+     */
     virtual ShadeMode getPhysicsShadeMode() const = 0;
 
     /**
-    * Sets the ShadeMode that is used to render controller 3d drawings
-    * @return The ShadeMode used to render physics
-    */
+     * Sets the ShadeMode that is used to render controller 3d drawings
+     * @return The ShadeMode used to render physics
+     */
     virtual void setDrawingsShadeMode(ShadeMode shadeMode) = 0;
 
     /**
-    * Returns the ShadeMode used to controller 3d drawings
-    * @return The mode currently used
-    */
+     * Returns the ShadeMode used to controller 3d drawings
+     * @return The mode currently used
+     */
     virtual ShadeMode getDrawingsShadeMode() const = 0;
 
     /**
-    * Sets the render flags to enable or disable some render features
-    * @param The new render flags
-    */
+     * Sets the render flags to enable or disable some render features
+     * @param The new render flags
+     */
     virtual void setRenderFlags(unsigned int renderFlags) = 0;
 
     /**
-    * Returns the render flags used to enable or disable some render features
-    * @return The flags currently set
-    */
+     * Returns the render flags used to enable or disable some render features
+     * @return The flags currently set
+     */
     virtual unsigned int getRenderFlags() const = 0;
 
-    virtual void zoom(float change) = 0;
+    virtual void zoom(float change, float x, float y) = 0;
 
     virtual void setCameraMode(CameraMode mode) = 0;
     virtual CameraMode getCameraMode() const = 0;
@@ -198,20 +200,20 @@ namespace SimRobotCore2
     virtual bool startDrag(int x, int y, DragType type) = 0;
 
     /**
-    * Accesses the object currently manipulated with a drag & drop operation
-    * @return The object
-    */
+     * Accesses the object currently manipulated with a drag & drop operation
+     * @return The object
+     */
     virtual Object* getDragSelection() = 0;
 
-    virtual bool moveDrag(int x, int y) = 0;
+    virtual bool moveDrag(int x, int y, DragType type) = 0;
     virtual bool releaseDrag(int x, int y) = 0;
 
     /** Sets the camera moving state (useful for camera navigation with WASD keys)
-    * @param left Whether the camera should move to the left
-    * @param right Whether the camera should move to the right
-    * @param up Whether the camera should move up
-    * @param down Whether the camera should move down
-    */
+     * @param left Whether the camera should move to the left
+     * @param right Whether the camera should move to the right
+     * @param up Whether the camera should move up
+     * @param down Whether the camera should move down
+     */
     virtual void setCameraMove(bool left, bool right, bool up, bool down) = 0;
 
     virtual void setCamera(const float* pos, const float* target) = 0;
@@ -220,9 +222,9 @@ namespace SimRobotCore2
   };
 
   /**
-  * This is an abstract base class for drawings, which can be implemented
-  * inside the controller and executed while drawing the scene.
-  */
+   * This is an abstract base class for drawings, which can be implemented
+   * inside the controller and executed while drawing the scene.
+   */
   class Controller3DDrawing
   {
   public:
@@ -230,100 +232,100 @@ namespace SimRobotCore2
     virtual ~Controller3DDrawing() = default;
 
     /**
-    * Virtual function for drawing commands. Derived classes have to
-    * override this function.
-    */
+     * Virtual function for drawing commands. Derived classes have to
+     * override this function.
+     */
     virtual void draw() = 0;
   };
 
   /**
-  * General interface for all renderable scene graph objects
-  */
+   * General interface for all renderable scene graph objects
+   */
   class Object : public SimRobot::Object
   {
   public:
     /**
-    * Creates a new instance of a renderer that can be used for rendering
-    * an object within an OpenGL context.
-    */
+     * Creates a new instance of a renderer that can be used for rendering
+     * an object within an OpenGL context.
+     */
     virtual Renderer* createRenderer() = 0;
   };
 
   /**
-  * Interface for scene graph objects with physical representation
-  */
+   * Interface for scene graph objects with physical representation
+   */
   class PhysicalObject : public Object
   {
   public:
     /**
-    * Registers controller drawings at an object in the simulation scene
-    * @param drawing The drawing
-    */
+     * Registers controller drawings at an object in the simulation scene
+     * @param drawing The drawing
+     */
     virtual bool registerDrawing(Controller3DDrawing& drawing) = 0;
 
     /**
-    * Unregisters controller drawings at an object in the simulation scene
-    * @param drawing The drawing
-    */
+     * Unregisters controller drawings at an object in the simulation scene
+     * @param drawing The drawing
+     */
     virtual bool unregisterDrawing(Controller3DDrawing& drawing) = 0;
 
     /**
-    * Accesses a superior body object
-    * @return The body object (might be 0)
-    */
+     * Accesses a superior body object
+     * @return The body object (might be 0)
+     */
     virtual Body* getParentBody() = 0;
   };
 
   /**
-  * Interface to bodies
-  */
+   * Interface to bodies
+   */
   class Body : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return body;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return body;}
 
     /**
-    * Returns the position of the object
-    * @return The position
-    */
+     * Returns the position of the object
+     * @return The position
+     */
     virtual const float* getPosition() const = 0;
 
     /**
-    * Returns the pose of the object in the three-dimensional space
-    * @param position A buffer for the position vector
-    * @param rotation A buffer for the rotation matrix (3x3)
-    * @return Whether the pose has successfully been computed
-    */
+     * Returns the pose of the object in the three-dimensional space
+     * @param position A buffer for the position vector
+     * @param rotation A buffer for the rotation matrix (3x3)
+     * @return Whether the pose has successfully been computed
+     */
     virtual bool getPose(float* position, float (*rotation)[3]) const = 0;
 
     /**
-    * Moves the  object to target position.
-    * @param object The object to move.
-    * @param position The target position.
-    */
+     * Moves the  object to target position.
+     * @param object The object to move.
+     * @param position The target position.
+     */
     virtual void move(const float* position) = 0;
 
     /**
-    * Moves the object to target position and rotation specified as 3x3 rotation matrix.
-    * @param object The object to move.
-    * @param position The target position.
-    * @param rotation The target rotation.
-    */
+     * Moves the object to target position and rotation specified as 3x3 rotation matrix.
+     * @param object The object to move.
+     * @param position The target position.
+     * @param rotation The target rotation.
+     */
     virtual void move(const float* position, const float (*rotation)[3]) = 0;
 
     /**
-    * Resets the linear and angular velocity of all bodies connected to this object
-    */
+     * Resets the linear and angular velocity of all bodies connected to this object
+     */
     virtual void resetDynamics() = 0;
 
     /**
-    * Accesses the first body in the chain of bodies to which this body is connected
-    * @return The body object
-    */
+     * Accesses the first body in the chain of bodies to which this body is connected
+     * @return The body object
+     */
     virtual Body* getRootBody() = 0;
 
     /**
@@ -334,149 +336,165 @@ namespace SimRobotCore2
   };
 
   /**
-  * Interface to appearances
-  */
+   * Interface to appearances
+   */
   class Appearance : public Object
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return appearance;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return appearance;}
+
+    /**
+     * Registers controller drawings at an object in the simulation scene
+     * @param drawing The drawing
+     */
+    virtual bool registerDrawing(Controller3DDrawing& drawing) = 0;
+
+    /**
+     * Unregisters controller drawings at an object in the simulation scene
+     * @param drawing The drawing
+     */
+    virtual bool unregisterDrawing(Controller3DDrawing& drawing) = 0;
   };
 
   /*
-  * An interface for a collision callback function
-  */
+   * An interface for a collision callback function
+   */
   class CollisionCallback
   {
   public:
     /**
-    * The callback function.
-    * Called whenever the geometry at which this interface is registered collides with another geometry.
-    * @param geom1 The geometry at which the interface has been registered
-    * @param geom2 The other geometry
-    */
+     * The callback function.
+     * Called whenever the geometry at which this interface is registered collides with another geometry.
+     * @param geom1 The geometry at which the interface has been registered
+     * @param geom2 The other geometry
+     */
     virtual void collided(Geometry& geom1, Geometry& geom2) = 0;
   };
 
   /**
-  * Interface to geometries
-  */
+   * Interface to geometries
+   */
   class Geometry : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return geometry;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return geometry;}
 
     /**
-    * Registers a collision callback function that will be called whenever the geometry
-    * collides with a geometry.
-    * @param collisionCallback A class in which the CollisionCallback is implemented
-    * @return Whether the collision callback function was successfully registered
-    */
+     * Registers a collision callback function that will be called whenever the geometry
+     * collides with a geometry.
+     * @param collisionCallback A class in which the CollisionCallback is implemented
+     * @return Whether the collision callback function was successfully registered
+     */
     virtual bool registerCollisionCallback(CollisionCallback& collisionCallback) = 0;
 
     /**
-    * Unregisters a collision callback function.
-    * @param collisionCallback The callback function to unregister
-    * @return Whether the collision callback function has successfully been unregistered
-    */
+     * Unregisters a collision callback function.
+     * @param collisionCallback The callback function to unregister
+     * @return Whether the collision callback function has successfully been unregistered
+     */
     virtual bool unregisterCollisionCallback(CollisionCallback& collisionCallback) = 0;
   };
 
   /**
-  * Interface to actuators (e.g. joints)
-  */
+   * Interface to actuators (e.g. joints)
+   */
   class Actuator : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return actuator;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return actuator;}
   };
 
   /**
-  * Interface to masses
-  */
+   * Interface to masses
+   */
   class Mass : public Object
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return mass;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return mass;}
   };
 
   /**
-  * Interface to sensors
-  */
+   * Interface to sensors
+   */
   class Sensor : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return sensor;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return sensor;}
   };
 
   /**
-  * Interface to compounds
-  */
+   * Interface to compounds
+   */
   class Compound : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return compound;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return compound;}
   };
 
   /**
-  * Interface to the scene (root of the scene graph)
-  */
+   * Interface to the scene (root of the scene graph)
+   */
   class Scene : public PhysicalObject
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return scene;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return scene;}
 
-    /** Returns the length of one simulation step
-    * @return The time which is simulated by one step (in s)
-    */
+    /**
+     * Returns the length of one simulation step
+     * @return The time which is simulated by one step (in s)
+     */
     virtual double getStepLength() const = 0;
 
-    /** Returns the current simulation step
-    * @return The step
-    */
+    /**
+     * Returns the current simulation step
+     * @return The step
+     */
     virtual unsigned int getStep() const = 0;
 
-    /** Returns the current simulation time in seconds, starting with 0.0
-    * @return The time (in s)
-    */
+    /**
+     * Returns the current simulation time in seconds, starting with 0.0
+     * @return The time (in s)
+     */
     virtual double getTime() const = 0;
 
-    /** Returns the current frame rate
-    * @return The frame rate in frames per second
-    */
+    /**
+     * Returns the current frame rate
+     * @return The frame rate in frames per second
+     */
     virtual unsigned int getFrameRate() const = 0;
   };
 
   /**
-  * Interface to sensor ports
-  */
+   * Interface to sensor ports
+   */
   class SensorPort : public SimRobot::Object
   {
   public:
@@ -498,10 +516,10 @@ namespace SimRobotCore2
     };
 
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return sensorPort;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return sensorPort;}
 
     virtual SensorType getSensorType() const = 0;
     virtual Data getValue() = 0;
@@ -510,38 +528,38 @@ namespace SimRobotCore2
     virtual const QStringList& getDescriptions() const = 0;
 
     /**
-    * Returns the name of the unit of the sensor reading(s)
-    * @return The name
-    */
+     * Returns the name of the unit of the sensor reading(s)
+     * @return The name
+     */
     virtual const QString& getUnit() const = 0;
 
     /**
-    * Pre-renders the images of multiple camera sensors of the same type at once which improves the performance of camera image rendering.
-    * @param cameras An array of camera sensors
-    * @param count The amount of camera sensors in the array
-    */
+     * Pre-renders the images of multiple camera sensors of the same type at once which improves the performance of camera image rendering.
+     * @param cameras An array of camera sensors
+     * @param count The amount of camera sensors in the array
+     */
     virtual bool renderCameraImages(SensorPort** cameras, unsigned int count) = 0;
   };
 
   /**
-  * Interface to actuator ports
-  */
+   * Interface to actuator ports
+   */
   class ActuatorPort : public SimRobot::Object
   {
   public:
     /**
-    * Returns an object type identifier
-    * @return The identifier
-    */
-    virtual int getKind() const {return actuatorPort;}
+     * Returns an object type identifier
+     * @return The identifier
+     */
+    int getKind() const override {return actuatorPort;}
 
     virtual void setValue(float value) = 0;
     virtual bool getMinAndMax(float& min, float& max) const = 0;
 
     /**
-    * Returns the name of the unit of the actuator's setpoint
-    * @return The name
-    */
+     * Returns the name of the unit of the actuator's set point
+     * @return The name
+     */
     virtual const QString& getUnit() const = 0;
   };
 }

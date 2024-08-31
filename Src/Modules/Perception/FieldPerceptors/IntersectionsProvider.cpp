@@ -2,16 +2,43 @@
 #include "IntersectionsProvider.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/Math/Geometry.h"
+#include "Tools/Math/Projection.h"
 #include "Tools/Math/Transformation.h"
+#include <cmath>
 
-MAKE_MODULE(IntersectionsProvider, perception)
+MAKE_MODULE(IntersectionsProvider, perception);
+
+IntersectionsProvider::IntersectionsProvider()
+{
+  if(std::abs(theFieldDimensions.yPosLeftPenaltyArea - theFieldDimensions.yPosLeftGoalArea) > theFieldDimensions.fieldLinesWidth)
+    maxIntersectionGap = std::min(maxIntersectionGap, std::abs(theFieldDimensions.yPosLeftPenaltyArea - theFieldDimensions.yPosLeftGoalArea) * 0.7f);
+  if(std::abs(theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftPenaltyArea) > theFieldDimensions.fieldLinesWidth)
+    maxIntersectionGap = std::min(maxIntersectionGap, std::abs(theFieldDimensions.yPosLeftSideline - theFieldDimensions.yPosLeftPenaltyArea) * 0.7f);
+  if(std::abs(theFieldDimensions.xPosOpponentGoalArea - theFieldDimensions.xPosOpponentPenaltyArea) > theFieldDimensions.fieldLinesWidth)
+    maxIntersectionGap = std::min(maxIntersectionGap, std::abs(theFieldDimensions.xPosOpponentGoalArea - theFieldDimensions.xPosOpponentPenaltyArea) * 0.7f);
+}
 
 void IntersectionsProvider::update(IntersectionsPercept& intersectionsPercept)
 {
   DECLARE_DEBUG_DRAWING("module:IntersectionsProvider:intersections", "drawingOnImage");
-
   intersectionsPercept.intersections.clear();
 
+  // Prepare information about ball:
+  ballIsInImageAndCanBeUsed = false;
+  if(theFrameInfo.getTimeSince(theWorldModelPrediction.timeWhenBallLastSeen) < 1000 &&
+     theWorldModelPrediction.ballPosition.norm() > minimumBallExclusionCheckDistance)
+  {
+    if(Transformation::robotToImage(theWorldModelPrediction.ballPosition, theCameraMatrix, theCameraInfo, ballPositionInImage))
+    {
+      ballIsInImageAndCanBeUsed = true;
+      ballPositionInFieldCoordinates = Transformation::robotToField(theWorldModelPrediction.robotPose, theWorldModelPrediction.ballPosition);
+      ballRadiusInImageScaled = Projection::getSizeByDistance(theCameraInfo, theBallSpecification.radius,
+                                                              theWorldModelPrediction.ballPosition.norm()) * ballRadiusInImageScale;
+
+    }
+  }
+
+  // Find pairs of lines that form intersections:
   for(unsigned i = 0; i < theLinesPercept.lines.size(); i++)
   {
     if(theLinesPercept.lines[i].belongsToCircle)
@@ -44,13 +71,21 @@ void IntersectionsProvider::update(IntersectionsPercept& intersectionsPercept)
         //FIXME save line length in line to speed up a bit
 
         const bool intersectionIsOnLine = isPointInSegment(theLinesPercept.lines[i], intersection);
-        const bool insersectionIsOnLine2 = isPointInSegment(theLinesPercept.lines[j], intersection);
+        const bool intersectionIsOnLine2 = isPointInSegment(theLinesPercept.lines[j], intersection);
 
-        const bool intersectionGoesWithLine = (theLinesPercept.lines[i].firstField - theLinesPercept.lines[i].lastField).norm() * maxLengthUnrecognizedProportion > lineDist;
-        const bool intersectionGoesWithLine2 = (theLinesPercept.lines[j].firstField - theLinesPercept.lines[j].lastField).norm() * maxLengthUnrecognizedProportion > line2Dist;
+        const bool intersectionGoesWithLine = lineDist < std::min((theLinesPercept.lines[i].firstField - theLinesPercept.lines[i].lastField).norm() * maxLengthUnrecognizedProportion, maxIntersectionGap);
+        const bool intersectionGoesWithLine2 = line2Dist < std::min((theLinesPercept.lines[j].firstField - theLinesPercept.lines[j].lastField).norm() * maxLengthUnrecognizedProportion, maxIntersectionGap);
 
-        if((!intersectionIsOnLine && !intersectionGoesWithLine) || (!insersectionIsOnLine2 && !intersectionGoesWithLine2))
+        if((!intersectionIsOnLine && !intersectionGoesWithLine) || (!intersectionIsOnLine2 && !intersectionGoesWithLine2))
           continue;
+        if(ballIsInImageAndCanBeUsed)
+        {
+          Vector2f intersectionInImage;
+          if(Transformation::robotToImage(intersection, theCameraMatrix, theCameraInfo, intersectionInImage))
+            if((intersectionInImage - ballPositionInImage).norm() < ballRadiusInImageScaled)
+              continue;
+        }
+
         //from here a corner is present
 
         //in the case that the intersection is on a line we must calc if the line goes through or ends in it
@@ -60,7 +95,7 @@ void IntersectionsProvider::update(IntersectionsPercept& intersectionsPercept)
         bool lineIsEnd(true);
         bool line2IsEnd(true);
 
-        if(intersectionIsOnLine || insersectionIsOnLine2)
+        if(intersectionIsOnLine || intersectionIsOnLine2)
         {
           auto getVector2f = [&](const Vector2i& vi)
           {
@@ -83,13 +118,14 @@ void IntersectionsProvider::update(IntersectionsPercept& intersectionsPercept)
             if(intersectionIsOnLine)
               lineIsEnd = maxOverheadToDecleareAsEnd >= minLength(lineImg.base - intersectionImg, getVector2f(theLinesPercept.lines[i].lastImg) - intersectionImg);
 
-            if(insersectionIsOnLine2)
+            if(intersectionIsOnLine2)
               line2IsEnd = maxOverheadToDecleareAsEnd >= minLength(line2Img.base - intersectionImg, getVector2f(theLinesPercept.lines[j].lastImg) - intersectionImg);
           }
         }
 
-        lineIsEnd |= (lineEndCloser - intersection).squaredNorm() < sqr(2 * theFieldDimensions.fieldLinesWidth);
-        line2IsEnd |= (line2EndCloser - intersection).squaredNorm() < sqr(2 * theFieldDimensions.fieldLinesWidth);
+        // The 4 was a 2 before the RoboCup German Open 2018.
+        lineIsEnd |= (lineEndCloser - intersection).squaredNorm() < sqr(4 * theFieldDimensions.fieldLinesWidth);
+        line2IsEnd |= (line2EndCloser - intersection).squaredNorm() < sqr(4 * theFieldDimensions.fieldLinesWidth);
 
         if(lineIsEnd && line2IsEnd) // L
           addIntersection(intersectionsPercept, IntersectionsPercept::Intersection::L, intersection, lineEndFurther - intersection, line2EndFurther - intersection, i, j);
@@ -144,8 +180,8 @@ void IntersectionsProvider::addIntersection(IntersectionsPercept& intersectionsP
   {
     Vector2f pInImg;
     if(Transformation::robotToImage(intersection, theCameraMatrix, theCameraInfo, pInImg))
-      DRAWTEXT("module:IntersectionsProvider:intersections", pInImg.x(), pInImg.y(), 30,
-               ColorRGBA::black, IntersectionsPercept::Intersection::getName(type));
+      DRAW_TEXT("module:IntersectionsProvider:intersections", pInImg.x(), pInImg.y(), 30,
+               ColorRGBA::black, TypeRegistry::getEnumName(type));
   }
   intersectionsPercept.intersections.emplace_back(type, intersection, dir1, dir2, line1, line2);
 }

@@ -1,23 +1,25 @@
 /**
  * @file AlternativeRobotPoseProvider.cpp
  *
- * Implementation of a module that uses recent field feature obervations
+ * Implementation of a module that uses recent field feature observations
  * and combines them to an alternative pose of the robot.
  *
  * @author <A href="mailto:tlaue@uni-bremen.de">Tim Laue</A>
  */
 
 #include "AlternativeRobotPoseProvider.h"
+#include "Tools/Debugging/DebugDrawings.h"
 #include <algorithm>
+#include <cmath>
 
-MAKE_MODULE(AlternativeRobotPoseProvider, modeling)
+MAKE_MODULE(AlternativeRobotPoseProvider, modeling);
 
 void AlternativeRobotPoseProvider::update(AlternativeRobotPoseHypothesis& alternativeRobotPoseHypothesis)
 {
   clusters.clear();
   alternativeRobotPoseHypothesis.isValid = false;
-  if(((theGameInfo.state == STATE_SET || theGameInfo.state == STATE_INITIAL) && !theGroundContactState.contact) || // Robot was probably manually placed
-     (!theMotionInfo.isStanding() && theMotionInfo.motion != MotionInfo::walk && theMotionInfo.motion != MotionInfo::kick)) // Robot has done something that is not good for odometry/localization
+  if(currentStateOrMotionRuinsOdometry() || // Things are going on and might (but must not) ruin the odometry completely
+     (theExtendedGameInfo.timeSinceLastCalibrationStarted > 5000 && theRobotInfo.mode == RobotInfo::calibration)) // Robot is calibrating
   {
     observations.clear();
     return;
@@ -25,16 +27,14 @@ void AlternativeRobotPoseProvider::update(AlternativeRobotPoseHypothesis& altern
   removeOldObservations();
   odometryUpdate();
 
-  if(theMotionInfo.motion == MotionRequest::walk || theMotionInfo.isStanding())
+  // Buffer new features, if possible:
+  if(currentMotionAllowsAcceptanceOfNewFeatures())
   {
-    addFieldFeatureToBuffer(&theGoalFeature);
-    addFieldFeatureToBuffer(&theGoalFrame);
     addFieldFeatureToBuffer(&theMidCircle);
-    addFieldFeatureToBuffer(&theMidCorner);
-    addFieldFeatureToBuffer(&theOuterCorner);
     addFieldFeatureToBuffer(&thePenaltyArea);
-    addFieldFeatureToBuffer(&theGoalArea);
+    addFieldFeatureToBuffer(&thePenaltyMarkWithPenaltyAreaLine);
   }
+
   drawObservations();
   if(observations.empty())
     return;
@@ -56,6 +56,35 @@ void AlternativeRobotPoseProvider::update(AlternativeRobotPoseHypothesis& altern
   alternativeRobotPoseHypothesis.isValid = theFieldDimensions.isInsideCarpet(alternativeRobotPoseHypothesis.pose.translation);
 }
 
+bool AlternativeRobotPoseProvider::currentStateOrMotionRuinsOdometry()
+{
+  // The robot was manually placed:
+  if(theGameInfo.state == STATE_SET && !theGroundContactState.contact)
+    return true;
+  // There is nothing reasonable to do before the robot finally enters READY:
+  if(theGameInfo.state == STATE_INITIAL)
+    return true;
+  // Some motion phases can be troublesome as the odometry offset between configurations cannot be determined:
+  if(theMotionInfo.isMotion(bit(MotionPhase::playDead) | bit(MotionPhase::fall) | bit(MotionPhase::getUp)))
+    return true;
+  // Everything else if probably OK:
+  return false;
+}
+
+bool AlternativeRobotPoseProvider::currentMotionAllowsAcceptanceOfNewFeatures()
+{
+  // Anything else than walking or standing might lead to wrong features:
+  if(!theMotionInfo.isMotion(bit(MotionPhase::walk) | bit(MotionPhase::stand)))
+    return false;
+  // Making fast turns produces strange projections of lines to the ground:
+  // TODO: Move hardcoded number to parameter. Value is guessed by Philip.
+  if(std::abs(theGyroState.mean.z()) > 50_deg)
+    return false;
+  // Everything else if probably OK:
+  return true;
+}
+
+
 void AlternativeRobotPoseProvider::addFieldFeatureToBuffer(const FieldFeature* ff)
 {
   if(ff->isValid)
@@ -65,7 +94,7 @@ void AlternativeRobotPoseProvider::addFieldFeatureToBuffer(const FieldFeature* f
     PoseObservation newObservation;
     newObservation.pose              = ownSidePose;
     newObservation.timeOfObservation = theFrameInfo.time;
-    newObservation.stillInOwnHalf    = theOwnSideModel.stillInOwnSide;
+    newObservation.stillInOwnHalf    = theSideInformation.robotMustBeInOwnHalf;
     observations.push_front(newObservation);
     if(!newObservation.stillInOwnHalf) // We have to consider the alternative, too
     {
@@ -109,8 +138,8 @@ void AlternativeRobotPoseProvider::clusterObservations()
       {
         c.numOfPoses++;
         c.pose.translation += oPose.translation;
-        angleX += (float)cos(oPose.rotation);
-        angleY += (float)sin(oPose.rotation);
+        angleX += std::cos(oPose.rotation);
+        angleY += std::sin(oPose.rotation);
         if(observations[j].timeOfObservation > c.timeOfNewestObservation)
           c.timeOfNewestObservation = observations[j].timeOfObservation;
         if(observations[j].stillInOwnHalf)

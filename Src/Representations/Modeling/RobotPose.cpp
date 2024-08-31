@@ -7,14 +7,15 @@
 
 #include "RobotPose.h"
 #include "BallModel.h"
+#include "Platform/Time.h"
+#include "Representations/Communication/TeamInfo.h"
+#include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
-#include "Representations/Configuration/FieldDimensions.h"
-#include "Representations/Infrastructure/TeamInfo.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/Debugging/DebugDrawings3D.h"
+#include "Tools/Math/Projection.h"
 #include "Tools/Module/Blackboard.h"
-#include "Tools/Math/Covariance.h"
 
 void RobotPose::onRead()
 {
@@ -22,44 +23,16 @@ void RobotPose::onRead()
   inversePose.invert();
 }
 
-void RobotPose::operator >> (NaovaMessage& m) const
+void RobotPose::operator>>(NaovaMessage& m) const
 {
-  m.theNaovaSPLStandardMessage.pose[0] = translation.x();
-  m.theNaovaSPLStandardMessage.pose[1] = translation.y();
-  m.theNaovaSPLStandardMessage.pose[2] = rotation;
-//  m.theBSPLStandardMessage.currentPositionConfidence = static_cast<int8_t>(validity * 100);
-
-  m.theNaovaStandardMessage.robotPoseValidity = static_cast<unsigned char>(validity * 255.f);
-  m.theNaovaStandardMessage.robotPoseDeviation = deviation;
-  // m.theNaovaStandardMessage.robotPoseCovariance[0] = covariance(0, 0);
-  // m.theNaovaStandardMessage.robotPoseCovariance[1] = covariance(1, 1);
-  // m.theNaovaStandardMessage.robotPoseCovariance[2] = covariance(2, 2);
-  // m.theNaovaStandardMessage.robotPoseCovariance[3] = (covariance(1, 0) + covariance(0, 1)) / 2.f;
-  // m.theNaovaStandardMessage.robotPoseCovariance[4] = (covariance(2, 0) + covariance(0, 2)) / 2.f;
-  // m.theNaovaStandardMessage.robotPoseCovariance[5] = (covariance(2, 1) + covariance(1, 2)) / 2.f;
-
-  m.theNaovaStandardMessage.timestampLastJumped = timestampLastJump;
+  Streaming::streamIt(*m.theNaovaStandardMessage.out, "theRobotPose", *this);
 }
 
-void RobotPose::operator<< (const NaovaMessage& m)
+void RobotPose::operator<<(const NaovaMessage& m)
 {
-  translation.x() = m.theNaovaSPLStandardMessage.pose[0];
-  translation.y() = m.theNaovaSPLStandardMessage.pose[1];
-  rotation = m.theNaovaSPLStandardMessage.pose[2];
+  Streaming::streamIt(*m.theNaovaStandardMessage.in, "theRobotPose", *this);
 
   inversePose = static_cast<Pose2f>(*this).inverse();
-
-  deviation = m.theNaovaStandardMessage.robotPoseDeviation;
-  validity = static_cast<float>(m.theNaovaStandardMessage.robotPoseValidity) / 255.f;
-
-  // covariance(0, 0) = m.theNaovaStandardMessage.robotPoseCovariance[0];
-  // covariance(1, 1) = m.theNaovaStandardMessage.robotPoseCovariance[1];
-  // covariance(2, 2) = m.theNaovaStandardMessage.robotPoseCovariance[2];
-  // covariance(1, 0) = covariance(0, 1) = m.theNaovaStandardMessage.robotPoseCovariance[3];
-  // covariance(2, 0) = covariance(0, 2) = m.theNaovaStandardMessage.robotPoseCovariance[4];
-  // covariance(2, 1) = covariance(1, 2) = m.theNaovaStandardMessage.robotPoseCovariance[5];
-
-  timestampLastJump = m.toLocalTimestamp(m.theNaovaStandardMessage.timestampLastJumped);
 }
 
 Pose2f RobotPose::inverse() const
@@ -75,11 +48,6 @@ void RobotPose::verify() const
   ASSERT(std::isfinite(rotation));
   ASSERT(rotation >= -pi);
   ASSERT(rotation <= pi);
-
-  ASSERT(validity >= 0.f);
-  ASSERT(validity <= 1.f);
-
-  ASSERT(std::isfinite(deviation));
 
   ASSERT(std::isnormal(covariance(0, 0)));
   ASSERT(std::isnormal(covariance(1, 1)));
@@ -118,24 +86,11 @@ void RobotPose::draw() const
     ColorRGBA::black
   };
   const ColorRGBA ownTeamColorForDrawing = colors[Blackboard::getInstance().exists("OwnTeamInfo") ?
-      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).fieldPlayerColour : TEAM_BLACK];
+                                                      static_cast<const OwnTeamInfo&>(Blackboard::getInstance()["OwnTeamInfo"]).teamColor : TEAM_BLACK];
 
   DEBUG_DRAWING("representation:RobotPose", "drawingOnField")
   {
-    LINE("representation:RobotPose", translation.x(), translation.y(), dirVec.x(), dirVec.y(),
-         20, Drawings::solidPen, ColorRGBA::white);
-    POLYGON("representation:RobotPose", 4, bodyPoints, 20, Drawings::solidPen,
-            ownTeamColorForDrawing, Drawings::solidBrush, ColorRGBA::white);
-    CIRCLE("representation:RobotPose", translation.x(), translation.y(), 42, 0,
-           Drawings::solidPen, ownTeamColorForDrawing, Drawings::solidBrush, ownTeamColorForDrawing);
-  }
-
-  DEBUG_DRAWING("representation:RobotPose:deviation", "drawingOnField")
-  {
-    if(deviation < 100000.f)
-      DRAWTEXT("representation:RobotPose:deviation", -3000, -2300, 100, ColorRGBA(0xff, 0xff, 0xff), "pose deviation: " << deviation);
-    else
-      DRAWTEXT("representation:RobotPose:deviation", -3000, -2300, 100, ColorRGBA(0xff, 0xff, 0xff), "pose deviation: unknown");
+    ROBOT("representation:RobotPose", static_cast<Pose2f>(*this), dirVec, dirVec, 1.f, ColorRGBA::black, ColorRGBA(255, 255, 255, 128), ColorRGBA(0, 0, 0, 0));
   }
 
   DEBUG_DRAWING3D("representation:RobotPose", "field")
@@ -151,10 +106,8 @@ void RobotPose::draw() const
 
   DEBUG_DRAWING("representation:RobotPose:covariance", "drawingOnField")
   {
-    float covaxis1, covaxis2, covangle;
-    Covariance::errorEllipse(covariance.topLeftCorner<2, 2>(), covaxis1, covaxis2, covangle);
-    ELLIPSE("representation:RobotPose:covariance", translation, covaxis1, covaxis2, covangle,
-            10, Drawings::solidPen, ColorRGBA(100, 100, 255, 100), Drawings::solidBrush, ColorRGBA(100, 100, 255, 100));
+    const Matrix2f cov = covariance.topLeftCorner<2, 2>();
+    COVARIANCE_ELLIPSES_2D("representation:RobotPose:covariance", cov, translation);
   }
 
   DEBUG_DRAWING("representation:RobotPose:fieldOfView", "drawingOnField")
@@ -168,16 +121,32 @@ void RobotPose::draw() const
         const FieldDimensions& fieldDimensions = static_cast<const FieldDimensions&>(Blackboard::getInstance()["FieldDimensions"]);
         const RobotPose& robotPose = *this;
         std::vector<Vector2f> p;
-        Geometry::computeFieldOfViewInFieldCoordinates(robotPose, cameraMatrix, cameraInfo, fieldDimensions, p);
+        Projection::computeFieldOfViewInFieldCoordinates(robotPose, cameraMatrix, cameraInfo, fieldDimensions, p);
+        THREAD("representation:RobotPose:fieldOfView", cameraInfo.camera == CameraInfo::upper ? "Upper" : "Lower");
         POLYGON("representation:RobotPose:fieldOfView", 4, p, 20, Drawings::noPen, ColorRGBA(), Drawings::solidBrush, ColorRGBA(255, 255, 255, 25));
       }
     }
   }
 
-  DECLARE_DEBUG_DRAWING("origin:RobotPose", "drawingOnField"); // Set the origin to the robot's current position
-  DECLARE_DEBUG_DRAWING("origin:RobotPoseWithoutRotation", "drawingOnField");
-  ORIGIN("origin:RobotPose", translation.x(), translation.y(), rotation);
-  ORIGIN("origin:RobotPoseWithoutRotation", translation.x(), translation.y(), 0);
+  DEBUG_DRAWING("perception:RobotPose", "drawingOnField") // Set the origin to the robot's current position
+  {
+    if(Blackboard::getInstance().exists("CameraInfo"))
+    {
+      const CameraInfo& cameraInfo = static_cast<const CameraInfo&>(Blackboard::getInstance()["CameraInfo"]);
+      THREAD("perception:RobotPose", cameraInfo.camera == CameraInfo::upper ? "Upper" : "Lower");
+    }
+    ORIGIN("perception:RobotPose", translation.x(), translation.y(), rotation);
+  }
+
+  DEBUG_DRAWING("cognition:RobotPose", "drawingOnField") // Set the origin to the robot's current position
+  {
+    ORIGIN("cognition:RobotPose", translation.x(), translation.y(), rotation);
+  }
+
+  DEBUG_DRAWING("cognition:Reset", "drawingOnField") // Set the origin to the robot's current position
+  {
+    ORIGIN("cognition:Reset", 0, 0, 0);
+  }
 
   DEBUG_DRAWING("representation:RobotPose:coverage", "drawingOnField")
   {
@@ -202,8 +171,8 @@ void RobotPose::draw() const
         const Geometry::Line leftLine(gloBallPos, left - gloBallPos);
         const Geometry::Line rightLine(gloBallPos, right - gloBallPos);
 
-        const Vector2f bottomLeft(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightSideline);
-        const Vector2f topRight(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftSideline);
+        const Vector2f bottomLeft(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosRightSideline);
+        const Vector2f topRight(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosLeftSideline);
 
         Vector2f useLeft;
         Vector2f useRight;
@@ -225,8 +194,8 @@ void RobotPose::draw() const
       const Vector2f points[3] =
       {
         gloBallPos,
-        Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosRightGoal),
-        Vector2f(theFieldDimensions.xPosOwnGroundline, theFieldDimensions.yPosLeftGoal)
+        Vector2f(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosRightGoal),
+        Vector2f(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosLeftGoal)
       };
       POLYGON("representation:RobotPose:coverage", 3, points, 10, Drawings::noPen, ColorRGBA(ColorRGBA::red.r, ColorRGBA::red.g, ColorRGBA::red.b, 50),
               Drawings::solidBrush, ColorRGBA(ColorRGBA::red.r, ColorRGBA::red.g, ColorRGBA::red.b, 50));
@@ -241,29 +210,15 @@ void GroundTruthRobotPose::draw() const
 {
   DEBUG_DRAWING("representation:GroundTruthRobotPose", "drawingOnField")
   {
-    const ColorRGBA transparentWhite(255, 255, 255, 128);
-    Vector2f bodyPoints[4] =
-    {
-      Vector2f(55, 90),
-      Vector2f(-55, 90),
-      Vector2f(-55, -90),
-      Vector2f(55, -90)
-    };
-    for(int i = 0; i < 4; i++)
-      bodyPoints[i] = *this * bodyPoints[i];
     Vector2f dirVec(200, 0);
     dirVec = *this * dirVec;
-    const ColorRGBA ownTeamColorForDrawing(0, 0, 0, 128);
-    LINE("representation:GroundTruthRobotPose", translation.x(), translation.y(), dirVec.x(), dirVec.y(),
-         20, Drawings::solidPen, transparentWhite);
-    POLYGON("representation:GroundTruthRobotPose", 4, bodyPoints, 20, Drawings::solidPen,
-            ownTeamColorForDrawing, Drawings::solidBrush, transparentWhite);
-    CIRCLE("representation:GroundTruthRobotPose", translation.x(), translation.y(), 42, 0,
-           Drawings::solidPen, ownTeamColorForDrawing, Drawings::solidBrush, ownTeamColorForDrawing);
+    const ColorRGBA ownTeamColorForDrawing(0, 0, 0);
+    ROBOT("representation:GroundTruthRobotPose", static_cast<Pose2f>(*this), dirVec, dirVec, .5f,
+          ownTeamColorForDrawing, ColorRGBA(255, 255, 255, 128), ColorRGBA(0, 0, 0, 0));
   }
 
-  DECLARE_DEBUG_DRAWING("origin:GroundTruthRobotPose", "drawingOnField"); // Set the origin to the robot's ground truth position
-  DECLARE_DEBUG_DRAWING("origin:GroundTruthRobotPoseWithoutRotation", "drawingOnField");
-  ORIGIN("origin:GroundTruthRobotPose", translation.x(), translation.y(), rotation);
-  ORIGIN("origin:GroundTruthRobotPoseWithoutRotation", translation.x(), translation.y(), 0);
+  DEBUG_DRAWING("cognition:GroundTruthRobotPose", "drawingOnField") // Set the origin to the robot's ground truth position
+  {
+    ORIGIN("cognition:GroundTruthRobotPose", translation.x(), translation.y(), rotation);
+  }
 }

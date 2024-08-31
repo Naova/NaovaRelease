@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <QDockWidget>
@@ -14,7 +13,7 @@ class SceneGraphDockWidget : public QDockWidget
 
 public:
   SceneGraphDockWidget(QMenu* contextMenu, QWidget* parent);
-  virtual ~SceneGraphDockWidget();
+  ~SceneGraphDockWidget();
 
   void registerObject(const SimRobot::Module* module, SimRobot::Object* object, const SimRobot::Object* parent, int flags);
   void unregisterAllObjects();
@@ -41,7 +40,7 @@ private:
   {
   public:
     RegisteredObject(const SimRobot::Module* module, SimRobot::Object* object, QTreeWidgetItem* parentItem, int flags) :
-        QTreeWidgetItem(parentItem), module(module), object(object), fullName(object->getFullName()), flags(flags), opened(false) {}
+      QTreeWidgetItem(parentItem), module(module), object(object), fullName(object->getFullName()), flags(flags), opened(false) {}
 
     const SimRobot::Module* module;
     SimRobot::Object* object;
@@ -58,12 +57,12 @@ private:
   QHash<const void*, RegisteredObject*> registeredObjectsByObject;
   QHash<int, QHash<QString, RegisteredObject*>*> registeredObjectsByKindAndName;
 
-  RegisteredObject* clickedItem;
+  RegisteredObject* clickedItem = nullptr;
 
   void deleteRegisteredObjectsFromModule(RegisteredObject* registeredObject, const SimRobot::Module* module);
   void deleteRegisteredObject(RegisteredObject* registeredObject);
 
-  virtual void contextMenuEvent(QContextMenuEvent* event);
+  void contextMenuEvent(QContextMenuEvent* event) override;
 
 private slots:
   void itemActivated(const QModelIndex& index);
@@ -71,5 +70,7 @@ private slots:
   void itemExpanded(const QModelIndex& index);
 
   void openOrCloseObject();
-  void expandOrCollabseObject();
+  void expandOrCollapseObject();
+
+  void topLevelChanged(bool topLevel);
 };

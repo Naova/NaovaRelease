@@ -6,7 +6,9 @@ _**Localization :**_ Montreal, Canada
 
 _**School :**_ École de Technologie Supérieure
 
-### Code release 2023 :
+### Code release 2024 :
 - Walk controller
 - Ball perception
-- Compatibility with Ubuntu 18, 20 and 22
+- Event communication
+- Dynamic strategy
+- Compatibility with Ubuntu 22

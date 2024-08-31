@@ -13,41 +13,18 @@
 #include "Tools/Modeling/BallPhysics.h"
 #include "Tools/Module/Blackboard.h"
 
-void BallModel::operator>> (NaovaMessage& m) const
+#include <algorithm>
+
+void BallModel::operator>>(NaovaMessage& m) const
 {
-  m.theNaovaStandardMessage.ballLastPerceptX = static_cast<int16_t>(lastPerception.x());
-  m.theNaovaStandardMessage.ballLastPerceptY = static_cast<int16_t>(lastPerception.y());
-
-  m.theNaovaSPLStandardMessage.ball[0] = estimate.position.x();
-  m.theNaovaSPLStandardMessage.ball[1] = estimate.position.y();
- m.theNaovaStandardMessage.ballVel[0] = estimate.velocity.x();
- m.theNaovaStandardMessage.ballVel[1] = estimate.velocity.y();
-
-  // m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage = (timeWhenDisappeared & 0x00ffffff) | seenPercentage << 24;
-  m.theNaovaStandardMessage.ballTimeWhenLastSeen = timeWhenLastSeen;
-  m.theNaovaStandardMessage.ballCovariance[0] = estimate.covariance(0, 0);
-  m.theNaovaStandardMessage.ballCovariance[1] = estimate.covariance(1, 1);
-  m.theNaovaStandardMessage.ballCovariance[2] = (estimate.covariance(0, 1) + estimate.covariance(1, 0)) / 2.f;
+  Streaming::streamIt(*m.theNaovaStandardMessage.out, "theBallModel",  *this);
 
 }
 
-void BallModel::operator<< (const NaovaMessage& m)
+void BallModel::operator<<(const NaovaMessage& m)
 {
-  estimate.position.x() = m.theNaovaSPLStandardMessage.ball[0];
-  estimate.position.y() = m.theNaovaSPLStandardMessage.ball[1];
-  estimate.velocity.x() = m.theNaovaStandardMessage.ballVel[0];
-  estimate.velocity.y() = m.theNaovaStandardMessage.ballVel[1];
+  Streaming::streamIt(*m.theNaovaStandardMessage.in, "theBallModel", *this);
 
-  timeWhenLastSeen = m.toLocalTimestamp(m.theNaovaStandardMessage.ballTimeWhenLastSeen);
-
-  // timeWhenDisappeared = m.toLocalTimestamp(m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage & 0x00ffffff);
-  // seenPercentage = static_cast<unsigned char>(m.theNaovaStandardMessage.ballTimeWhenDisappearedSeenPercentage >> 24);
-
-  lastPerception.x() = static_cast<float>(m.theNaovaStandardMessage.ballLastPerceptX);
-  lastPerception.y() = static_cast<float>(m.theNaovaStandardMessage.ballLastPerceptY);
-
-  estimate.covariance << m.theNaovaStandardMessage.ballCovariance[0], m.theNaovaStandardMessage.ballCovariance[2],
-                          m.theNaovaStandardMessage.ballCovariance[2], m.theNaovaStandardMessage.ballCovariance[1];
 }
 
 void BallModel::verify() const
@@ -85,7 +62,7 @@ void BallModel::draw() const
 
   DEBUG_DRAWING("representation:BallModel:covariance", "drawingOnField")
   {
-    COVARIANCE2D("representation:BallModel:covariance", estimate.covariance, estimate.position);
+    COVARIANCE_ELLIPSES_2D("representation:BallModel:covariance", estimate.covariance, estimate.position);
   }
 
   // drawing of the end position

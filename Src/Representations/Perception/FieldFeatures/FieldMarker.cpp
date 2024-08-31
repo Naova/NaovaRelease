@@ -20,20 +20,23 @@ void MarkedLine::draw() const
   CameraInfo* theCameraInfo = nullptr;
   CameraMatrix* theCameraMatrix = nullptr;
   FieldLines* theFieldLines = nullptr;
+  ImageCoordinateSystem* theImageCoordinateSystem = nullptr;
 
   if(Blackboard::getInstance().exists("CameraInfo"))
     theCameraInfo = static_cast<CameraInfo*>(&(Blackboard::getInstance()["CameraInfo"]));
   if(Blackboard::getInstance().exists("CameraMatrix"))
     theCameraMatrix = static_cast<CameraMatrix*>(&(Blackboard::getInstance()["CameraMatrix"]));
+  if(Blackboard::getInstance().exists("ImageCoordinateSystem"))
+    theImageCoordinateSystem = static_cast<ImageCoordinateSystem*>(&(Blackboard::getInstance()["ImageCoordinateSystem"]));
   if(Blackboard::getInstance().exists("FieldLines"))
     theFieldLines = static_cast<FieldLines*>(&(Blackboard::getInstance()["FieldLines"]));
 
-  if(theCameraInfo == nullptr || theCameraMatrix == nullptr || theFieldLines == nullptr)
+  if(theCameraInfo == nullptr || theCameraMatrix == nullptr || theImageCoordinateSystem == nullptr || theFieldLines == nullptr)
     return;
 
   const FieldLines::Line& line = theFieldLines->lines[lineIndex];
 
-  DEBUG_DRAWING("representation:MarkedField:field", "drawingOnField")
+  COMPLEX_DRAWING("representation:MarkedField:field")
   {
     const Drawings::PenStyle pen = Drawings::dottedPen;
     LINE("representation:MarkedField:field", line.first.x(), line.first.y(), line.last.x(), line.last.y(), 15, pen, ColorRGBA::blue);
@@ -41,26 +44,24 @@ void MarkedLine::draw() const
     CROSS("representation:MarkedField:field", line.first.x(), line.first.y(), 10, 5, pen, ColorRGBA::blue);
   }
 
-  DECLARE_DEBUG_DRAWING("representation:MarkedField:imageText", "drawingOnImage");
-  DEBUG_DRAWING("representation:MarkedField:image", "drawingOnImage")
+  COMPLEX_DRAWING("representation:MarkedField:image")
   {
     Vector2f pImg;
     if(Transformation::robotToImage(line.first, *theCameraMatrix, *theCameraInfo, pImg))
     {
-      Vector2f startInImage = pImg;
+      Vector2f startInImage = theImageCoordinateSystem->fromCorrected(pImg);
       if(Transformation::robotToImage(line.last, *theCameraMatrix, *theCameraInfo, pImg))
       {
-        Vector2f endInImage = pImg;
+        Vector2f endInImage = theImageCoordinateSystem->fromCorrected(pImg);
         const Vector2f lineInImageDirection = endInImage - startInImage;
         const Vector2f offSet = Vector2f(5.f, -10.f);
         const Vector2f textPosition = startInImage + 0.5f * lineInImageDirection + offSet;
-        DRAWTEXT("representation:MarkedField:imageText", textPosition.x(), textPosition.y(), 8, ColorRGBA::blue, "Marked with:" << marker);
+        DRAW_TEXT("representation:MarkedField:imageText", textPosition.x(), textPosition.y(), 8, ColorRGBA::blue, "Marked with:" << marker);
         LINE("representation:MarkedField:image", startInImage.x(), startInImage.y(), endInImage.x(), endInImage.y(), 3, Drawings::dottedPen, ColorRGBA::blue);
       }
     }
   }
 
-  DECLARE_DEBUG_DRAWING3D("representation:MarkedField", "robot");
   TRANSLATE3D("representation:MarkedField", 0, 0, -210);
   LINE3D("representation:MarkedField", line.first.x(), line.first.y(), 0, line.last.x(), line.last.y(), 0, 2, ColorRGBA::blue);
 }
@@ -161,10 +162,10 @@ void MarkedIntersection::draw() const
     }
     if(transformationSuccessful)
     {
-      const Vector2f uncor1 = theImageCoordinateSystem->fromCorrectedLinearized(p1);
-      const Vector2f uncor2 = theImageCoordinateSystem->fromCorrectedLinearized(p2);
-      const Vector2f uncor3 = theImageCoordinateSystem->fromCorrectedLinearized(p3);
-      const Vector2f uncor4 = theImageCoordinateSystem->fromCorrectedLinearized(p4);
+      const Vector2f uncor1 = theImageCoordinateSystem->fromCorrected(p1);
+      const Vector2f uncor2 = theImageCoordinateSystem->fromCorrected(p2);
+      const Vector2f uncor3 = theImageCoordinateSystem->fromCorrected(p3);
+      const Vector2f uncor4 = theImageCoordinateSystem->fromCorrected(p4);
       ARROW("representation:FieldLines:image", uncor1.x(), uncor1.y(), uncor2.x(), uncor2.y(),
             3, Drawings::solidPen, ColorRGBA::blue);
       ARROW("representation:FieldLines:image", uncor3.x(), uncor3.y(), uncor4.x(), uncor4.y(),
@@ -172,8 +173,8 @@ void MarkedIntersection::draw() const
       Vector2f intersectionInImage;
       if(Transformation::robotToImage(intersection.pos, *theCameraMatrix, *theCameraInfo, intersectionInImage))
       {
-        const Vector2f uncorIntersection = theImageCoordinateSystem->fromCorrectedLinearized(intersectionInImage);
-        DRAWTEXT("representation:FieldLines:image", uncorIntersection.x(), uncorIntersection.y(), 25, ColorRGBA(255, 180, 180),
+        const Vector2f uncorIntersection = theImageCoordinateSystem->fromCorrected(intersectionInImage);
+        DRAW_TEXT("representation:FieldLines:image", uncorIntersection.x(), uncorIntersection.y(), 25, ColorRGBA(255, 180, 180),
                  (intersection.type == FieldLineIntersections::Intersection::L ? "L" : intersection.type == FieldLineIntersections::Intersection::T ? "T" : "X") <<
                  (intersection.additionalType == FieldLineIntersections::Intersection::none ? "" : intersection.additionalType == FieldLineIntersections::Intersection::mid ? "m" : "b"));
       }

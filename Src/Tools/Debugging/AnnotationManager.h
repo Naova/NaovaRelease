@@ -7,25 +7,21 @@
 
 #include "Tools/MessageQueue/MessageQueue.h"
 
-#include <vector>
-#include <unordered_map>
-
-class AnnotationManager
+class AnnotationManager final
 {
-private:
-  MessageQueue outData;
-  unsigned currentFrame = 0;
-  unsigned annotationCounter = 0;
-  unsigned lastGameState;
-
-  friend class Process;
-
-  AnnotationManager(); // private so only Process can access it.
-
 public:
-  void signalProcessStart();
+  AnnotationManager();
+  AnnotationManager(const AnnotationManager&) = delete;
+
+  void signalThreadStart();
   void clear();
 
   void addAnnotation();
   MessageQueue& getOut();
+
+private:
+  MessageQueue outData;
+  unsigned annotationCounter = 0;
+  unsigned lastGameState;
+  unsigned lastSetPlay;
 };

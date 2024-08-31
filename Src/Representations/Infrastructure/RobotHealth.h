@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
+#include "Tools/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/RobotParts/Joints.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
@@ -14,11 +14,11 @@
 
 /**
  * @struct MotionRobotHealth
- * All information collected within motion process.
+ * All information collected within motion thread.
  */
 STREAMABLE(MotionRobotHealth,
 {,
-  (float)(0) motionFrameRate, /**< Frames per second within process "Motion" */
+  (float)(0) motionFrameRate, /**< Frames per second within thread "Motion" */
   (float)(0) avgMotionTime, /**< average execution time */
   (float)(0) maxMotionTime, /**< Maximum execution time */
   (float)(0) minMotionTime, /**< Minimum execution time */
@@ -31,7 +31,7 @@ STREAMABLE(MotionRobotHealth,
 STREAMABLE_WITH_BASE(RobotHealth, MotionRobotHealth, COMMA public PureNaovaArbitraryMessageParticle<idRobotHealth>
 {
   /** NaovaMessageParticle functions */
-  void operator >> (NaovaMessage& m) const override;
+  void operator>>(NaovaMessage& m) const override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
   /**
    * Configurations that can be deployed-
@@ -51,7 +51,7 @@ STREAMABLE_WITH_BASE(RobotHealth, MotionRobotHealth, COMMA public PureNaovaArbit
 
   /**
    * Assigning MotionRobotHealth
-   * @param motionRobotHealth Information from the motion process
+   * @param motionRobotHealth Information from the motion thread
    */
   void operator=(const MotionRobotHealth& motionRobotHealth)
   {
@@ -68,11 +68,11 @@ STREAMABLE_WITH_BASE(RobotHealth, MotionRobotHealth, COMMA public PureNaovaArbit
     PLOT("representation:RobotHealth:totalCurrent", totalCurrent);
   },
 
-  (float)(0.f)                                   cognitionFrameRate,        /**< Frames per second within process "Cognition" */
-  (unsigned char)(0)                             batteryLevel,              /**< Current batteryLevel of robot battery in percent */
+  (float)(0.f)                                   cognitionFrameRate,        /**< Frames per second within thread "Cognition" */
+  (unsigned char)(100)                           batteryLevel,              /**< Current batteryLevel of robot battery in percent */
   (float)(0.f)                                   totalCurrent,              /**< Sum of all motor currents (as a measure for the robot's current load) */
-  ((JointSensorData) TemperatureStatus)(regular) maxJointTemperatureStatus, /**< Highest temperature status of a robot actuator */
-  ((Joints) Joint)(headYaw)                      jointWithMaxTemperature,   /**< The hottest joint. */
+  (JointSensorData::TemperatureStatus)(JointSensorData::regular) maxJointTemperatureStatus, /**< Highest temperature status of a robot actuator */
+  (Joints::Joint)(Joints::headYaw)               jointWithMaxTemperature,   /**< The hottest joint. */
   (unsigned char)(0)                             cpuTemperature,            /**< The temperature of the cpu */
   (std::array<unsigned char, 3>)                 load,                      /**< cpu load averages */
   (unsigned char)(0)                             memoryUsage,               /**< Percentage of used memory */

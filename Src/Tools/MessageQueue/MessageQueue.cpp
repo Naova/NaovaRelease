@@ -6,18 +6,16 @@
  * @author Martin Lötzsch
  */
 
-#include <cstring>
-
 #include "MessageQueue.h"
 #include "Platform/BHAssert.h"
 #include "Tools/Debugging/Debugging.h"
+#include <cstring>
 
 void MessageQueue::handleAllMessages(MessageHandler& handler)
 {
   for(int i = 0; i < queue.numberOfMessages; ++i)
   {
     queue.setSelectedMessageForReading(i);
-    in.config.reset();
     in.text.reset();
     handler.handleMessage(in);
   }
@@ -53,11 +51,14 @@ void MessageQueue::moveAllMessages(MessageQueue& other)
   clear();
 }
 
-void MessageQueue::patchMessage(int message, int index, char value)
+void MessageQueue::patchMessage(int message, int index, const std::string& value)
 {
   queue.setSelectedMessageForReading(message);
   ASSERT(index >= 0 && index < queue.getMessageSize());
-  const_cast<char*>(queue.getData())[index] = value;
+  // streamed strings have 4 Bytes before the real string
+  ASSERT(value.size() + 4 == static_cast<size_t>(queue.getMessageSize()));
+  OutBinaryMemory stream(value.size() + 4, const_cast<char*>(queue.getData() + index));
+  stream << value;
 }
 
 void MessageQueue::copyMessage(int message, MessageQueue& other)
@@ -69,7 +70,7 @@ void MessageQueue::copyMessage(int message, MessageQueue& other)
 
 void MessageQueue::write(Out& stream) const
 {
-  stream << queue.usedSize << queue.numberOfMessages;
+  stream << static_cast<unsigned>(queue.usedSize) << ((queue.numberOfMessages & 0x0fffffff) | (static_cast<unsigned>(queue.usedSize >> 4) & 0xf0000000));
   stream.write(queue.buf, queue.usedSize);
 }
 
@@ -85,9 +86,13 @@ void MessageQueue::append(Out& stream) const
 
 void MessageQueue::append(In& stream)
 {
-  unsigned usedSize,
-           numberOfMessages;
-  stream >> usedSize >> numberOfMessages;
+  size_t usedSize = 0;
+  unsigned numberOfMessages;
+  stream >> *reinterpret_cast<unsigned*>(&usedSize) >> numberOfMessages;
+  usedSize |= static_cast<size_t>(numberOfMessages & 0xf0000000) << 4;
+  numberOfMessages &= 0x0fffffff;
+  if(numberOfMessages == 0x0fffffff)
+    numberOfMessages = static_cast<unsigned>(-1);
   // Trying a direct copy. This is hacked, but fast.
   char* dest = numberOfMessages == static_cast<unsigned>(-1) ? nullptr : queue.reserve(usedSize - MessageQueueBase::headerSize);
   if(dest)
@@ -106,9 +111,9 @@ void MessageQueue::append(In& stream)
 
       stream.read(&size, 3);
 
-      if((id >= numOfDataMessageIDs || size == 0) && numberOfMessages == static_cast<unsigned>(-1))
+      if(id >= numOfDataMessageIDs && numberOfMessages == static_cast<unsigned>(-1))
       {
-        OUTPUT_WARNING("MessageQueue: Logfile appears to be broken. Skipping rest of file. Read messages: " << queue.numberOfMessages << " read size:" << queue.usedSize);
+        OUTPUT_WARNING("MessageQueue: Log file appears to be broken. Skipping rest of file. Read messages: " << queue.numberOfMessages << " read size: " << std::to_string(queue.usedSize));
         break;
       }
 
@@ -121,6 +126,48 @@ void MessageQueue::append(In& stream)
       else
         stream.skip(size);
     }
+}
+
+void MessageQueue::append(In& stream, size_t size)
+{
+  stream.skip(8);
+  size_t usedSize = size - 8;
+
+  // Trying a direct copy. This is hacked, but fast.
+  char* dest = queue.reserve(usedSize - MessageQueueBase::headerSize);
+  if(dest)
+  {
+    stream.read(dest - MessageQueueBase::headerSize, usedSize);
+    queue.usedSize += usedSize;
+    queue.writePosition = 0;
+
+    // Count new messages
+    for(char* p = dest - MessageQueueBase::headerSize, * pEnd = p + usedSize; p < pEnd;
+        p += 4 + (*reinterpret_cast<unsigned*>(p) >> 8))
+      ++queue.numberOfMessages;
+  }
+  else // Not all messages fit in there, so try step by step (some will be missing).
+  {
+    size_t readSize = 0;
+    while(readSize < usedSize)
+    {
+      unsigned char id = 0;
+      unsigned int size = 0;
+      stream >> id;
+
+      stream.read(&size, 3);
+
+      char* dest = queue.reserve(size);
+      if(dest)
+      {
+        stream.read(dest, size);
+        out.finishMessage(MessageID(id));
+      }
+      else
+        stream.skip(size);
+      readSize += 4 + size;
+    }
+  }
 }
 
 Out& operator<<(Out& stream, const MessageQueue& messageQueue)
@@ -139,11 +186,4 @@ void operator>>(InMessage& message, MessageQueue& queue)
 {
   queue.out.bin.write(message.getData(), message.getMessageSize());
   queue.out.finishMessage(message.getMessageID());
-}
-
-char* MessageQueue::getStreamedData()
-{
-  ((unsigned*)queue.buf)[-2] = queue.usedSize;
-  ((unsigned*)queue.buf)[-1] = queue.numberOfMessages;
-  return queue.buf - MessageQueueBase::queueHeaderSize;
 }

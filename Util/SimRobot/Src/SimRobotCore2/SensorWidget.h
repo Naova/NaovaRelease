@@ -1,36 +1,37 @@
 /**
-* @file SensorWidget.h
-* Declaration of class SensorWidget
-* @author Colin Graf
-*/
+ * @file SensorWidget.h
+ * Declaration of class SensorWidget
+ * @author Colin Graf
+ */
 
 #pragma once
 
-#include <QWidget>
-#include <QPainter>
-
 #include "SimRobotCore2.h"
+#include <QList>
+#include <QPainter>
+#include <QPen>
+#include <QWidget>
 
 class QMenu;
 class QMimeData;
 
 /**
-* @class SensorWidget
-* A class that implements a view for visualizing sensor readings
-*/
+ * @class SensorWidget
+ * A class that implements a view for visualizing sensor readings
+ */
 class SensorWidget : public QWidget, public SimRobot::Widget
 {
   Q_OBJECT
 
 public:
-   /**
-  * Constructor
-  * @param sensor The sensor the readings of which should be visualized
-  */
+  /**
+   * Constructor
+   * @param sensor The sensor the readings of which should be visualized
+   */
   SensorWidget(SimRobotCore2::SensorPort* sensor);
 
   /** Destructor */
-  virtual ~SensorWidget();
+  ~SensorWidget();
 
 private:
   QPainter painter;
@@ -38,14 +39,14 @@ private:
   SimRobotCore2::SensorPort* sensor;
   SimRobotCore2::SensorPort::SensorType sensorType;
   QList<int> sensorDimensions;
-  QMimeData* mineData;
+  QMimeData* mineData = nullptr;
 
-  virtual QWidget* getWidget() {return this;}
-  virtual void update();
-  virtual QMenu* createEditMenu() const;
+  QWidget* getWidget() override {return this;}
+  void update() override;
+  QMenu* createEditMenu() const override;
 
-  virtual QSize sizeHint() const;
-  virtual void paintEvent(QPaintEvent *event);
+  QSize sizeHint() const override;
+  void paintEvent(QPaintEvent* event) override;
 
   void paintBoolSensor();
   void paintFloatArrayWithDescriptionsSensor();

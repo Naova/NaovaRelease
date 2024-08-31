@@ -1,9 +1,10 @@
 /**
- * @file Representations/MotionControl/kickRequest.h
+ * @file Representations/MotionControl/KickRequest.h
  * @author <a href="mailto:judy@informatik.uni-bremen.de">Judith Müller</a>
  */
 
 #pragma once
+#include "Tools/Function.h"
 #include "Tools/Math/Eigen.h"
 #include "Tools/Streams/Enum.h"
 #include "Tools/Streams/AutoStreamable.h"
@@ -15,7 +16,7 @@ STREAMABLE(DynPoint,
   DynPoint(int limb, int phaseNumber, const Vector3f& translationl, const int duration = -1);
 
   bool operator==(const DynPoint& other) const,
-  
+
   (int) limb,
   (int) phaseNumber,
   (int)(0) duration,
@@ -48,25 +49,25 @@ STREAMABLE(KickRequest,
 {
   ENUM(KickMotionID,
   {,
+    kickForwardFast,
+    kickForwardFastLong,
+    otherSideKick,
+    stopBallStart,
+    stopBallEnd,
+    kickForwardAndUp,
     kickForward,
-    none,
+    AltKickForward,
+    Alt2KickForward,
+    // kicks up to here are loaded by the KickEngine
     newKick,
+    none,
   });
 
-  static KickMotionID getKickMotionFromName(const char* name),
+  static KickMotionID getKickMotionFromName(const char* name);
+
+  FUNCTION(std::vector<DynPoint>(const int phaseNumber)) calcDynPoints,
 
   (KickMotionID)(none) kickMotionType,
   (bool)(false) mirror,
   (bool)(false) armsBackFix,
-  (bool)(false) autoProceed,
-  //(bool)(false) boost,
-  (std::vector<DynPoint>) dynPoints,
 });
-
-STREAMABLE(Continuation,
-{,
-  ((KickRequest) KickMotionID)(KickRequest::none) kickType,
-  (bool)(false) mirror,
-});
-
-using stdVectorContinuation = std::vector<Continuation>;

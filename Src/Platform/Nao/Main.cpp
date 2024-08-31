@@ -4,47 +4,49 @@
  * @author Colin Graf
  */
 
+#include <algorithm>
+#include <cmath>
 #include <csignal>
 #include <cstdio>
 #include <cstring>
 #include <sys/file.h> // flock
 #include <fcntl.h>
 #include <sys/wait.h>
-#include <unistd.h>
-#include "Tools/Communication/MsgPack.h"
-#include "Robot.h"
-#include "NaoBody.h"
-#include "Tools/Settings.h"
-#include "libbhuman/bhuman.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+
+#include "Tools/Framework/Robot.h"
+#include "Tools/RobotParts/Joints.h"
+#include "Platform/File.h"
+#include "Tools/Communication/MsgPack.h"
+#include "Tools/FunctionList.h"
 #include "Tools/Math/Angle.h"
 #include "Tools/Math/Constants.h"
-#include "Tools/RobotParts/Joints.h"
+#include "Tools/Settings.h"
+#include "Tools/Streams/InStreams.h"
+
 static pid_t bhumanPid = 0;
 static Robot* robot = nullptr;
 static bool run = true;
-static bool shutdownNAO = false;
 static pthread_t mainThread;
+static bool shutdownNAO = false;
 
-static void bhumanStart()
+static void bhumanStart(const Settings& settings)
 {
-  fprintf(stderr, "BHuman: Start.\n");
+  fprintf(stderr, "B-Human: Start.\n");
 
-  robot = new Robot();
-  
+  robot = new Robot(settings, std::string());
   robot->start();
 }
 
 static void bhumanStop()
 {
-  fprintf(stderr, "BHuman: Stop.\n");
+  fprintf(stderr, "B-Human: Stop.\n");
   robot->announceStop();
   robot->stop();
   delete robot;
-  robot = 0;
-  //fprintf(stderr, "BHuman: Stopped.\n");
+  robot = nullptr;
 }
 
 static void sighandlerShutdown(int sig)
@@ -62,11 +64,57 @@ static void sighandlerShutdown(int sig)
   }
 }
 
-static void sighandlerRedirect(int sig)
+static void sighandlerRedirect(int)
 {
-  //if(bhumanPid != 0)
-  //kill(bhumanPid, sig);
   run = false;
+}
+
+STREAMABLE(Robots,
+{
+  STREAMABLE(RobotId,
+  {,
+    (std::string) name,
+    (std::string) headId,
+    (std::string) bodyId,
+  }),
+
+  (std::vector<RobotId>) robotsIds,
+});
+
+static std::string getBodyId()
+{
+  int socket = ::socket(AF_UNIX, SOCK_STREAM, 0);
+  sockaddr_un address;
+  address.sun_family = AF_UNIX;
+  std::strcpy(address.sun_path, "/tmp/robocup");
+  if(connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)))
+  {
+    fprintf(stderr, "Waiting for LoLA... ");
+    while(connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)))
+      usleep(100000);
+    fprintf(stderr, "OK\n");
+  }
+
+  std::string bodyId;
+
+  // Receive a single packet and extract serial number of body.
+  unsigned char receivedPacket[896];
+  long bytesReceived = recv(socket, reinterpret_cast<char*>(receivedPacket), sizeof(receivedPacket), 0);
+  if(bytesReceived >= 0)
+    MsgPack::parse(receivedPacket, bytesReceived,
+                   [](const std::string&, const unsigned char*) {},
+                   [](const std::string&, const unsigned char*) {},
+                   [&bodyId](const std::string& key, const unsigned char* value, size_t valueSize)
+                   {
+                     if(key == "RobotConfig:0" && valueSize)
+                     {
+                       bodyId.resize(valueSize);
+                       std::strncpy(&bodyId[0], reinterpret_cast<const char*>(value), valueSize);
+                     }
+                   });
+  close(socket);
+
+  return bodyId;
 }
 
 static void sitDown(bool ok)
@@ -172,29 +220,49 @@ static void sitDown(bool ok)
   }
   close(socket);
 }
+
+static std::string getBodyName(const std::string& bodyId)
+{
+  std::string bodyName;
+  std::string bhdir = File::getBHDir();
+  InMapFile robotsStream(bhdir + "/Config/Robots/robots.cfg");
+  if(!robotsStream.exists())
+    fprintf(stderr, "Could not load robots.cfg\n");
+  else
+  {
+    Robots robots;
+    robotsStream >> robots;
+    for(const Robots::RobotId& robot : robots.robotsIds)
+      if(robot.bodyId == bodyId)
+      {
+        bodyName = robot.name;
+        return bodyName;
+      }
+    fprintf(stderr, "Could not find bodyName in robots.cfg! BodyId: %s\nAssuming \"Default\".\n", bodyId.c_str());
+    bodyName = "Default";
+  }
+  return bodyName;
+}
+
 int main(int argc, char* argv[])
 {
-  
+  {
+    // Set stdout to be unbuffered.
+    // This has previously been done using stdbuf, but this does not work for a 64-bit program on a 32-bit system.
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
     mainThread = pthread_self();
 
     // parse command-line arguments
-    bool background = false;
-    bool recover = false;
     bool watchdog = false;
-    const char* bhDir = "/home/nao";
 
     for(int i = 1; i < argc; ++i)
-      if(!strcmp(argv[i], "-b"))
-        background = true;
-      else if(!strcmp(argv[i], "-w"))
+      if(!strcmp(argv[i], "-w"))
         watchdog = true;
-      else if(!strcmp(argv[i], "-c") && i + 1 < argc)
-        bhDir = argv[++i];
       else
       {
-        fprintf(stderr, "Usage: %s [-b] [-c <dir>] [-w]\n\
-    -b            run in background (as daemon)\n\
-    -c <dir>      used gt directory (default is /home/nao)\n\
+        fprintf(stderr, "Usage: %s [-w]\n\
     -w            use a watchdog for crash recovery and creating trace dumps\n", argv[0]);
         exit(EXIT_FAILURE);
       }
@@ -206,20 +274,9 @@ int main(int argc, char* argv[])
       fprintf(stderr, "There is already an instance of this process!\n");
       exit(EXIT_FAILURE);
     }
-/************************************bon*****************************/
-    // start as daemon
-    if(background)
-    {
-      fprintf(stderr, "Starting as daemon...\n");
-      pid_t childPid = fork();
-      if(childPid == -1)
-        exit(EXIT_FAILURE);
-      if(childPid != 0)
-        exit(EXIT_SUCCESS);
-    }
 
     // change working directory
-    if(*bhDir && chdir(bhDir) != 0)
+    if(chdir("/home/nao") != 0)
     {
       fprintf(stderr, "chdir to config directory failed!\n");
       exit(EXIT_FAILURE);
@@ -230,122 +287,81 @@ int main(int argc, char* argv[])
     {
       for(;;)
       {
-        // create pipe for logging
-        int stdoutPipe[2];
-        int stderrPipe[2];
-        bool pipeReady = true;
-
-        if(pipe(stdoutPipe) == -1 || pipe(stderrPipe) == -1)
-        {
-          fprintf(stderr, "B-Human: Error while creating pipes for logging. All logs will be printed on console only! \n");
-          pipeReady = false;
-        }
-
         bhumanPid = fork();
         if(bhumanPid == -1)
           exit(EXIT_FAILURE);
-        if(bhumanPid != 0)
-        {
-          int status;
-          signal(SIGTERM, sighandlerRedirect);
-          signal(SIGINT, sighandlerRedirect);
-          if(waitpid(bhumanPid, &status, 0) != bhumanPid)
-          {
-            exit(EXIT_FAILURE);
-          }
-          signal(SIGTERM, SIG_DFL);
-          signal(SIGINT, SIG_DFL);
-
-          if(pipeReady)
-          {
-            // close unused write end
-            close(stdoutPipe[1]);
-            close(stderrPipe[1]);
-
-            dup2(STDOUT_FILENO, stdoutPipe[0]); // redirect out-pipe to stdout
-            dup2(STDERR_FILENO, stderrPipe[0]); // redirect err-pipe to stderr
-          }
-
-          // detect requested or normal exit
-          bool normalExit = !run || (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
-
-          // dump trace and assert trace
-          if(!normalExit)
-          {
-            NaoBody naoBody;
-            if(naoBody.init())
-            {
-              naoBody.setCrashed(WIFSIGNALED(status) ? int(WTERMSIG(status)) : int(abnormalTerminationState));
-              naoBody.cleanup();
-            }
-            Assert::logDump(WIFSIGNALED(status) ? int(WTERMSIG(status)) : 0);
-          }
-          // quit here?
-          if(normalExit)
-            exit(WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
-          // don't restart if the child process got killed
-          if(WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL)
-            exit(EXIT_FAILURE);
-
-          // restart in release mode only
-#ifndef NDEBUG
-          exit(EXIT_FAILURE);
-
-#else
-          // deactivate the pre-initial state
-          recover = true;
-          usleep(2000 * 1000);
-#endif
-        }
-        else
-        {
-          if(pipeReady)
-          {
-            // close unused read end
-            close(stdoutPipe[0]);
-            close(stderrPipe[0]);
-            dup2(STDOUT_FILENO, stdoutPipe[1]); // redirect stdout to out-pipe
-            dup2(STDERR_FILENO, stderrPipe[1]); // redirect stderr to err-pipe
-          }
+        else if(bhumanPid == 0)
           break;
-        }
-      }
-    }
-/*******************************on comence le changement ici**********************/
-    // wait for NaoQi/libbhuman
-    NaoBody naoBody;
-    if(1)
-    {
-      do
-      {
-        usleep(1000000);
-      }
-      while(!naoBody.init());
-    }
-    // load first settings instance
-    Settings settings;
-    
-    settings.recover = recover;
 
-    if(!settings.loadingSucceeded())
+        int status;
+        signal(SIGTERM, sighandlerRedirect);
+        signal(SIGINT, sighandlerRedirect);
+        if(waitpid(bhumanPid, &status, 0) != bhumanPid)
+        {
+          exit(EXIT_FAILURE);
+        }
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGINT, SIG_DFL);
+
+        // detect requested or normal exit
+        bool normalExit = !run || (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
+
+        // dump trace and assert trace
+        if(!normalExit)
+        {
+          // Wait 100 ms before attempting to sitdown. Otherwise, LoLA might send an invalid packet.
+          usleep(100000);
+
+          sitDown(false);
+
+          // Dump to file first, because writing to stderr may fail for various reasons.
+          Assert::logDump(false, WIFSIGNALED(status) ? int(WTERMSIG(status)) : 0);
+          Assert::logDump(true, WIFSIGNALED(status) ? int(WTERMSIG(status)) : 0);
+        }
+
+        // quit
+        exit(WIFEXITED(status) && normalExit ? WEXITSTATUS(status) : EXIT_FAILURE);
+      }
+    }
+
+    BH_TRACE_INIT("main");
+
+    // Acquire static data, e.g. about types
+    FunctionList::execute();
+
+    Settings settings(SystemCall::getHostName(), getBodyName(getBodyId()));
+    if(settings.playerNumber < 0 || settings.bodyName.empty())
       return EXIT_FAILURE;
-    // register signal handler for strg+c and termination signal
+
+    // print status information
+    if(settings.headName == settings.bodyName)
+      printf("Hi, I am %s.\n", settings.headName.c_str());
+    else
+      printf("Hi, I am %s (using %s's body).\n", settings.headName.c_str(), settings.bodyName.c_str());
+    printf("teamNumber %d\n", settings.teamNumber);
+    printf("teamPort %d\n", settings.teamPort);
+    printf("teamColor %s\n", TypeRegistry::getEnumName(settings.teamColor));
+    printf("playerNumber %d\n", settings.playerNumber);
+    printf("location %s\n", settings.location.c_str());
+    printf("scenario %s\n", settings.scenario.c_str());
+    printf("magicNumber %d\n", settings.magicNumber);
+
+    // register signal handler for ctrl+c and termination signal
     signal(SIGTERM, sighandlerShutdown);
     signal(SIGINT, sighandlerShutdown);
 
-    //
-    bhumanStart();
-  
-  while(run){
-    pause();
+    bhumanStart(settings);
+
+    // settings go out of scope here, but everything that needs it later makes a copy.
   }
-    
+
+  while(run)
+    pause();
+
   bhumanStop();
   sitDown(true);
   if(shutdownNAO)
     static_cast<void>(!system("sudo systemctl poweroff &"));
-
-
 
   return EXIT_SUCCESS;
 }

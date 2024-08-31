@@ -1,37 +1,33 @@
 /**
- * @file Tools/ImageProcessing/Resize.h
+ * @file Resize.h
  *
  * Functions to resize images.
  *
- * @author Alexis Tsogias, Felix Thielke
- * @author <a href="mailto:jesse@tzi.de">Jesse Richter-Klug</a>
+ * @author Felix Thielke
  */
 
 #pragma once
 
-#include "Representations/Infrastructure/Image.h"
-#include "Tools/ImageProcessing/TImage.h"
-#include "Tools/Streams/Streamable.h"
-#include "Tools/Streams/OutStreams.h"
+#include "Tools/ImageProcessing/Image.h"
+#include "Tools/ImageProcessing/PixelTypes.h"
 
 namespace Resize
 {
-  // shrink color images
-  void shrinkNxN(const Image& srcImage, TImage<Image::Pixel>& destImage, unsigned int downScalesExponent);
-  void shrink8x8SSE(const Image& srcImage, TImage<Image::Pixel>& destImage);
-  void shrink4x4SSE(const Image& srcImage, TImage<Image::Pixel>& destImage);
+  void shrinkY(const unsigned int downScales, const Image<PixelTypes::GrayscaledPixel>& src, PixelTypes::GrayscaledPixel* dest);
 
-  // shrink grayscale images
-  void shrinkGrayscaleNxN(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage, unsigned int downScalesExponent);
-  template<bool avx> void shrinkGrayscale16x16SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkGrayscale8x8SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkGrayscale4x4SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkGrayscale2x2SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
+  inline void shrinkY(const unsigned int downScales, const Image<PixelTypes::GrayscaledPixel>& src, Image<PixelTypes::GrayscaledPixel>& dest)
+  {
+    dest.setResolution(src.width, src.height); // The shrinking algorithm uses more than the final downscaled size.
+    dest.setResolution(src.width >> downScales, src.height >> downScales);
+    shrinkY(downScales, src, dest[0]);
+  }
 
-  // shrink color channels images
-  void shrinkColorChannelNxN(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage, unsigned int downScalesExponent);
-  template<bool avx> void shrinkColorChannel16x16SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkColorChannel8x8SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkColorChannel4x4SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-  template<bool avx> void shrinkColorChannel2x2SSE(const TImage<unsigned char>& srcImage, TImage<unsigned char>& destImage);
-};
+  void shrinkUV(const unsigned int downScales, const Image<PixelTypes::YUYVPixel>& src, unsigned short* dest);
+
+  inline void shrinkUV(const unsigned int downScales, const Image<PixelTypes::YUYVPixel>& src, Image<unsigned short>& dest)
+  {
+    dest.setResolution(src.width, src.height); // The shrinking algorithm uses more than the final downscaled size.
+    dest.setResolution(src.width >> downScales, src.height >> (downScales + 1));
+    shrinkUV(downScales, src, dest[0]);
+  }
+}

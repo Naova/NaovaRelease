@@ -1,161 +1,144 @@
 /**
  * @file BehaviorControl.h
- * Declaration of the C-based state machine behavior control module.
- * @author Thomas Röfer
- * @author Tim Laue
+ *
+ * This file declares the new BehaviorControl in Season 2019.
+ *
+ * @author Jesse Richter-Klug
  */
 
 #pragma once
 
-#include "Platform/SystemCall.h"
 #include "Representations/BehaviorControl/ActivationGraph.h"
 #include "Representations/BehaviorControl/BehaviorStatus.h"
-#include "Representations/BehaviorControl/Libraries/LibDemo.h"
-#include "Representations/BehaviorControl/Libraries/LibCodeRelease.h"
-#include "Representations/BehaviorControl/Libraries/RoleChanges.h"
-#include "Representations/BehaviorControl/PathPlanner.h"
-#include "Representations/BehaviorControl/DribblingQLearning.h"
-#include "Representations/BehaviorControl/Role.h"
-#include "Representations/BehaviorControl/SPLStandardBehaviorStatus.h"
-#include "Representations/BehaviorControl/TimeToReachBall.h"
-#include "Representations/Communication/TeamData.h"
-#include "Representations/Configuration/BallSpecification.h"
-#include "Representations/Configuration/BehaviorParameters.h"
-#include "Representations/Configuration/CameraCalibrationRating.h"
-#include "Representations/Configuration/DamageConfiguration.h"
-#include "Representations/Configuration/FieldDimensions.h"
+#include "Representations/BehaviorControl/Libraries/LibCheck.h"
+#include "Representations/Communication/RobotInfo.h"
+#include "Representations/Configuration/CalibrationRequest.h"
 #include "Representations/Infrastructure/CameraStatus.h"
-#include "Representations/Infrastructure/CognitionStateChanges.h"
 #include "Representations/Infrastructure/FrameInfo.h"
-#include "Representations/Infrastructure/GameInfo.h"
-#include "Representations/Infrastructure/JointAngles.h"
-#include "Representations/Infrastructure/RobotInfo.h"
-#include "Representations/Infrastructure/TeamInfo.h"
+#include "Representations/Infrastructure/RobotHealth.h"
 #include "Representations/Infrastructure/SensorData/KeyStates.h"
+#include "Representations/Infrastructure/TeamTalk.h"
 #include "Representations/Modeling/BallModel.h"
-#include "Representations/Modeling/GlobalFieldCoverage.h"
-#include "Representations/Modeling/ObstacleModel.h"
-#include "Representations/Modeling/RobotPose.h"
-#include "Representations/Modeling/SideConfidence.h"
-#include "Representations/Modeling/TeamBallModel.h"
-#include "Representations/MotionControl/ArmKeyFrameEngineOutput.h"
 #include "Representations/MotionControl/ArmMotionRequest.h"
-#include "Representations/MotionControl/ArmMotionSelection.h"
-#include "Representations/MotionControl/GetUpEngineOutput.h"
-#include "Representations/MotionControl/HeadMotionEngineOutput.h"
 #include "Representations/MotionControl/HeadMotionRequest.h"
-#include "Representations/MotionControl/KickEngineOutput.h"
-#include "Representations/MotionControl/MotionInfo.h"
-#include "Representations/MotionControl/WalkGenerator.h"
-#include "Representations/MotionControl/LegMotionSelection.h"
-#include "Representations/MotionControl/WalkingEngineOutput.h"
-#include "Representations/Sensing/ArmContactModel.h"
-#include "Representations/Sensing/FallDownState.h"
-#include "Representations/Sensing/FootBumperState.h"
-#include "Representations/Sensing/GroundContactState.h"
-#include "Tools/Debugging/Annotation.h"
-#include "Tools/Math/Geometry.h"
-#include "Tools/Math/Random.h"
-#include "Tools/Math/Transformation.h"
-#include "Tools/Modeling/BallPhysics.h"
+#include "Representations/MotionControl/MotionRequest.h"
+#include "Representations/MotionControl/OdometryData.h"
+#include "Representations/Infrastructure/SensorData/JointSensorData.h"
 #include "Tools/Module/Module.h"
-#include <algorithm>
-#include <limits>
-#include <sstream>
-#ifdef __INTELLISENSE__
-#define INTELLISENSE_PREFIX BehaviorControl::
-#endif
-#include "Tools/Cabsl.h" // include last, because macros might mix up other header files
+#include "Tools/Streams/Enum.h"
+#include <string>
 
 MODULE(BehaviorControl,
 {,
-  REQUIRES(ActivationGraph),
-  REQUIRES(ArmContactModel),
-  REQUIRES(ArmKeyFrameEngineOutput),
-  REQUIRES(ArmMotionInfo),
-  REQUIRES(ArmMotionSelection),
-  REQUIRES(BallModel),
-  REQUIRES(BallSpecification),
-  REQUIRES(BehaviorParameters),
-  REQUIRES(CameraCalibrationRating),
   REQUIRES(CameraStatus),
-  REQUIRES(DamageConfigurationBody),
-  REQUIRES(FallDownState),
-  REQUIRES(FieldDimensions),
-  REQUIRES(FootBumperState),
-  REQUIRES(FrameInfo),
-  REQUIRES(GameInfo),
-  REQUIRES(GetUpEngineOutput),
-  REQUIRES(GlobalFieldCoverage),
-  REQUIRES(GroundContactState),
-  REQUIRES(HeadMotionEngineOutput),
-  REQUIRES(JointAngles),
-  REQUIRES(KeyStates),
-  REQUIRES(KickEngineOutput),
-  REQUIRES(LibDemo),
-  REQUIRES(LibCodeRelease),
-  REQUIRES(RoleChanges),
-  REQUIRES(DribblingQLearning),
-  REQUIRES(MotionInfo),
-  REQUIRES(WalkGenerator),
-  REQUIRES(LegMotionSelection),
-  REQUIRES(ObstacleModel),
-  REQUIRES(OwnTeamInfo),
-  REQUIRES(PathPlanner),
+  REQUIRES(EnhancedKeyStates),
+  REQUIRES(RobotHealth),
   REQUIRES(RobotInfo),
-  REQUIRES(RobotPose),
-  REQUIRES(SideConfidence),
-  REQUIRES(TeamBallModel),
-  REQUIRES(TeamData),
-  REQUIRES(WalkingEngineOutput),
+
+  REQUIRES(BallModel),
+  REQUIRES(FrameInfo),
+  REQUIRES(JointSensorData),
+  REQUIRES(LibCheck),
+  REQUIRES(OdometryData),
+
   PROVIDES(ActivationGraph),
+  REQUIRES(ActivationGraph),
+
   PROVIDES(ArmMotionRequest),
   PROVIDES(BehaviorStatus),
+  PROVIDES(CalibrationRequest),
   PROVIDES(HeadMotionRequest),
   PROVIDES(MotionRequest),
-  PROVIDES(SPLStandardBehaviorStatus),
+  PROVIDES(TeamTalk),
+
+  LOADS_PARAMETERS(
+  {,
+    (std::string) rootCard, /**< The card that is executed directly by this module. */
+  }),
 });
 
-/**
- * @class BehaviorControl
- * A C-based state machine behavior control module.
- */
-class BehaviorControl : public BehaviorControlBase, public Cabsl<BehaviorControl>
+// Include here so macros do not dismantle themself
+#include "Tools/BehaviorControl/Framework/Card/Card.h"
+#include "Tools/BehaviorControl/Framework/Skill/Skill.h"
+
+class BehaviorControl : public BehaviorControlBase
 {
-#include "Options.h"
+public:
+  /** Constructor. */
+  BehaviorControl();
 
-  STREAMABLE(Parameters,
-  {
-    /** Helper for streaming a vector of enums that are defined in another class. */
-    struct OptionInfos : Cabsl<BehaviorControl>::OptionInfos {using Options = std::vector<Option>;},
+  /**
+   * Creates extended module info (union of this module's info and requirements of all behavior parts (cards and skills)).
+   * @return The extended module info.
+   */
+  static std::vector<ModuleBase::Info> getExtModuleInfo();
 
-    ((OptionInfos) Options) roots, /**< All options that function as behavior roots. */
+private:
+  /**
+   * Updates the activation graph.
+   * @param activationGraph The provided activation graph.
+   */
+  void update(ActivationGraph& activationGraph) override;
+
+  /** Executes the top-level state machine of the behavior. */
+  void execute();
+
+  /**
+   * Updates the arm motion request.
+   * @param armMotionRequest The provided arm motion request.
+   */
+  void update(ArmMotionRequest& armMotionRequest) override { armMotionRequest = theArmMotionRequest; }
+
+  /**
+   * Updates the behavior status.
+   * @param behaviorStatus The provided behavior status.
+   */
+  void update(BehaviorStatus& behaviorStatus) override { behaviorStatus = theBehaviorStatus; }
+
+  /**
+   * Updates the camera calibration request.
+   * @param CalibrationRequest The provided camera calibration request.
+   */
+  void update(CalibrationRequest& CalibrationRequest) override { CalibrationRequest = theCalibrationRequest; }
+
+  /**
+   * Updates the head motion request.
+   * @param headMotionRequest The provided head motion request.
+   */
+  void update(HeadMotionRequest& headMotionRequest) override { headMotionRequest = theHeadMotionRequest; }
+
+  /**
+   * Updates the motion request.
+   * @param motionRequest The provided motion request.
+   */
+  void update(MotionRequest& motionRequest) override { motionRequest = theMotionRequest; }
+
+  /**
+   * Updates team talk.
+   * @param motionRequest The provided team talk.
+   */
+  void update(TeamTalk& teamTalk) override { teamTalk = theTeamTalk; }
+
+  ENUM(State,
+  {,
+    inactive,
+    sittingDown,
+    gettingUp,
+    cameraStatusFAILED,
+    lowBattery,
+    penalized,
+    playing,
   });
 
-  void update(ActivationGraph& activationGraph);
+  State status = inactive;
 
-  /** Updates the arm motion request by copying it from the behavior */
-  void update(ArmMotionRequest& armMotionRequest) { armMotionRequest = theArmMotionRequest; }
+  ArmMotionRequest theArmMotionRequest; /**< The arm motion request that is modified by the behavior. */
+  BehaviorStatus theBehaviorStatus; /**< The behavior status that is modified by the behavior. */
+  CalibrationRequest theCalibrationRequest; /**< The camera calibration request that is modified by the behavior. */
+  HeadMotionRequest theHeadMotionRequest; /**< The head motion request that is modified by the behavior. */
+  MotionRequest theMotionRequest; /**< The motion request that is modified by the behavior. */
+  TeamTalk theTeamTalk; /**< The team talk that is modified by the behavior. */
 
-  /** Update the behavior status by copying it from the behavior */
-  void update(BehaviorStatus& behaviorStatus) {behaviorStatus = theBehaviorStatus;}
-
-  /** Updates the head motion request by copying it from the behavior */
-  void update(HeadMotionRequest& headMotionRequest) {headMotionRequest = theHeadMotionRequest;}
-
-  /** Updates the motion request by copying it from the behavior */
-  void update(MotionRequest& motionRequest) {motionRequest = theMotionRequest;}
-
-  /** Updates the standard behavior status by copying it from the behavior */
-  void update(SPLStandardBehaviorStatus& splStandardBehaviorStatus) {splStandardBehaviorStatus = theSPLStandardBehaviorStatus;}
-
-  Parameters parameters; /**< The root options. */
-  BehaviorStatus theBehaviorStatus;
-  HeadMotionRequest theHeadMotionRequest; /**< The head motion request that will be set. */
-  ArmMotionRequest theArmMotionRequest;
-  MotionRequest theMotionRequest;
-  SPLStandardBehaviorStatus theSPLStandardBehaviorStatus;
-
-public:
-  BehaviorControl();
+  SkillRegistry theSkillRegistry; /**< The manager of all skills. */
+  CardRegistry theCardRegistry; /**< The manager of all cards. */
 };

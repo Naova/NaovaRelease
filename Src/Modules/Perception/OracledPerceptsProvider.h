@@ -1,7 +1,7 @@
 /**
  * @file Modules/Infrastructure/OracledPerceptsProvider.h
  *
- * This file implements a module that provides percepts based on simulated data.
+ * This file defines a module that provides percepts based on simulated data.
  *
  * @author <a href="mailto:tlaue@uni-bremen.de">Tim Laue</a>
  */
@@ -17,13 +17,13 @@
 #include "Representations/Perception/BallPercepts/BallPercept.h"
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
 #include "Representations/Perception/ImagePreprocessing/FieldBoundary.h"
-#include "Representations/Perception/FieldPercepts/GoalPostPercept.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldPercepts/LinesPercept.h"
 #include "Representations/Perception/FieldPercepts/IntersectionsPercept.h"
 #include "Representations/Perception/FieldPercepts/PenaltyMarkPercept.h"
-#include "Representations/Perception/PlayersPercepts/PlayersFieldPercept.h"
-#include "Representations/Perception/PlayersPercepts/PlayersImagePercept.h"
+#include "Representations/Perception/GoalPercepts/GoalPostsPercept.h"
+#include "Representations/Perception/ObstaclesPercepts/ObstaclesFieldPercept.h"
+#include "Representations/Perception/ObstaclesPercepts/ObstaclesImagePercept.h"
 
 MODULE(OracledPerceptsProvider,
 {,
@@ -35,10 +35,10 @@ MODULE(OracledPerceptsProvider,
   REQUIRES(FieldDimensions),
   PROVIDES(BallPercept),
   PROVIDES(CirclePercept),
-  PROVIDES(GoalPostPercept),
+  PROVIDES(GoalPostsPercept),
   PROVIDES(LinesPercept),
-  PROVIDES(PlayersFieldPercept),
-  PROVIDES(PlayersImagePercept),
+  PROVIDES(ObstaclesFieldPercept),
+  PROVIDES(ObstaclesImagePercept),
   PROVIDES(PenaltyMarkPercept),
   PROVIDES(FieldBoundary),
   LOADS_PARAMETERS(
@@ -47,7 +47,7 @@ MODULE(OracledPerceptsProvider,
     (float) ballCenterInImageStdDev,                 /**< Standard deviation of error in pixels (x as well as y) */
     (float) ballMaxVisibleDistance,                  /**< Maximum distance until which this object can be seen */
     (float) ballRecognitionRate,                     /**< Likelihood of actually perceiving this object, when it is in the field of view */
-    (float) ballFalsePositiveRate,                   /**< Likelihood of a perceiving a false positve when the ball was not recognized */
+    (float) ballFalsePositiveRate,                   /**< Likelihood of a perceiving a false positive when the ball was not recognized */
     (bool)  applyCenterCircleNoise,                  /**< Activate / Deactivate noise for center circle percepts */
     (float) centerCircleCenterInImageStdDev,         /**< Standard deviation of error in pixels (x as well as y) */
     (float) centerCircleMaxVisibleDistance,          /**< Maximum distance until which this object can be seen */
@@ -62,11 +62,9 @@ MODULE(OracledPerceptsProvider,
     (float) lineRecognitionRate,                     /**< Likelihood of actually perceiving this object, when it is in the field of view */
     (bool)  applyPlayerNoise,                        /**< Activate / Deactivate noise for player percepts */
     (float) playerPosInImageStdDev,                  /**< Standard deviation of error in pixels (x as well as y) */
-    (float) playerOrientationDetectionStdDev,        /**< Standard deviation of error in degrees */
     (float) playerMaxVisibleDistance,                /**< Maximum distance until which this object can be seen */
     (float) playerRecognitionRate,                   /**< Likelihood of actually perceiving this object, when it is in the field of view */
-    (float) playerOrientationRecognitionRate,        /**< Likelihood of perceiving the orientation of this object */
-    (float) playerCorrectOrientationRecognitionRate, /**< Likelihood of perceiving the full orientation of this object (see orientation documentation in the players percept) */
+    (float) playerFalsePositiveRate,                 /**< Likelihood of perceiving a false positive when no player was seen */
     (bool)  applyNearGoalPostNoise,                  /**< Activate / Deactivate noise for goal post percepts */
     (float) nearGoalPostPosInImageStdDev,            /**< Standard deviation of error in pixels (x as well as y) */
     (float) nearGoalPostMaxVisibleDistance,          /**< Maximum distance until which this object can be seen */
@@ -75,6 +73,8 @@ MODULE(OracledPerceptsProvider,
     (float) penaltyMarkPosInImageStdDev,             /**< Standard deviation of error in pixels (x as well as y) */
     (float) penaltyMarkMaxVisibleDistance,           /**< Maximum distance until which this object can be seen */
     (float) penaltyMarkRecognitionRate,              /**< Likelihood of actually perceiving this object, when it is in the field of view */
+    (float) penaltyMarkFalsePositiveRate,            /**< Likelihood of perceiving a false positive, when no penaltyMark was seen */
+    (float) penaltyMarkFalseDeviationFactor,         /**< Factor of how much the false penalty mark deviates from its original position */
     (float) obstacleCoverageThickness,               /**<  */
   }),
 });
@@ -101,58 +101,58 @@ private:
   /** One main function, might be called every cycle
    * @param ballPercept The data struct to be filled
    */
-  void update(BallPercept& ballPercept);
+  void update(BallPercept& ballPercept) override;
   void trueBallPercept(BallPercept& ballPercept);
   void falseBallPercept(BallPercept& ballPercept);
 
   /** One main function, might be called every cycle
-   * @param goalPostPercept The data struct to be filled
+   * @param goalPostsPercept The data struct to be filled
    */
-  void update(GoalPostPercept& goalPostPercept);
+  void update(GoalPostsPercept& goalPostsPercept) override;
 
   /** One main function, might be called every cycle
    * @param linesPercept The data struct to be filled
    */
-  void update(LinesPercept& linesPercept);
+  void update(LinesPercept& linesPercept) override;
 
   /** One main function, might be called every cycle
    * @param circlePercept The data struct to be filled
    */
-  void update(CirclePercept& circlePercept);
+  void update(CirclePercept& circlePercept) override;
 
   /** One main function, might be called every cycle
    * @param penaltyMarkPercept The data struct to be filled
    */
-  void update(PenaltyMarkPercept& penaltyMarkPercept);
+  void update(PenaltyMarkPercept& penaltyMarkPercept) override;
+  void falsePenaltyMarkPercept(PenaltyMarkPercept& penaltyMarkPercept);
 
   /** One main function, might be called every cycle
-   * @param playersImagePercept The data struct to be filled
+   * @param obstaclesImagePercept The data struct to be filled
    */
-  void update(PlayersImagePercept& playersImagePercept);
+  void update(ObstaclesImagePercept& obstaclesImagePercept) override;
 
   /** One main function, might be called every cycle
-   * @param playersFieldPercept The data struct to be filled
+   * @param obstaclesFieldPercept The data struct to be filled
    */
-  void update(PlayersFieldPercept& playersFieldPercept);
+  void update(ObstaclesFieldPercept& obstaclesFieldPercept) override;
 
   /** One main function, might be called every cycle
    * @param fieldBoundary The data struct to be filled
    */
-  void update(FieldBoundary& fieldBoundary);
+  void update(FieldBoundary& fieldBoundary) override;
+
+  /** Converts a ground truth player to a perceived player and adds it to the percept
+   * @param player The ground truth player
+   * @param obstaclesImagePercept The obstacles percept in the image (What else?)
+   */
+  void createPlayerBox(const GroundTruthWorldState::GroundTruthPlayer& player, ObstaclesImagePercept& obstaclesImagePercept);
 
   /** Converts a ground truth player to a perceived player and adds it to the percept
    * @param player The ground truth player
    * @param isOpponent true, if the perceived player belongs to the opponent team
-   * @param playersPercept The players percept (What else?)
+   * @param obstaclesFieldPercept The obstacles percept on the field (What else?)
    */
-  void createPlayerBox(const GroundTruthWorldState::GroundTruthPlayer& player, bool isOpponent, PlayersImagePercept& playersImagePercept);
-
-  /** Converts a ground truth player to a perceived player and adds it to the percept
-   * @param player The ground truth player
-   * @param isOpponent true, if the perceived player belongs to the opponent team
-   * @param playersPercept The players percept (What else?)
-   */
-  void createPlayerOnField(const GroundTruthWorldState::GroundTruthPlayer& player, bool isOpponent, PlayersFieldPercept& playersFieldPercept);
+  void createPlayerOnField(const GroundTruthWorldState::GroundTruthPlayer& player, bool isOpponent, ObstaclesFieldPercept& obstaclesFieldPercept);
 
   /** Checks, if a point on the field (relative to the robot) is inside the current image
    * @param  p    The point

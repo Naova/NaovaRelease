@@ -6,20 +6,19 @@
 
 #pragma once
 
-#include "Tools/Module/Module.h"
-#include "Representations/Infrastructure/Image.h"
+#include "Representations/Infrastructure/CameraImage.h"
+#include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Perception/ImagePreprocessing/ECImage.h"
-#include "Representations/Configuration/FieldColors.h"
+#include "Tools/Module/Module.h"
 
 MODULE(ECImageProvider,
 {,
-  REQUIRES(FieldColors),
   REQUIRES(CameraInfo),
-  REQUIRES(Image),
+  REQUIRES(CameraImage),
   PROVIDES(ECImage),
-  DEFINES_PARAMETERS(
+  LOADS_PARAMETERS(
   {,
-    (bool)(true) hueIsNeeded,
+    (bool) disableColor,
   }),
 });
 
@@ -29,6 +28,16 @@ MODULE(ECImageProvider,
 class ECImageProvider : public ECImageProviderBase
 {
 private:
-  void update(ECImage& ecImage);
-  template<bool saveHue> void update(ECImage& ecImage);
+  using EcFunc = void (*)(unsigned int, const void*, void*, void*, void*);
+  using EFunc = void (*)(unsigned int, const void*, void*);
+
+  EcFunc ecFunc = nullptr;
+  EFunc eFunc = nullptr;
+
+  void update(ECImage& ecImage) override;
+  void compileE();
+  void compileEC();
+
+public:
+  ~ECImageProvider();
 };

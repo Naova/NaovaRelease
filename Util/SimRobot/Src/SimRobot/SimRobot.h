@@ -1,13 +1,13 @@
 /**
-* @file SimRobot/SimRobot.h
-* Declaration of an interface to the SimRobot GUI
-* @author Colin Graf
-*/
+ * @file SimRobot/SimRobot.h
+ * Declaration of an interface to the SimRobot GUI
+ * @author Colin Graf
+ */
 
 #pragma once
 
 class QString;
-template <typename T> class QVector;
+template<typename T> class QVector;
 class QIcon;
 class QMenu;
 class QSettings;
@@ -26,12 +26,12 @@ namespace SimRobot
     virtual QMenu* createFileMenu() const {return nullptr;}
     virtual QMenu* createEditMenu() const {return nullptr;}
     virtual QMenu* createUserMenu() const {return nullptr;}
-    virtual void paint(QPainter& painter) {}
+    virtual void paint(QPainter&) {}
   };
 
   /**
-  * An object that can be added to the scene graph
-  */
+   * An object that can be added to the scene graph
+   */
   class Object
   {
   public:
@@ -39,8 +39,8 @@ namespace SimRobot
     virtual Widget* createWidget() {return nullptr;}
 
     /** Accesses pathname to the object in the scene graph
-    * @return The pathname
-    */
+     * @return The pathname
+     */
     virtual const QString& getFullName() const = 0;
 
     virtual const QIcon* getIcon() const {return nullptr;}
@@ -57,8 +57,8 @@ namespace SimRobot
   };
 
   /**
-  * An object that will be displayed in the status bar
-  */
+   * An object that will be displayed in the status bar
+   */
   class StatusLabel
   {
   public:
@@ -67,9 +67,9 @@ namespace SimRobot
     virtual void update() {}
   };
 
- /**
-  * Flags that can be used for registering modules and objects
-  */
+  /**
+    * Flags that can be used for registering modules and objects
+    */
   class Flag
   {
   public:
@@ -83,12 +83,12 @@ namespace SimRobot
     static const int showParent = 0x0020; /**< When added, the parent will be made visible if hidden */
 
     // flags for registerModule
-    static const int ignoreReset = 0x1000; /**< The module keeps beeing loaded on scene resets */
+    static const int ignoreReset = 0x1000; /**< The module keeps being loaded on scene resets */
   };
 
   /**
-  * An interface to the SimRobot module
-  */
+   * An interface to the SimRobot module
+   */
   class Module
   {
   public:
@@ -97,43 +97,43 @@ namespace SimRobot
     virtual ~Module() = default;
 
     /**
-    * Called to initialize the module. In this phase the module can do the following tasks
-    *   - registering its own objects to the scene graph (using \c Application::registerObject)
-    *   - adding status labels to the GUI (using \c Application::addStatusLabel)
-    *   - suggest or load further modules (using \c Application::registerModule, \c Application::loadModule)
-    * @return Whether an error occurred while initializing the module or not
-    */
+     * Called to initialize the module. In this phase the module can do the following tasks
+     *   - registering its own objects to the scene graph (using \c Application::registerObject)
+     *   - adding status labels to the GUI (using \c Application::addStatusLabel)
+     *   - suggest or load further modules (using \c Application::registerModule, \c Application::loadModule)
+     * @return Whether an error occurred while initializing the module or not
+     */
     virtual bool compile() {return true;}
 
     /**
-    * Called after all modules have been compiled. In this phase the module can update references to scene graph objects of other modules. (using \c resolveObject)
-    */
+     * Called after all modules have been compiled. In this phase the module can update references to scene graph objects of other modules. (using \c resolveObject)
+     */
     virtual void link() {}
 
     /**
-    * Called to perform another simulation step
-    */
+     * Called to perform another simulation step
+     */
     virtual void update() {}
 
     /**
-    * A handler that will be called when any modules uses \c Application::selectObject
-    */
-    virtual void selectedObject(const Object& object) {}
+     * A handler that will be called when any modules uses \c Application::selectObject
+     */
+    virtual void selectedObject(const Object&) {}
 
     /**
-    * A handler that can be used to implement CTRL + SHIFT shortcuts
-    */
-    virtual void pressedKey(int key, bool pressed) {}
+     * A handler that can be used to implement CTRL + SHIFT shortcuts
+     */
+    virtual void pressedKey(int /* key */, bool /* pressed */) {}
 
     /**
-    * Create a menu for this module. If 0 is returned, there is no menu.
-    */
+     * Create a menu for this module. If 0 is returned, there is no menu.
+     */
     virtual QMenu* createUserMenu() const {return nullptr;}
   };
 
   /**
-  * An interface to the SimRobot GUI
-  */
+   * An interface to the SimRobot GUI
+   */
   class Application
   {
   public:

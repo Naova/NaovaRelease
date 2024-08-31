@@ -24,12 +24,21 @@ void BallPercept::draw() const
     CIRCLE("representation:BallPercept:field", positionOnField.x(), positionOnField.y(), radiusOnField, 0, // pen width
            Drawings::solidPen, ColorRGBA::orange, Drawings::noBrush, ColorRGBA::orange);
     SPHERE3D("representation:BallPercept", positionOnField.x(), positionOnField.y(), radiusOnField, radiusOnField, ColorRGBA::orange);
-    DRAWTEXT("representation:BallPercept:image", positionInImage.x(), positionInImage.y(), 15, ColorRGBA::black, "confidence:" << confidenceLevel);
   }
   else if(status == guessed)
-  {
     CIRCLE("representation:BallPercept:image", positionInImage.x(), positionInImage.y(), radiusInImage, 1, // pen width
            Drawings::solidPen,  ColorRGBA::black, Drawings::solidBrush, ColorRGBA(64, 128, 255, 90));
-    DRAWTEXT("representation:BallPercept:image", positionInImage.x(), positionInImage.y(), 15, ColorRGBA::black, "confidence:" << confidenceLevel);
+}
+
+void BallPercept::verify() const
+{
+  if(status == seen || status == guessed)
+  {
+    ASSERT(std::isfinite(positionInImage.x()));
+    ASSERT(std::isfinite(positionInImage.y()));
+    ASSERT(std::isfinite(positionOnField.x()));
+    ASSERT(std::isfinite(positionOnField.y()));
+    ASSERT(radiusInImage > 0.f);
+    ASSERT(radiusOnField > 0.f);
   }
 }

@@ -1,6 +1,7 @@
 /**
  * @file KickEngineParameters.h
  * @author <a href="mailto:judy@informatik.uni-bremen.de">Judith Müller</a>
+ * @author Philip Reichenberg
  */
 
 #pragma once
@@ -9,6 +10,7 @@
 
 #include "Tools/Math/Eigen.h"
 #include "Tools/Streams/Enum.h"
+#include "Representations/Infrastructure/JointAngles.h"
 
 class Phase : public Streamable
 {
@@ -40,11 +42,37 @@ public:
   Vector3f odometryOffset = Vector3f::Zero();
 
 protected:
-  virtual void serialize(In* in, Out* out);
+  void read(In& stream) override;
+  void write(Out& stream) const override;
+
+private:
+  static void reg();
 };
 
 STREAMABLE(KickEngineParameters,
 {
+  STREAMABLE(BoostAngle,
+  {
+    ENUM(InterpolationMode,
+    {,
+      linear,
+      cosine,
+      square,
+    }),
+
+    (Joints::Joint) joint,
+    (Angle) angle,
+    (InterpolationMode) mode,
+  });
+
+  STREAMABLE(JointOffset,
+  {,
+    (int) kickKeyframeLine,
+    (std::vector<BoostAngle>) boost,
+  });
+
+  using stdVectorBoostAngles = std::vector<BoostAngle>;
+
   int numberOfPhases = 0;
   char name[260];
 
@@ -61,6 +89,10 @@ STREAMABLE(KickEngineParameters,
 
   void onRead(),
 
+  (stdVectorBoostAngles) boostAngles, /**< Used joints for boosting. */
+  (std::vector<JointOffset>) offsetList, /**< Adjust trajectory of specific joint. */
+
+  /**< Reference values for the limbs. */
   (Vector3f)(Vector3f::Zero()) footOrigin,
   (Vector3f)(Vector3f::Zero()) footRotOrigin,
   (Vector3f)(Vector3f::Zero()) armOrigin,
@@ -68,6 +100,7 @@ STREAMABLE(KickEngineParameters,
   (Vector2f)(Vector2f::Zero()) comOrigin,
   (Vector2f)(Vector2f::Zero()) headOrigin,
 
+  /**< PID-Controller balance parameters. */
   (float)(0.f) kpx,
   (float)(0.f) kix,
   (float)(0.f) kdx,
@@ -75,9 +108,11 @@ STREAMABLE(KickEngineParameters,
   (float)(0.f) kiy,
   (float)(0.f) kdy,
 
-  (bool)(false) loop,
-  (bool)(true)  standLeft,
-  (bool)(false) ignoreHead,
+  (bool)(false) loop, /**< Repeat the kick . */
+  (bool)(true)  standLeft, /**< Is the left foot the support foot. */
+  (bool)(false) ignoreHead, /**< Shall the head be ignored. */
+  (int)(-1) keyframeEarlyExitAllowedSafe, /**< The keyframe number of the current kick, at which the kick can be exited early based on safe measurements. */
+  (int)(-1) keyframeEarlyExitAllowedRisky, /**< The keyframe number of the current kick, at which the kick can be exited early based on risky measurements. */
 
-  (std::vector<Phase>) phaseParameters,
+  (std::vector<Phase>) phaseParameters, /**< The keyframes for the kick. */
 });

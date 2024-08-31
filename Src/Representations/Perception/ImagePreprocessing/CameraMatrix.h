@@ -9,21 +9,22 @@
 #include "Tools/Math/Pose3f.h"
 #include "Representations/Configuration/RobotDimensions.h"
 #include "Representations/Configuration/CameraCalibration.h"
+#include "Representations/Infrastructure/CameraInfo.h"
 #include "Platform/SystemCall.h"
 
 /**
  * Matrix describing transformation from center of hip to camera.
  */
-struct RobotCameraMatrix : public Pose3f
+STREAMABLE_WITH_BASE(RobotCameraMatrix, Pose3f,
 {
   RobotCameraMatrix() = default;
-  RobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, bool upperCamera);
+  RobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, CameraInfo::Camera camera);
 
   /** Draws the camera matrix. */
   void draw() const;
 
-  void computeRobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, bool upperCamera);
-};
+  void computeRobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, CameraInfo::Camera camera),
+});
 
 /**
  * Matrix describing transformation from ground (center between booth feet) to camera.
@@ -55,5 +56,5 @@ public:
   /** Draws the camera matrix. */
   void draw() const,
 
-  (bool)(true) isValid, /**< Matrix is only valid if motion was stable. */
+  (bool)(false) isValid, /**< Matrix is only valid if motion was stable. */
 });

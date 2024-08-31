@@ -4,8 +4,6 @@
  * @author Colin Graf
  */
 
-#ifndef NDEBUG
-
 #include "Platform/BHAssert.h"
 
 #include <cstdio>
@@ -27,7 +25,12 @@ void Assert::print(const char* file, int line, const char* format, ...)
   va_end(ap);
   data[length++] = '\n';
   data[length] = '\0';
+#ifdef TARGET_TOOL
+  fputs(data, stderr);
+  fflush(stderr);
+#else
   OutputDebugString(data);
+#endif
 }
 
 void Assert::print(const char* file, int line, const std::string& message)
@@ -39,6 +42,4 @@ void Assert::print(const char* file, int line, const std::string& message)
 void Assert::abort()
 {
   __debugbreak();
-};
-
-#endif // NDEBUG
+}

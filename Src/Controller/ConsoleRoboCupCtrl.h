@@ -3,7 +3,7 @@
  *
  * This file declares the class ConsoleRoboCupCtrl.
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 
 #pragma once
@@ -12,14 +12,12 @@
 #include <QDir>
 #include <QString>
 
-#include "RoboCupCtrl.h"
-#include "Tools/Settings.h"
-#include "RobotConsole.h"
 #include "BHToolBar.h"
+#include "RoboCupCtrl.h"
+#include "RobotConsole.h"
 
 class ConsoleView;
 class RemoteRobot;
-class RemoteRobotWithPuppet;
 
 /**
  * The class implements the SimRobot controller for RoboCup.
@@ -30,8 +28,8 @@ public:
   DECLARE_SYNC;
   std::unordered_map<std::string, std::string> representationToFile;
   bool calculateImage = true; /**< Decides whether images are calculated by the simulator. */
-  unsigned calculateImageFps; /**< Declares the simulated image framerate. */
-  unsigned globalNextImageTimeStamp = 0;  /**< The theoretical timestamp of the next image to be calculated shared among all robots to synchronize image calculation. */
+  unsigned calculateImageFps; /**< Declares the simulated image frame rate. */
+  unsigned globalNextImageTimestamp = 0;  /**< The theoretical timestamp of the next image to be calculated shared among all robots to synchronize image calculation. */
 
 private:
   SystemCall::Mode mode; /**< The mode of the robot currently constructed. */
@@ -44,18 +42,15 @@ private:
   int nesting = 0; /**< The number of recursion level during the execution of console files. */
   std::set<std::string> completion; /**< A list for command completion. */
   std::set<std::string>::const_iterator currentCompletionIndex; /** Points to the last string that was used for auto completion */
-  Settings settings; /**< The current location. */
-  StreamHandler streamHandler; /**< The handler used by streams in this thread. */
   const DebugRequestTable* debugRequestTable = nullptr; /**< Points to the debug request table used for tab-completion. */
   const ModuleInfo* moduleInfo = nullptr; /**< Points to the solution info used for tab-completion. */
-  const DrawingManager* drawingManager = nullptr; /**< Points to the drawing manager used for tab-completion. */
-  const DrawingManager3D* drawingManager3D = nullptr; /**< Points to the drawing manager used for tab-completion. */
+  const std::unordered_map<std::string, RobotConsole::ThreadData>* threadData = nullptr; /**< Thread data used for tab-completion. */
   const RobotConsole::Views* imageViews = nullptr; /**< Points to the map of image views used for tab-completion. */
   const RobotConsole::Views* fieldViews = nullptr; /**< Points to the map of field views used for tab-completion. */
   const RobotConsole::PlotViews* plotViews = nullptr; /**< Points to the map of plot views used for tab-completion. */
   BHToolBar toolBar; /**< The toolbar shown for this controller. */
+  static constexpr float ballFriction = -0.35f; /**< The ball friction acceleration (2D only). */
 
-  friend class MultiImageSaveWidget;
 public:
   /**
    * @param application The interface to SimRobot.
@@ -63,12 +58,12 @@ public:
   ConsoleRoboCupCtrl(SimRobot::Application& application);
 
 private:
-  virtual ~ConsoleRoboCupCtrl();
+  ~ConsoleRoboCupCtrl();
 
 public:
   /**
-   * The function returns the mode in which the current robot process runs.
-   * @return The mode for the current process.
+   * The function returns the mode in which the current robot runs.
+   * @return The mode for the current robot.
    */
   SystemCall::Mode getMode() const;
 
@@ -168,16 +163,10 @@ public:
   void setModuleInfo(const ModuleInfo& moduleInfo) { this->moduleInfo = &moduleInfo; }
 
   /**
-   * The function sets the drawing manager used by the command completion.
-   * @param drawingManager The new drawing manager.
+   * The function sets the thread data used by the command completion.
+   * @param threadData The new thread data.
    */
-  void setDrawingManager(const DrawingManager& drawingManager) { this->drawingManager = &drawingManager; }
-
-  /**
-   * The function sets the drawing manager 3D used by the command completion.
-   * @param drawingManager3D The new drawing manager.
-   */
-  void setDrawingManager3D(const DrawingManager3D& drawingManager3D) { this->drawingManager3D = &drawingManager3D; }
+  void setThreadData(const std::unordered_map<std::string, RobotConsole::ThreadData>& threadData) { this->threadData = &threadData; }
 
   /**
    * The function sets the map of image views used by the command completion.
@@ -243,6 +232,13 @@ private:
   bool startLogFile(In& stream);
 
   /**
+   * The function handles the console input for the "sml" command.
+   * @param stream The stream containing the parameters of "sml".
+   * @return Returns true if the parameters were correct.
+   */
+  bool startMultiLogFile(In& stream);
+
+  /**
    * The function handles the console input for the "ci" command.
    * @param stream The stream containing the parameters of "ci".
    * @return Returns true if the parameters were correct.
@@ -263,23 +259,24 @@ private:
    * The function adds the tab-completion entries for a command followed by a file name.
    * @param command The command.
    * @param pattern The pattern for the files following the command. The pattern may include a path.
+   * @param removeExtension Remove the extensions of the file names.
    */
-  void addCompletionFiles(const std::string& command, const std::string& pattern);
+  void addCompletionFiles(const std::string& command, const std::string& pattern, bool removeExtension = true);
 
   /**
    * The function is called to initialize the module.
    */
-  virtual bool compile() override;
+  bool compile() override;
 
   /**
    * The function is called to create connections to other scene graph objects from other modules.
    */
-  virtual void link() override;
+  void link() override;
 
   /**
    * The function is called from SimRobot in each simulation step.
    */
-  virtual void update() override;
+  void update() override;
 
   /**
    * The function is called from SimRobot when Shift+Ctrl+letter was pressed or released.
@@ -287,18 +284,18 @@ private:
    * above for Shift+Ctrl+A-Z.
    * @param pressed Whether the key was pressed or released.
    */
-  virtual void pressedKey(int key, bool pressed) override;
+  void pressedKey(int key, bool pressed) override;
 
   /**
    * The function is called when a movable object has been selected.
    * @param obj The object.
    */
-  virtual void selectedObject(const SimRobot::Object& obj) override;
+  void selectedObject(const SimRobot::Object& obj) override;
 
   /**
    * Create the user menu for this module.
    */
-  virtual QMenu* createUserMenu() const override { return toolBar.createUserMenu(); }
+  QMenu* createUserMenu() const override { return toolBar.createUserMenu(); }
 
   /**
    * Show dialog and replace ${}-substrings with user input.

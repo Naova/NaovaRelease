@@ -10,9 +10,7 @@
 #pragma once
 
 #include "Tools/MessageQueue/OutMessage.h"
-#ifdef TARGET_TOOL
-#include <iostream>
-#else
+#ifndef TARGET_TOOL
 #include "Tools/Debugging/DebugRequest.h"
 #endif
 #include "Tools/Global.h"
@@ -47,9 +45,11 @@
 #define DEBUG_RESPONSE(id) if(false)
 #define DEBUG_RESPONSE_ONCE(id) if(false)
 #define DEBUG_RESPONSE_NOT(id) if(true)
-#define DECLARE_DEBUG_RESPONSE(id) ((void) 0)
-#define OUTPUT(type, format, expression) ((void) 0)
-#define OUTPUT_TEXT(expression) ((void) 0)
+#define DECLARE_DEBUG_RESPONSE(id) static_cast<void>(0)
+#define OUTPUT(type, format, expression) static_cast<void>(0)
+#define OUTPUT_TEXT(expression) static_cast<void>(0)
+#define OUTPUT_ONE_ROBOT(type, format, expression, number) static_cast<void>(0)
+#define OUTPUT_TEXT_ONE_ROBOT(expression, number) static_cast<void>(0)
 #else
 /**
  * A macro for sending debug messages.
@@ -60,7 +60,7 @@
  *
  * Examples:
  * <pre>
- * OUTPUT(idImage, bin, *pMyImage);
+ * OUTPUT(idCameraImage, bin, *pMyCameraImage);
  * OUTPUT_TEXT("MyObject:myFunction() invoked");
  * OUTPUT_TEXT("i: " << i << ", j:" << j);
  * </pre>
@@ -80,24 +80,49 @@
 #define OUTPUT_TEXT(expression) OUTPUT(idText, text, expression)
 
 /**
+ * A macro for sending debug messages on one robot only.
+ * 
+ * @param type The type of the message from the MessageID enum in MessageIDs.h
+ * @param format The message format of the message (bin or text)
+ * @param expression A streamable expression
+ * @param num The robot's number
+ */
+#define OUTPUT_ONE_ROBOT(type, format, expression, num) \
+  do \
+  { \
+    RobotInfo* logRobotInfo = nullptr; \
+    if(Blackboard::getInstance().exists("RobotInfo")) { \
+      logRobotInfo = static_cast<RobotInfo*>(&(Blackboard::getInstance()["RobotInfo"])); \
+      if(logRobotInfo->number == num) { \
+        Global::getDebugOut().format << expression; \
+        Global::getDebugOut().finishMessage(type); \
+      } \
+    } \
+  } \
+  while(false)
+
+/**
+ * Shortcut for outputting text messages on one robot only.
+ * @param expression A streaming expression to output.
+ * @param num The robot's number
+ */
+#define OUTPUT_TEXT_ONE_ROBOT(expression, num) OUTPUT_ONE_ROBOT(idText, text, expression, num)
+
+/**
  * A macro for sending warning messages.
  * @param message A message streamable as text.
  */
 #ifdef NDEBUG
-#define OUTPUT_WARNING(message) ((void) 0)
+#define OUTPUT_WARNING(message) static_cast<void>(0)
 #else
 #define OUTPUT_WARNING(message) \
   do \
   { \
-    OUTPUT_TEXT("Warning: " << message); \
-    OutTextRawSize _size; \
-    _size << "Warning: " << message; \
-    char* _buf = new char[_size.getSize() + 1]; \
-    OutTextRawMemory _stream(_buf); \
+    if(Global::debugOutExists()) \
+      OUTPUT_TEXT("Warning: " << message); \
+    OutTextRawMemory _stream; \
     _stream << "Warning: " << message; \
-    _buf[_size.getSize()] = 0; \
-    DebugRequestTable::print(_buf); \
-    delete [] _buf; \
+    DebugRequestTable::print(_stream.data()); \
   } \
   while(false)
 #endif
@@ -111,15 +136,11 @@
 #define OUTPUT_ERROR(message) \
   do \
   { \
-    OUTPUT_TEXT("Error: " << message); \
-    OutTextRawSize _size; \
-    _size << "Error: " << message; \
-    char* _buf = new char[_size.getSize() + 1]; \
-    OutTextRawMemory _stream(_buf); \
+    if(Global::debugOutExists()) \
+      OUTPUT_TEXT("Error: " << message); \
+    OutTextRawMemory _stream; \
     _stream << "Error: " << message; \
-    _buf[_size.getSize()] = 0; \
-    DebugRequestTable::print(_buf); \
-    delete [] _buf; \
+    DebugRequestTable::print(_stream.data()); \
   } \
   while(false)
 

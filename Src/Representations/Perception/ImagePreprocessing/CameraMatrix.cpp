@@ -8,6 +8,7 @@
 #include "Tools/Boundary.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/Math/Geometry.h"
+#include "Tools/Math/Projection.h"
 #include "Tools/Math/Transformation.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Tools/Module/Blackboard.h"
@@ -35,7 +36,7 @@ void CameraMatrix::draw() const
     isValid[3] = Transformation::imageToRobot(0, cameraInfo.height, *this, cameraInfo, pointOnField[3]);
 
     // calculate a line 15 pixels below the horizon in the image
-    const Geometry::Line horizon = Geometry::calculateHorizon(*this, cameraInfo);
+    const Geometry::Line horizon = Projection::calculateHorizon(*this, cameraInfo);
     Geometry::Line lineBelowHorizon;
     const Vector2f vertLineDirection(-horizon.direction.y(), horizon.direction.x());
     lineBelowHorizon.direction = horizon.direction;
@@ -56,7 +57,7 @@ void CameraMatrix::draw() const
       isValid[4] = isValid[5] = false;
 
     // determine the boundary of all the points that were projected to the ground
-    Boundaryi boundary(-10000, +10000);
+    Boundaryi boundary;
     for(int i = 0; i < 6; ++i)
       if(isValid[i])
       {
@@ -96,7 +97,7 @@ void CameraMatrix::draw() const
       isValid[3] = Transformation::imageToRobot(0, cameraInfo.height, *this, cameraInfo, pointOnField[3]);
 
       // calculate a line 15 pixels below the horizon in the image
-      const Geometry::Line horizon = Geometry::calculateHorizon(*this, cameraInfo);
+      const Geometry::Line horizon = Projection::calculateHorizon(*this, cameraInfo);
       Geometry::Line lineBelowHorizon;
       const Vector2f vertLineDirection(-horizon.direction.y(), horizon.direction.x());
       lineBelowHorizon.direction = horizon.direction;
@@ -122,7 +123,7 @@ void CameraMatrix::draw() const
         isValid[4] = isValid[5] = false;
 
       // determine the boundary of all the points that were projected to the ground
-      Boundaryi boundary(-10000, +10000);
+      Boundaryi boundary;
       for(int i = 0; i < 6; ++i)
         if(isValid[i])
           boundary.add(pointOnField[i]);
@@ -143,6 +144,16 @@ void CameraMatrix::draw() const
                yy == 0 ? 3 : 0, Drawings::solidPen, ColorRGBA::white);
     }
   } // end complex drawing
+
+  if(Blackboard::getInstance().exists("CameraInfo"))
+  {
+    const CameraInfo cameraInfo = static_cast<const CameraInfo&>(Blackboard::getInstance()["CameraInfo"]);
+
+    if(cameraInfo.camera == CameraInfo::upper)
+      PLOT_VEC3("representation:CameraMatrix:upper:", this->translation);
+    else
+      PLOT_VEC3("representation:CameraMatrix:lower:", this->translation);
+  }
 }
 
 void RobotCameraMatrix::draw() const
@@ -164,7 +175,7 @@ void RobotCameraMatrix::draw() const
     isValid[3] = Transformation::imageToRobot(0, cameraInfo.height, *this, cameraInfo, pointOnField[3]);
 
     // calculate a line 15 pixels below the horizon in the image
-    const Geometry::Line horizon = Geometry::calculateHorizon(*this, cameraInfo);
+    const Geometry::Line horizon = Projection::calculateHorizon(*this, cameraInfo);
     Geometry::Line lineBelowHorizon;
     const Vector2f vertLineDirection(-horizon.direction.y(), horizon.direction.x());
     lineBelowHorizon.direction = horizon.direction;
@@ -183,7 +194,7 @@ void RobotCameraMatrix::draw() const
     }
 
     // determine the boundary of all the points that were projected to the ground
-    Boundaryi boundary(-10000, +10000);
+    Boundaryi boundary;
     for(int i = 0; i < 6; ++i)
       if(isValid[i])
       {
@@ -223,7 +234,7 @@ void RobotCameraMatrix::draw() const
       isValid[3] = Transformation::imageToRobot(0, cameraInfo.height, *this, cameraInfo, pointOnField[3]);
 
       // calculate a line 15 pixels below the horizon in the image
-      const Geometry::Line horizon = Geometry::calculateHorizon(*this, cameraInfo);
+      const Geometry::Line horizon = Projection::calculateHorizon(*this, cameraInfo);
       Geometry::Line lineBelowHorizon;
       const Vector2f vertLineDirection(-horizon.direction.y(), horizon.direction.x());
       lineBelowHorizon.direction = horizon.direction;
@@ -250,7 +261,7 @@ void RobotCameraMatrix::draw() const
         isValid[4] = isValid[5] = false;
 
       // determine the boundary of all the points that were projected to the ground
-      Boundaryi boundary(-10000, +10000);
+      Boundaryi boundary;
       for(int i = 0; i < 6; ++i)
         if(isValid[i])
           boundary.add(pointOnField[i]);
@@ -273,32 +284,30 @@ void RobotCameraMatrix::draw() const
   } // end complex drawing
 }
 
-RobotCameraMatrix::RobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, bool upperCamera)
+RobotCameraMatrix::RobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, CameraInfo::Camera camera)
 {
-  computeRobotCameraMatrix(robotDimensions, headYaw, headPitch, cameraCalibration, upperCamera);
+  computeRobotCameraMatrix(robotDimensions, headYaw, headPitch, cameraCalibration, camera);
 }
 
-void RobotCameraMatrix::computeRobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, bool upperCamera)
+void RobotCameraMatrix::computeRobotCameraMatrix(const RobotDimensions& robotDimensions, float headYaw, float headPitch, const CameraCalibration& cameraCalibration, CameraInfo::Camera camera)
 {
   *this = RobotCameraMatrix();
 
   translate(0., 0., robotDimensions.hipToNeckLength);
   rotateZ(headYaw);
   rotateY(headPitch);
-  if(upperCamera)
+  if(camera == CameraInfo::upper)
   {
     translate(robotDimensions.xOffsetNeckToUpperCamera, 0.f, robotDimensions.zOffsetNeckToUpperCamera);
-    rotateY(robotDimensions.tiltNeckToUpperCamera + cameraCalibration.upperCameraRotationCorrection.y());
-    rotateX(cameraCalibration.upperCameraRotationCorrection.x());
-    rotateZ(cameraCalibration.upperCameraRotationCorrection.z());
+    rotateY(robotDimensions.tiltNeckToUpperCamera + cameraCalibration.cameraRotationCorrections[camera].y());
   }
   else
   {
     translate(robotDimensions.xOffsetNeckToLowerCamera, 0.f, robotDimensions.zOffsetNeckToLowerCamera);
-    rotateY(robotDimensions.tiltNeckToLowerCamera + cameraCalibration.lowerCameraRotationCorrection.y());
-    rotateX(cameraCalibration.lowerCameraRotationCorrection.x());
-    rotateZ(cameraCalibration.lowerCameraRotationCorrection.z());
+    rotateY(robotDimensions.tiltNeckToLowerCamera + cameraCalibration.cameraRotationCorrections[camera].y());
   }
+  rotateX(cameraCalibration.cameraRotationCorrections[camera].x());
+  rotateZ(cameraCalibration.cameraRotationCorrections[camera].z());
 }
 
 CameraMatrix::CameraMatrix(const Pose3f& torsoMatrix, const Pose3f& robotCameraMatrix, const CameraCalibration& cameraCalibration)

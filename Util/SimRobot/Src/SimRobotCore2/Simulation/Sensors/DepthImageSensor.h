@@ -1,22 +1,22 @@
 /**
-* @file Simulation/Sensors/DepthImageSensor.h
-* Declaration of class DepthImageSensor
-* @author Colin Graf
-*/
+ * @file Simulation/Sensors/DepthImageSensor.h
+ * Declaration of class DepthImageSensor
+ * @author Colin Graf
+ */
 
 #pragma once
 
 #include "Simulation/Sensors/Sensor.h"
 
 /**
-* @class DepthImageSensor
-* A simulated depth image sensor.
-* It can simulate 2-D depth images such as the Kinect delivers
-* (perspective projection), but also 1-D distance measurements
-* as delivered by laser scanners (spherical projection). Image
-* data is provided in rows from top to bottom and each row
-* from left to right.
-*/
+ * @class DepthImageSensor
+ * A simulated depth image sensor.
+ * It can simulate 2-D depth images such as the Kinect delivers
+ * (perspective projection), but also 1-D distance measurements
+ * as delivered by laser scanners (spherical projection). Image
+ * data is provided in rows from top to bottom and each row
+ * from left to right.
+ */
 class DepthImageSensor : public Sensor
 {
 public:
@@ -38,16 +38,16 @@ public:
 
 private:
   /**
-  * @class DistanceSensor
-  * The distance sensor interface
-  */
+   * @class DistanceSensor
+   * The distance sensor interface
+   */
   class DistanceSensor : public Sensor::Port
   {
   public:
     ::PhysicalObject* physicalObject; /** The physical object were the distance sensor is mounted on */
     DepthImageSensor* depthImageSensor;
     float* imageBuffer; /**< A buffer for rendered image data */
-    Pose3<> offset; /**< Offset of the camera relative to the body it mounted on */
+    Pose3f offset; /**< Offset of the camera relative to the body it mounted on */
     float projection[16]; /**< The perspective projection matrix */
     float min; /**< Smallest measurable value in m. */
     float max; /**< Largest measurable value in m. */
@@ -60,30 +60,30 @@ private:
     unsigned int bufferWidth; /**< The number of values in single buffer for multipart rendering. */
 
     /** Update the sensor value. Is called when required. */
-    virtual void updateValue();
+    void updateValue() override;
 
     //API
-    virtual bool getMinAndMax(float& min, float& max) const;
+    bool getMinAndMax(float& min, float& max) const override;
   } sensor;
 
   /** Destructor */
   ~DepthImageSensor();
 
   /** Initializes the camera after all attributes have been set */
-  virtual void createPhysics();
+  void createPhysics() override;
 
   /**
-  * Registers an element as parent
-  * @param element The element to register
-  */
-  virtual void addParent(Element& element);
+   * Registers an element as parent
+   * @param element The element to register
+   */
+  void addParent(Element& element) override;
 
   /** Registers this object with children, actuators and sensors at SimRobot's GUI. */
-  virtual void registerObjects();
+  void registerObjects() override;
 
   /**
-  * Draws physical primitives of the object (including children) on the currently selected OpenGL context
-  * @param flags Flags to enable or disable certain features
-  */
-  virtual void drawPhysics(unsigned int flags) const;
+   * Draws physical primitives of the object (including children) on the currently selected OpenGL context
+   * @param flags Flags to enable or disable certain features
+   */
+  void drawPhysics(unsigned int flags) const override;
 };

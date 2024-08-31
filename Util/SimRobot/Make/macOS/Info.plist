@@ -8,6 +8,7 @@
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>ros2</string>
+				<string>ros2d</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string>SimRobotDoc.icns</string>
@@ -28,6 +29,8 @@
 	<key>CFBundleSignature</key>
 	<string>ROSI</string>
 	<key>NSHighResolutionCapable</key>
+	<string>True</string>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
 	<string>True</string>
 	<key>NSPrincipleClass</key>
 	<string>NSApplication</string>

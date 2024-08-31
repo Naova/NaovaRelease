@@ -11,11 +11,7 @@ class Context;
  */
 class RobotCommand : public CommandAdapter
 {
-  bool status;
-
 public:
-  RobotCommand() : status(true) {}
-
   /**
    * Executes the preExecution(), perRobotExecution() and postExecution() in
    * this order.
@@ -24,7 +20,7 @@ public:
    * @param params The parameters of the command.
    * @return false if one of the called methods returned false, true otherwise.
    */
-  bool execute(Context& context, const std::vector<std::string>& params);
+  bool execute(Context& context, const std::vector<std::string>& params) override;
 
   /**
    * This method is intended to do something which has to be done before the command is
@@ -33,7 +29,7 @@ public:
    * @param params The parameters of the command.
    * @return Should return false to indicate an error.
    */
-  virtual bool preExecution(Context& context, const std::vector<std::string>& params) { return true; }
+  virtual bool preExecution(Context& context, const std::vector<std::string>& params);
 
   /**
    * This method can be either used to execute code for every robot separately
@@ -53,8 +49,11 @@ public:
    * @param params The parameters of the command.
    * @return Should return false to indicate an error.
    */
-  virtual bool postExecution(Context& context, const std::vector<std::string>& params) { return status; }
+  virtual bool postExecution(Context& context, const std::vector<std::string>& params);
 };
+
+inline bool RobotCommand::preExecution(Context&, const std::vector<std::string>&) { return true; }
+inline bool RobotCommand::postExecution(Context&, const std::vector<std::string>&) { return true; }
 
 /**
  * A Task which can be executed concurrent for a specific robot.
@@ -81,5 +80,5 @@ public:
       robot(robot)
   {}
 
-  virtual std::string getLabel() { return robot->name; }
+  std::string getLabel() override { return robot->name; }
 };

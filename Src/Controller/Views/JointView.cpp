@@ -7,7 +7,6 @@
 #include "Controller/RobotConsole.h"
 
 #include "JointView.h"
-#include "Platform/Thread.h"
 #include "Controller/RoboCupCtrl.h"
 #include "Controller/Visualization/HeaderedWidget.h"
 #include "Tools/Motion/SensorData.h"
@@ -18,11 +17,11 @@ private:
   JointWidget* jointWidget;
 
 public:
-  JointHeaderedWidget(JointView& sensorView, RobotConsole& console);
+  JointHeaderedWidget(JointView& sensorView);
 
 private:
-  virtual QWidget* getWidget() { return this; }
-  virtual void update() { jointWidget->update(); }
+  QWidget* getWidget() override { return this; }
+  void update() override { jointWidget->update(); }
 };
 
 JointWidget::JointWidget(JointView& jointView, QHeaderView* headerView, QWidget* parent) :
@@ -35,10 +34,6 @@ JointWidget::JointWidget(JointView& jointView, QHeaderView* headerView, QWidget*
   textOffset = fontMetrics.descent() + 1;
 
   font = QApplication::font();
-
-  const QPalette& pal(QApplication::palette());
-  altBrush = pal.alternateBase();
-  fontPen.setColor(pal.text().color());
 
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -60,9 +55,9 @@ void JointWidget::update()
 {
   {
     SYNC_WITH(jointView.console);
-    if(jointView.jointSensorData.timestamp == lastUpdateTimeStamp)
+    if(jointView.jointSensorData.timestamp == lastUpdateTimestamp)
       return;
-    lastUpdateTimeStamp = jointView.jointSensorData.timestamp;
+    lastUpdateTimestamp = jointView.jointSensorData.timestamp;
   }
 
   QWidget::update();
@@ -73,12 +68,12 @@ void JointWidget::forceUpdate()
   QWidget::update();
 }
 
-void JointWidget::paintEvent(QPaintEvent* event)
+void JointWidget::paintEvent(QPaintEvent*)
 {
   painter.begin(this);
   painter.setFont(font);
-  painter.setBrush(altBrush);
-  painter.setPen(fontPen);
+  painter.setBrush(RoboCupCtrl::controller->getAlternateBackgroundColor());
+  painter.setPen(QApplication::palette().text().color());
   fillBackground = false;
 
   paintRect = painter.window();
@@ -99,18 +94,18 @@ void JointWidget::paintEvent(QPaintEvent* event)
         newSection();
       if(i == Joints::lHand || i == Joints::rHand)
       {
-        jointRequest.angles[i] == JointAngles::off ? (void)strcpy(request, "off") : (void)sprintf(request, "%.1f %%", static_cast<float>(jointRequest.angles[i] * 100));
-        jointSensorData.angles[i] == JointAngles::off ? (void)strcpy(sensor, "?") : (void)sprintf(sensor, "%.1f %%", static_cast<float>(jointSensorData.angles[i] * 100));
+        jointRequest.angles[i] == JointAngles::off ? static_cast<void>(strcpy(request, "off")) : static_cast<void>(sprintf(request, "%.1f %%", static_cast<float>(jointRequest.angles[i] * 100)));
+        jointSensorData.angles[i] == JointAngles::off ? static_cast<void>(strcpy(sensor, "?")) : static_cast<void>(sprintf(sensor, "%.1f %%", static_cast<float>(jointSensorData.angles[i] * 100)));
       }
       else
       {
-        jointRequest.angles[i] == JointAngles::off ? (void)strcpy(request, "off") : (void)sprintf(request, "%.1f°", jointRequest.angles[i].toDegrees());
-        jointSensorData.angles[i] == JointAngles::off ? (void)strcpy(sensor, "?") : (void)sprintf(sensor, "%.1f°", jointSensorData.angles[i].toDegrees());
+        jointRequest.angles[i] == JointAngles::off ? static_cast<void>(strcpy(request, "off")) : static_cast<void>(sprintf(request, "%.1f°", jointRequest.angles[i].toDegrees()));
+        jointSensorData.angles[i] == JointAngles::off ? static_cast<void>(strcpy(sensor, "?")) : static_cast<void>(sprintf(sensor, "%.1f°", jointSensorData.angles[i].toDegrees()));
       }
-      jointSensorData.currents[i] == SensorData::off ? (void)strcpy(load, "off") : (void)sprintf(load, "%d mA", jointSensorData.currents[i]);
-      jointSensorData.temperatures[i] == 0 ? (void)strcpy(temp, "off") : (void)sprintf(temp, "%d °C", jointSensorData.temperatures[i]);
-      jointRequest.stiffnessData.stiffnesses[i] == StiffnessData::useDefault ? (void)strcpy(stiffness, "?") : (void)sprintf(stiffness, "%d %%", jointRequest.stiffnessData.stiffnesses[i]);
-      print(Joints::getName(static_cast<Joints::Joint>(i)), request, sensor, load, temp, stiffness);
+      jointSensorData.currents[i] == SensorData::off ? static_cast<void>(strcpy(load, "off")) : static_cast<void>(sprintf(load, "%d mA", jointSensorData.currents[i]));
+      jointSensorData.temperatures[i] == 0 ? static_cast<void>(strcpy(temp, "off")) : static_cast<void>(sprintf(temp, "%d °C", jointSensorData.temperatures[i]));
+      jointRequest.stiffnessData.stiffnesses[i] == StiffnessData::useDefault ? static_cast<void>(strcpy(stiffness, "?")) : static_cast<void>(sprintf(stiffness, "%d %%", jointRequest.stiffnessData.stiffnesses[i]));
+      print(TypeRegistry::getEnumName(static_cast<Joints::Joint>(i)), request, sensor, load, temp, stiffness);
     }
   }
   painter.end();
@@ -123,14 +118,14 @@ void JointWidget::print(const char* name, const char* value1, const char* value2
   {
     painter.setPen(noPen);
     painter.drawRect(paintRect.left(), paintRectField1.top(), paintRect.width(), paintRectField1.height());
-    painter.setPen(fontPen);
+    painter.setPen(QApplication::palette().text().color());
   }
-  painter.drawText(paintRectField0, Qt::TextSingleLine | Qt::AlignVCenter, tr(name));
-  painter.drawText(paintRectField1, Qt::TextSingleLine | Qt::AlignVCenter | Qt::AlignRight, tr(value1));
-  painter.drawText(paintRectField2, Qt::TextSingleLine | Qt::AlignVCenter | Qt::AlignRight, tr(value2));
-  painter.drawText(paintRectField3, Qt::TextSingleLine | Qt::AlignVCenter | Qt::AlignRight, tr(value3));
-  painter.drawText(paintRectField4, Qt::TextSingleLine | Qt::AlignVCenter | Qt::AlignRight, tr(value4));
-  painter.drawText(paintRectField5, Qt::TextSingleLine | Qt::AlignVCenter | Qt::AlignRight, tr(value5));
+  painter.drawText(paintRectField0, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter), tr(name));
+  painter.drawText(paintRectField1, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter) | static_cast<int>(Qt::AlignRight), tr(value1));
+  painter.drawText(paintRectField2, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter) | static_cast<int>(Qt::AlignRight), tr(value2));
+  painter.drawText(paintRectField3, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter) | static_cast<int>(Qt::AlignRight), tr(value3));
+  painter.drawText(paintRectField4, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter) | static_cast<int>(Qt::AlignRight), tr(value4));
+  painter.drawText(paintRectField5, static_cast<int>(Qt::TextSingleLine) | static_cast<int>(Qt::AlignVCenter) | static_cast<int>(Qt::AlignRight), tr(value5));
   paintRectField0.moveTop(paintRectField0.top() + lineSpacing);
   paintRectField1.moveTop(paintRectField1.top() + lineSpacing);
   paintRectField2.moveTop(paintRectField2.top() + lineSpacing);
@@ -153,7 +148,7 @@ void JointWidget::newSection()
   fillBackground = false;
 }
 
-JointHeaderedWidget::JointHeaderedWidget(JointView& sensorView, RobotConsole& console)
+JointHeaderedWidget::JointHeaderedWidget(JointView& sensorView)
 {
   QStringList headerLabels;
   headerLabels << "Joint" << "Request" << "Sensor" << "Load" << "Temp" << "Stiffness";
@@ -177,5 +172,5 @@ JointView::JointView(const QString& fullName, RobotConsole& robotConsole, const 
 
 SimRobot::Widget* JointView::createWidget()
 {
-  return new JointHeaderedWidget(*this, console);
+  return new JointHeaderedWidget(*this);
 }

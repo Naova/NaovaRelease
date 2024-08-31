@@ -9,7 +9,6 @@
 
 #pragma once
 #include "Representations/Infrastructure/CameraInfo.h"
-#include "Representations/Infrastructure/CameraIntrinsics.h"
 #include "Tools/ImageProcessing/CNS/CameraModelOpenCV.h"
 #include "Tools/Math/Pose3f.h"
 
@@ -32,8 +31,7 @@ namespace CNS
   /**
    * Creates an OpenCV camera model.
    * @param cameraInfo The information about the camera.
-   * @param cameraIntrinsics The calibration of the camera.
    * @return The corresponding OpenCV camera model.
    */
-  CameraModelOpenCV toCameraModelOpenCV(const CameraInfo& cameraInfo, const CameraIntrinsics& cameraIntrinsics);
+  CameraModelOpenCV toCameraModelOpenCV(const CameraInfo& cameraInfo);
 }

@@ -1,8 +1,5 @@
 #!/bin/sh
-scriptPath=$(echo $0 | sed "s|^\.\./|`pwd`/../|" | sed "s|^\./|`pwd`/|")
-basePath=$(dirname "${scriptPath}")
-currPath=$(pwd)
-cd "${basePath}"
+cd "$(dirname "$(which "$0")")"
 
 if [ "$1" = "-b" ]; then
   # called from bush
@@ -11,10 +8,9 @@ if [ "$1" = "-b" ]; then
 else
   echo "sc Remote $1" >../../Config/Scenes/Includes/connect.con
 fi
-cp ../../Config/Keys/id_rsa_nao /tmp/id_rsa_nao
+cp -n ../../Install/Keys/id_rsa_nao /tmp/id_rsa_nao
 chmod 600 /tmp/id_rsa_nao
-ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet -o PubkeyAcceptedKeyTypes=+ssh-rsa nao@$1
-if [ $? == 255 ]; then
+ssh -i /tmp/id_rsa_nao -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=quiet nao@$1
+if [ $? = 255 ]; then
   echo "Error: Cannot connect to $1" >&2
 fi
-cd "${currPath}"

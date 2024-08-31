@@ -1,16 +1,15 @@
 /**
-* @file Simulation/Geometries/Geometry.cpp
-* Implementation of class Geometry
-* @author Colin Graf
-*/
+ * @file Simulation/Geometries/Geometry.cpp
+ * Implementation of class Geometry
+ * @author Colin Graf
+ */
 
-#include "Platform/OpenGL.h"
-
-#include "Simulation/Geometries/Geometry.h"
-#include "Tools/OpenGLTools.h"
+#include "Geometry.h"
 #include "Platform/Assert.h"
+#include "Platform/OpenGL.h"
+#include "Tools/OpenGLTools.h"
 
-Geometry::Geometry() : immaterial(false), material(0), collisionCallbacks(0), created(false)
+Geometry::Geometry()
 {
   color[0] = color[1] = color[2] = 0.8f;
   color[3] = 1.0f;
@@ -18,24 +17,22 @@ Geometry::Geometry() : immaterial(false), material(0), collisionCallbacks(0), cr
 
 Geometry::~Geometry()
 {
-  if(collisionCallbacks)
-    delete collisionCallbacks;
+  delete collisionCallbacks;
 }
 
 void Geometry::addParent(Element& element)
 {
-  SimObject::addParent(element);
   ::PhysicalObject::addParent(element);
 }
 
-dGeomID Geometry::createGeometry(dSpaceID space)
+dGeomID Geometry::createGeometry(dSpaceID)
 {
   if(!created)
   {
     OpenGLTools::convertTransformation(rotation, translation, transformation);
     created = true;
   }
-  return 0;
+  return nullptr;
 }
 
 void Geometry::drawPhysics(unsigned int flags) const
@@ -56,14 +53,14 @@ bool Geometry::registerCollisionCallback(SimRobotCore2::CollisionCallback& colli
 
 bool Geometry::unregisterCollisionCallback(SimRobotCore2::CollisionCallback& collisionCallback)
 {
-  for(std::list<SimRobotCore2::CollisionCallback*>::iterator iter = collisionCallbacks->begin(), end = collisionCallbacks->end(); iter != end; ++iter)
+  for(auto iter = collisionCallbacks->begin(), end = collisionCallbacks->end(); iter != end; ++iter)
     if(*iter == &collisionCallback)
     {
       collisionCallbacks->erase(iter);
       if(collisionCallbacks->empty())
       {
         delete collisionCallbacks;
-        collisionCallbacks = 0;
+        collisionCallbacks = nullptr;
       }
       return true;
     }
@@ -80,7 +77,7 @@ void Geometry::Material::addParent(Element& element)
 bool Geometry::Material::getFriction(const Material& other, float& friction) const
 {
   {
-    std::unordered_map<const Material*, float>::const_iterator iter = materialToFriction.find(&other);
+    const auto iter = materialToFriction.find(&other);
     if(iter != materialToFriction.end())
     {
       friction = iter->second;
@@ -92,7 +89,7 @@ bool Geometry::Material::getFriction(const Material& other, float& friction) con
   int frictionValues = 0;
 
   {
-    std::unordered_map<std::string, float>::const_iterator iter = frictions.find(other.name);
+    const auto iter = frictions.find(other.name);
     if(iter != frictions.end())
     {
       friction += iter->second;
@@ -101,7 +98,7 @@ bool Geometry::Material::getFriction(const Material& other, float& friction) con
   }
 
   {
-    std::unordered_map<std::string, float>::const_iterator iter = other.frictions.find(name);
+    const auto iter = other.frictions.find(name);
     if(iter != other.frictions.end())
     {
       friction += iter->second;
@@ -109,9 +106,9 @@ bool Geometry::Material::getFriction(const Material& other, float& friction) con
     }
   }
 
-  bool frictionDefined = frictionValues > 0;
+  const bool frictionDefined = frictionValues > 0;
   if(frictionDefined)
-    friction /= float(frictionValues);
+    friction /= static_cast<float>(frictionValues);
   else
     friction = -1.f;
 
@@ -122,7 +119,7 @@ bool Geometry::Material::getFriction(const Material& other, float& friction) con
 bool Geometry::Material::getRollingFriction(const Material& other, float& rollingFriction) const
 {
   {
-    std::unordered_map<const Material*, float>::const_iterator iter = materialToRollingFriction.find(&other);
+    const auto iter = materialToRollingFriction.find(&other);
     if(iter != materialToRollingFriction.end())
     {
       rollingFriction = iter->second;
@@ -131,7 +128,7 @@ bool Geometry::Material::getRollingFriction(const Material& other, float& rollin
   }
 
   {
-    std::unordered_map<std::string, float>::const_iterator iter = rollingFrictions.find(other.name);
+    const auto iter = rollingFrictions.find(other.name);
     if(iter != rollingFrictions.end())
     {
       rollingFriction = iter->second;

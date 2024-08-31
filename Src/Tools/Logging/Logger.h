@@ -1,231 +1,87 @@
-/*
+/**
  * @file Logger.h
- * The file declares a class that implements an online logger that writes representations
- * in the background while the robot is playing soccer.
  *
- * Logfile format:
- * logFileMessageIDs | number of message ids | streamed message id names |
- * logFileStreamSpecification | streamed StreamHandler |
- * idLogFileCompressed | size of next compressed block | compressed block | size | compressed block | etc...
- * Each block is compressed using libsnappy
+ * This file declares a class that writes a subset of representations into
+ * log files. The representations can stem from multiple parallel threads.
+ * The class maintains a buffer of message queues that can be claimed by
+ * individual threads, filled with data, and given back to the logger for
+ * writing them to the log file.
  *
- * Block format (after decompression):
- * | block length | number of messages | Frame | Frame | Frame | ... | Frame |
- *
- * Each frame looks like this:
- * | ProcessBegin | Log data 1 | Log data 2 | ... | Log data n | ProcessFinished |
- * Log data format:
- * | ID ( 1 byte) | Message size (3 byte) | Message |
- *
- * @author Arne Böckmann
  * @author Thomas Röfer
  */
 
 #pragma once
 
 #include "Platform/Semaphore.h"
-#include "Platform/SystemCall.h"
 #include "Platform/Thread.h"
-#include "Platform/Time.h"
-#include "Representations/Infrastructure/GameInfo.h"
-#include "Tools/Debugging/Debugging.h"
+#include "Tools/Framework/Configuration.h"
 #include "Tools/MessageQueue/MessageQueue.h"
-#include "Tools/Module/Blackboard.h"
-#include "Tools/Cabsl.h"
-#include "Tools/Streams/Enum.h"
+#include "Tools/Streams/AutoStreamable.h"
+#include "Tools/Streams/InStreams.h"
+#include <deque>
+#include <stack>
 
-class Logger : public Cabsl<Logger>
+STREAMABLE(Logger,
 {
-public:
-  ENUM(LoggedProcess,
+  /** Which representations will be logged for a certain thread? */
+  STREAMABLE(RepresentationsPerThread,
   {,
-    cognition,
-    motion,
+    (std::string) thread,
+    (std::vector<std::string>) representations,
   });
-
-  Logger(LoggedProcess loggedProcess);
-  ~Logger();
-
-  /** Has to be called in each cycle. */
-  void execute();
 
 private:
-  STREAMABLE(Parameters,
+  /** A team number and the corresponding team name. */
+  STREAMABLE(Team,
   {,
-    (bool)(false) enabled, /**< Determines whether the logger is enabled or disabled. */
-    (std::string) logFilePath, /**< Where to write the log file. */
-    (int) maxBufferSize, /**< Max size of the buffer in bytes. */
-    (int) blockSize, /**< Size per frame in bytes. */
-    (std::vector<std::string>) representations, /**< Contains the representations that should be logged. */
-    (int) writePriority,
-    (unsigned) minFreeSpace, /**< Minimum free space left on the device in MB. */
-    (bool) debugStatistics,
+    (uint8_t)(0) number,
+    (std::string) name,
   });
 
+  /** The map from team numbers to team names. */
   STREAMABLE(TeamList,
-  {
-    STREAMABLE(Team,
-    {,
-      (uint8_t) number,
-      (std::string) name,
-    }),
-
+  {,
     (std::vector<Team>) teams,
   });
 
-  class Loggable
-  {
-  public:
-    const Streamable* representation;
-    MessageID id;
-
-    Loggable() = default;
-    Loggable(const Streamable* representation, MessageID id) : representation(representation), id(id) {}
-  };
-
-  Parameters parameters;
+  DECLARE_SYNC;
+  OutBinaryMemory typeInfo; /**< Streamed type information created in main thread and used in logger thread. */
   TeamList teamList; /**< The list of all teams for naming the log file after the opponent. */
-  std::string name; /**< The name of the entity this logger is part of. */
-  int blackboardVersion = 0; /**< The blackboard version the logger is currently configured for. */
-  std::vector<Loggable> loggables; /**< The representations that should be logged. */
-  std::vector<MessageQueue*> buffer; /**< Ring buffer of message queues. Shared with the writer thread. */
-  std::string logFilename; /**< Path and name of the log file. Set in initial state. */
-  bool receivedGameControllerPacket = false; /**< Ever received a packet from the GameController? */
-  volatile int readIndex = 0; /**< The first index of the buffer that should be read by the writer thread. */
-  volatile int writeIndex = 0; /**< Index of the buffer that is currently used for writing. */
-  int frameCounter = 0; /**< Number of frames that are already in the current message queue. */
-  Thread writerThread;/**< Used to write the buffer to disk in the background */
+  std::vector<MessageQueue> buffers; /**< All buffers to write log data to. */
+  std::stack<MessageQueue*> buffersAvailable; /**< The buffers currently available to fill with log data. */
+  std::deque<MessageQueue*> buffersToWrite; /**< The buffers already filled that need to be written. */
+  char gameInfoThreadName[32]; /**< The thread that started logging and decides to stop it. */
+  bool logging = false; /**< Are we currently logging? */
+  bool hasLogged = false; /**< Have we logged before (reset when not logging and buffersToWrite is empty)? */
+  std::string filename; /**< The base name of the log file. */
+  Thread writerThread; /**< The thread that is writing the logged data to a file. */
   Semaphore framesToWrite; /**< How many frames the writer thread should write? */
-  volatile bool writerIdle = true; /**< Is true if the writer thread has nothing to do. */
-  volatile unsigned writerIdleStart = 0; /**< The system time at which the writer thread went idle. */
-  std::vector<char> streamSpecification; /**< Streamed specification created in main thread and used in logger thread. */
-  LoggedProcess loggedProcess;
+
+  /** The method runs in a separate thread and writes the logged data to a file. */
+  void writer();
+
+public:
+  /**
+   * The constructor reads the configuration file and checks it against the module configuration.
+   * @param config The initial module configuration.
+   */
+  Logger(const Configuration& config);
+
+  /** The destructor signals the writer thread to stop. */
+  ~Logger();
 
   /**
-   * Generate a filename containing the robot's player number, its name, and the current
-   * date and time.
-   * @return A log file name that starts with the path defined in the parameters.
+   * Execute the logger for this thread.
+   * @param threadName The name of this thread.
    */
-  std::string generateFilename() const;
+  void execute(const std::string& threadName);
 
-  /** Create streamed data type specification to be used in the logger thread. */
-  void createStreamSpecification();
-
-  /** Write all loggable representations to a buffer. */
-  void logFrame();
-
-  /** Write contents of buffers to disk in the background. */
-  void writeThread();
-
-  /** Minimal behavior to handle logging. */
-  option(Root)
-  {
-    ASSERT(Blackboard::getInstance().exists("GameInfo"));
-    const GameInfo& gameInfo = static_cast<const GameInfo&>(Blackboard::getInstance()["GameInfo"]);
-    receivedGameControllerPacket |= static_cast<const RoboCup::RoboCupGameControlData&>(gameInfo).packetNumber != 0 || gameInfo.secsRemaining != 0;
-
-    initial_state(initial)
-    {
-      transition
-      {
-        goto start;
-      }
-    }
-
-    state(start)
-    {
-      transition
-      {
-        goto waiting;
-      }
-      action
-      {
-        writerThread.start(this, &Logger::writeThread);
-      }
-    }
-
-    state(waiting)
-    {
-      transition
-      {
-        if(gameInfo.state == STATE_READY || gameInfo.state == STATE_SET || gameInfo.state == STATE_PLAYING)
-          goto prepareWriting;
-      }
-    }
-
-    state(prepareWriting)
-    {
-      transition
-      {
-        goto running;
-      }
-      action
-      {
-        logFilename = generateFilename();
-        logFrame(); // Stream all data once and theerby create stream specification for them
-        createStreamSpecification(); // Serialize stream specification
-      }
-    }
-
-    state(running)
-    {
-      transition
-      {
-        if(gameInfo.state == STATE_INITIAL || gameInfo.state == STATE_FINISHED)
-          goto delayPlaySound;
-        else if(!writerThread.isRunning())
-          goto error;
-      }
-      action
-      {
-        logFrame();
-      }
-    }
-
-    state(delayPlaySound)
-    {
-      transition
-      {
-        if(gameInfo.state == STATE_READY || gameInfo.state == STATE_SET || gameInfo.state == STATE_PLAYING)
-          goto running;
-        else if(writerIdle && Time::getTimeSince(writerIdleStart) > 5000 && state_time > 500)
-          goto playSound;
-      }
-    }
-
-    state(playSound)
-    {
-      transition
-      {
-        goto idle;
-      }
-      action
-      {
-        SystemCall::playSound("logWritten.wav");
-      }
-    }
-
-    state(idle)
-    {
-      transition
-      {
-        if(gameInfo.state == STATE_READY || gameInfo.state == STATE_SET || gameInfo.state == STATE_PLAYING)
-          goto running;
-      }
-    }
-
-    state(error)
-    {
-      transition
-      {
-        goto aborted;
-      }
-      action
-      {
-        OUTPUT_WARNING("CognitionLogger: Disk full, logging aborted.");
-      }
-    }
-
-    aborted_state(aborted) {}
-  }
-};
+private:,
+  (bool) enabled, /**< Is logging enabled? */
+  (std::string) path, /**< The directory that will contain the log file. */
+  (unsigned) numOfBuffers, /**< The number of buffers allocated. */
+  (unsigned) sizeOfBuffer, /**< The size of each buffer in bytes. */
+  (int) writePriority, /**< The scheduling priority of the writer thread. */
+  (unsigned) minFreeDriveSpace, /**< Logging will stop if less MB are available to the target device. */
+  (std::vector<RepresentationsPerThread>) representationsPerThread, /**< Representations to log per thread. */
+});

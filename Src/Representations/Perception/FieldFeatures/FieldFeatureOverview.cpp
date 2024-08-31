@@ -8,64 +8,32 @@
 #include "Representations/Infrastructure/FrameInfo.h"
 
 #define PLOT_SINGE_TSL(name) \
-  PLOT("representation:FieldFeatureOverview:TimeSinceLast:" #name, theFrameInfo.getTimeSince(statuses[name].lastSeen));
+  PLOT("representation:FieldFeatureOverview:timeSinceLast:" #name, theFrameInfo.getTimeSince(statuses[name].lastSeen));
 
 void FieldFeatureOverview::draw() const
 {
   if(Blackboard::getInstance().exists("FrameInfo"))
   {
-    const FrameInfo& theFrameInfo = (const FrameInfo&)Blackboard::getInstance()["FrameInfo"];
+    const FrameInfo& theFrameInfo = static_cast<const FrameInfo&>(Blackboard::getInstance()["FrameInfo"]);
 
-    PLOT_SINGE_TSL(GoalArea);
-    PLOT_SINGE_TSL(MidCircle);
-    PLOT_SINGE_TSL(MidCorner);
-    PLOT_SINGE_TSL(OuterCorner);
-    PLOT_SINGE_TSL(GoalFeature);
-    PLOT_SINGE_TSL(GoalFrame);
+    PLOT_SINGE_TSL(penaltyArea);
+    PLOT_SINGE_TSL(midCircle);
+    PLOT_SINGE_TSL(penaltyMarkWithPenaltyAreaLine);
 
-    PLOT("representation:FieldFeatureOverview:TimeSinceLast", theFrameInfo.getTimeSince(combinedStatus.lastSeen));
+    PLOT("representation:FieldFeatureOverview:timeSinceLast", theFrameInfo.getTimeSince(combinedStatus.lastSeen));
   }
 }
 
-void FieldFeatureOverview::operator >> (NaovaMessage& m) const
+void FieldFeatureOverview::operator>>(NaovaMessage& m) const
 {
-  static_assert(numOfFeatures <= 8, "The container is to small. Ajust it!");
-  uint8_t isRightSidedContainer = 0;
-  FOREACH_ENUM(Feature, i)
-    (isRightSidedContainer <<= 1) |= statuses[i].isRightSided ? 1 : 0;
-
-  m.theBHumanArbitraryMessage.queue.out.bin << isRightSidedContainer;
-
-  FOREACH_ENUM(Feature, i)
-  {
-    const FieldFeatureStatus& status = statuses[i];
-    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(status.rotation / 180_deg * 127.f);
-    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(static_cast<int>(status.translation.x()) >> 6);
-    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<int8_t>(static_cast<int>(status.translation.y()) >> 6);
-    m.theBHumanArbitraryMessage.queue.out.bin << static_cast<uint8_t>(std::min((m.theNaovaStandardMessage.timestamp - status.lastSeen) >> 3, 0xFFu));
-  }
-
-  m.theBHumanArbitraryMessage.queue.out.finishMessage(this->id());
 }
 
-bool FieldFeatureOverview::handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp)
+bool FieldFeatureOverview::handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>&)
 {
   ASSERT(m.getMessageID() == id());
 
   combinedStatus.isValid = false;
   combinedStatus.lastSeen = 0;
-
-  {
-    static_assert(numOfFeatures <= 8, "The container is to small. Ajust it!");
-    uint8_t isRightSidedContainer;
-    m.bin >> isRightSidedContainer;
-    int runner = 1 << (numOfFeatures - 1);
-    FOREACH_ENUM(Feature, i)
-    {
-      statuses[i].isRightSided = (isRightSidedContainer & runner) != 0;
-      runner >>= 1;
-    }
-  }
 
   FOREACH_ENUM(Feature, i)
   {

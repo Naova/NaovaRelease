@@ -1,20 +1,21 @@
 /**
-* @file Simulation/Motors/ServoMotor.cpp
-* Implementation of class ServoMotor
-* @author Colin Graf
-*/
+ * @file Simulation/Motors/ServoMotor.cpp
+ * Implementation of class ServoMotor
+ * @author Colin Graf
+ */
 
-#include <cmath>
-
-#include "Simulation/Motors/ServoMotor.h"
-#include "Simulation/Simulation.h"
-#include "Simulation/Scene.h"
-#include "Simulation/Actuators/Joint.h"
-#include "Simulation/Axis.h"
+#include "ServoMotor.h"
 #include "CoreModule.h"
 #include "Platform/Assert.h"
+#include "Simulation/Actuators/Joint.h"
+#include "Simulation/Axis.h"
+#include "Simulation/Scene.h"
+#include "Simulation/Simulation.h"
+#include "Tools/Math.h"
+#include <ode/objects.h>
+#include <cmath>
 
-ServoMotor::ServoMotor() : maxVelocity(0), maxForce(0)
+ServoMotor::ServoMotor()
 {
   Simulation::simulation->scene->actuators.push_back(this);
 
@@ -25,20 +26,31 @@ ServoMotor::ServoMotor() : maxVelocity(0), maxForce(0)
 void ServoMotor::create(Joint* joint)
 {
   ASSERT(dJointGetType(joint->joint) == dJointTypeHinge || dJointGetType(joint->joint) == dJointTypeSlider);
-  this->joint = positionSensor.joint = joint;
+  this->joint = joint;
+  positionSensor.servoMotor = this;
   if(dJointGetType(joint->joint) == dJointTypeHinge)
+  {
     dJointSetHingeParam(joint->joint, dParamFMax, maxForce);
+    lastPos = static_cast<float>(dJointGetHingeAngle(joint->joint));
+  }
   else
     dJointSetSliderParam(joint->joint, dParamFMax, maxForce);
 }
 
 void ServoMotor::act()
 {
-  const float currentPos = (dJointGetType(joint->joint) == dJointTypeHinge
-                            ? (float) dJointGetHingeAngle(joint->joint)
-                            : (float) dJointGetSliderPosition(joint->joint)) + (joint->axis->deflection ? joint->axis->deflection->offset : 0.f);
+  float currentPos = dJointGetType(joint->joint) == dJointTypeHinge
+                     ? static_cast<float>(dJointGetHingeAngle(joint->joint))
+                     : static_cast<float>(dJointGetSliderPosition(joint->joint));
 
-  float setpoint = this->setpoint;
+  if(dJointGetType(joint->joint) == dJointTypeHinge)
+  {
+    const float diff = normalize(currentPos - normalize(lastPos));
+    currentPos = lastPos + diff;
+    lastPos = currentPos;
+  }
+
+  float setpoint = this->setpoint - (joint->axis->deflection ? joint->axis->deflection->offset : 0.f);
   const float maxValueChange = maxVelocity * Simulation::simulation->scene->stepLength;
   if(std::abs(setpoint - currentPos) > maxValueChange)
   {
@@ -50,9 +62,9 @@ void ServoMotor::act()
 
   const float newVel = controller.getOutput(currentPos, setpoint);
   if(dJointGetType(joint->joint) == dJointTypeHinge)
-    dJointSetHingeParam(joint->joint, dParamVel, dReal(newVel));
+    dJointSetHingeParam(joint->joint, dParamVel, newVel);
   else
-    dJointSetSliderParam(joint->joint, dParamVel, dReal(newVel));
+    dJointSetSliderParam(joint->joint, dParamVel, newVel);
 }
 
 float ServoMotor::Controller::getOutput(float currentPos, float setpoint)
@@ -60,7 +72,7 @@ float ServoMotor::Controller::getOutput(float currentPos, float setpoint)
   const float deltaTime = Simulation::simulation->scene->stepLength;
   const float error = setpoint - currentPos;
   errorSum += i * error * deltaTime;
-  float result = p * error + errorSum + (d * (error - lastError)) / deltaTime;
+  const float result = p * error + errorSum + (d * (error - lastError)) / deltaTime;
   lastError = error;
   return result;
 }
@@ -68,7 +80,7 @@ float ServoMotor::Controller::getOutput(float currentPos, float setpoint)
 void ServoMotor::setValue(float value)
 {
   setpoint = value;
-  Axis::Deflection* deflection = joint->axis->deflection;
+  const Axis::Deflection* deflection = joint->axis->deflection;
   if(deflection)
   {
     if(setpoint > deflection->max)
@@ -80,7 +92,7 @@ void ServoMotor::setValue(float value)
 
 bool ServoMotor::getMinAndMax(float& min, float& max) const
 {
-  Axis::Deflection* deflection = joint->axis->deflection;
+  const Axis::Deflection* deflection = joint->axis->deflection;
   if(deflection)
   {
     min = deflection->min;
@@ -92,14 +104,19 @@ bool ServoMotor::getMinAndMax(float& min, float& max) const
 
 void ServoMotor::PositionSensor::updateValue()
 {
-  data.floatValue = (dJointGetType(joint->joint) == dJointTypeHinge
-                     ? (float) dJointGetHingeAngle(joint->joint)
-                     : (float) dJointGetSliderPosition(joint->joint)) + (joint->axis->deflection ? joint->axis->deflection->offset : 0.f);
+  data.floatValue = (dJointGetType(servoMotor->joint->joint) == dJointTypeHinge
+                     ? static_cast<float>(dJointGetHingeAngle(servoMotor->joint->joint))
+                     : static_cast<float>(dJointGetSliderPosition(servoMotor->joint->joint))) + (servoMotor->joint->axis->deflection ? servoMotor->joint->axis->deflection->offset : 0.f);
+  if(dJointGetType(servoMotor->joint->joint) == dJointTypeHinge)
+  {
+    const float diff = normalize(data.floatValue - normalize(servoMotor->lastPos));
+    data.floatValue = servoMotor->lastPos + diff;
+  }
 }
 
 bool ServoMotor::PositionSensor::getMinAndMax(float& min, float& max) const
 {
-  Axis::Deflection* deflection = joint->axis->deflection;
+  const Axis::Deflection* deflection = servoMotor->joint->axis->deflection;
   if(deflection)
   {
     min = deflection->min;

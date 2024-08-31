@@ -1,4 +1,3 @@
-
 #include <QAction>
 
 #include "StatusBar.h"
@@ -13,27 +12,27 @@ StatusBar::StatusBar(QWidget* parent) : QStatusBar(parent), toggleViewAct(0)
 void StatusBar::addLabel(const SimRobot::Module* module, SimRobot::StatusLabel* statusLabel)
 {
   insertPermanentWidget(0, statusLabel->getWidget());
-  registeredLables.append(RegisteredLabel(module, statusLabel));
+  registeredLabels.append(RegisteredLabel(module, statusLabel));
 }
 
 void StatusBar::removeAllLabels()
 {
-  for(QList<RegisteredLabel>::iterator it = registeredLables.begin(), end = registeredLables.end(); it != end; ++it)
+  for(QList<RegisteredLabel>::iterator it = registeredLabels.begin(), end = registeredLabels.end(); it != end; ++it)
   {
     removeWidget(it->label->getWidget());
     delete it->label;
   }
-  registeredLables.clear();
+  registeredLabels.clear();
 }
 
 void StatusBar::removeLabelsFromModule(const SimRobot::Module* module)
 {
-  for(QList<RegisteredLabel>::iterator it = registeredLables.begin(); it != registeredLables.end();)
+  for(QList<RegisteredLabel>::iterator it = registeredLabels.begin(); it != registeredLabels.end();)
     if(it->module == module)
     {
       removeWidget(it->label->getWidget());
       delete it->label;
-      it = registeredLables.erase(it);
+      it = registeredLabels.erase(it);
     }
     else
       ++it;
@@ -46,7 +45,7 @@ void StatusBar::setUserMessage(const QString& userMessage)
 
 void StatusBar::update()
 {
-  for(QList<RegisteredLabel>::iterator it = registeredLables.begin(), end = registeredLables.end(); it != end; ++it)
+  for(QList<RegisteredLabel>::iterator it = registeredLabels.begin(), end = registeredLabels.end(); it != end; ++it)
     it->label->update();
 
   QString currentMessage = this->currentMessage();

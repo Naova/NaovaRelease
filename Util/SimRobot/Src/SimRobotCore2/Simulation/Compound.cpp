@@ -1,17 +1,17 @@
 /**
-* @file Simulation/Compound.cpp
-* Implementation of class Compound
-* @author Colin Graf
-*/
+ * @file Simulation/Compound.cpp
+ * Implementation of class Compound
+ * @author Colin Graf
+ */
 
+#include "Compound.h"
+#include "Platform/Assert.h"
 #include "Platform/OpenGL.h"
-
+#include "Simulation/Geometries/Geometry.h"
 #include "Simulation/Simulation.h"
-#include "Simulation/Compound.h"
-#include "Geometries/Geometry.h"
 #include "Tools/ODETools.h"
 #include "Tools/OpenGLTools.h"
-#include "Platform/Assert.h"
+#include <ode/collision.h>
 
 void Compound::addParent(Element& element)
 {
@@ -22,11 +22,11 @@ void Compound::addParent(Element& element)
 void Compound::createPhysics()
 {
   // create geometry
-  for(std::list< ::PhysicalObject*>::const_iterator iter = physicalDrawings.begin(), end = physicalDrawings.end(); iter != end; ++iter)
+  for(::PhysicalObject* iter : physicalDrawings)
   {
-    Geometry* geometry = dynamic_cast<Geometry*>(*iter);
+    Geometry* geometry = dynamic_cast<Geometry*>(iter);
     if(geometry)
-      addGeometry(pose, *geometry, 0);
+      addGeometry(pose, *geometry, nullptr);
   }
 
   //
@@ -35,10 +35,10 @@ void Compound::createPhysics()
   OpenGLTools::convertTransformation(rotation, translation, transformation);
 }
 
-void Compound::addGeometry(const Pose3<>& parentPose, Geometry& geometry, SimRobotCore2::CollisionCallback* callback)
+void Compound::addGeometry(const Pose3f& parentPose, Geometry& geometry, SimRobotCore2::CollisionCallback* callback)
 {
   // compute pose
-  Pose3<> geomPose = parentPose;
+  Pose3f geomPose = parentPose;
   if(geometry.translation)
     geomPose.translate(*geometry.translation);
   if(geometry.rotation)
@@ -51,26 +51,26 @@ void Compound::addGeometry(const Pose3<>& parentPose, Geometry& geometry, SimRob
     dGeomSetData(geom, &geometry);
 
     // set pose
-    dGeomSetPosition(geom, geomPose.translation.x, geomPose.translation.y, geomPose.translation.z);
+    dGeomSetPosition(geom, geomPose.translation.x(), geomPose.translation.y(), geomPose.translation.z());
     dMatrix3 matrix3;
     ODETools::convertMatrix(geomPose.rotation, matrix3);
     dGeomSetRotation(geom, matrix3);
   }
 
   // handle nested geometries
-  for(std::list< ::PhysicalObject*>::const_iterator iter = geometry.physicalDrawings.begin(), end = geometry.physicalDrawings.end(); iter != end; ++iter)
+  for(::PhysicalObject* iter : geometry.physicalDrawings)
   {
-    Geometry* geometry = dynamic_cast<Geometry*>(*iter);
+    Geometry* geometry = dynamic_cast<Geometry*>(iter);
     if(geometry)
       addGeometry(geomPose, *geometry, callback);
   }
 }
 
-void Compound::assembleAppearances() const
+void Compound::assembleAppearances(SurfaceColor color) const
 {
   glPushMatrix();
   glMultMatrixf(transformation);
-  GraphicalObject::assembleAppearances();
+  GraphicalObject::assembleAppearances(color);
   glPopMatrix();
 }
 

@@ -6,20 +6,19 @@
 
 #pragma once
 
-#include "Tools/Module/Module.h"
+#include "Representations/Communication/GameInfo.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/CameraInfo.h"
-#include "Representations/Infrastructure/JointAngles.h"
 #include "Representations/Infrastructure/FrameInfo.h"
-#include "Representations/Infrastructure/GameInfo.h"
+#include "Representations/Infrastructure/JointAngles.h"
 #include "Representations/Modeling/Odometer.h"
-#include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
-#include "Representations/Perception/FieldPercepts/FieldLines.h"
-#include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldFeatures/FieldRelations.h"
 #include "Representations/Perception/FieldFeatures/MidCircle.h"
+#include "Representations/Perception/FieldPercepts/CirclePercept.h"
+#include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
+#include "Representations/Perception/FieldPercepts/FieldLines.h"
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
-#include "Tools/Math/BHMath.h"
+#include "Tools/Module/Module.h"
 
 MODULE(MidCirclePerceptor,
 {,
@@ -28,7 +27,7 @@ MODULE(MidCirclePerceptor,
   REQUIRES(FieldLineIntersections),
   REQUIRES(IntersectionRelations),
   REQUIRES(FieldLines),
-  REQUIRES(GameInfo),
+  USES(GameInfo),
   REQUIRES(CameraInfo),
   REQUIRES(CameraMatrix),
   REQUIRES(CirclePercept),
@@ -39,7 +38,7 @@ MODULE(MidCirclePerceptor,
   {,
     (int)(30) maxTimeOffset,
     (float)(150) maxLineDistanceToCircleCenter,
-    (float)(500) allowedOffsetOfMidLineEndToCircleCenter,
+    (float)(-500) allowedOffsetOfMidLineEndToCircleCenter,
     (float)(300) allowedTsXVariance,
     (float)(sqr(200)) squaredMinLineLength,
   }),
@@ -47,7 +46,7 @@ MODULE(MidCirclePerceptor,
 
 class MidCirclePerceptor : public MidCirclePerceptorBase
 {
-  void update(MidCircle& midCircle);
+  void update(MidCircle& midCircle) override;
 private:
   unsigned int lastFrameTime = 1;
   CirclePercept theLastCirclePercept;

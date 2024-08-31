@@ -1,8 +1,0 @@
-ctrl_interface=/var/run/wpa_supplicant
-ctrl_interface_group=0
-ap_scan=1
-
-network={
-  ssid="Naova 2.4"
-  psk="3e12af9eb7"
-}

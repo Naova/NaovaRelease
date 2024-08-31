@@ -3,7 +3,7 @@
 #include <string>
 #include <map>
 #include <vector>
-#include "Tools/Streams/Streamable.h"
+#include "Tools/Streams/AutoStreamable.h"
 
 struct Robot;
 
@@ -12,10 +12,26 @@ class Team : public Streamable
   std::vector<std::vector<Robot*>> players;
   std::map<Robot*, bool> selectedPlayers;
 
+  STREAMABLE(TeamsStreamer,
+  {
+   TeamsStreamer(std::vector<Team>& teams) : teams(teams) {},
+   (std::vector<Team>&) teams,
+  });;
+
   void init();
 
 protected:
-  void serialize(In*, Out*);
+  /**
+   * Read this object from a stream.
+   * @param stream The stream from which the object is read.
+   */
+  void read(In& stream) override;
+
+  /**
+   * Write this object to a stream.
+   * @param stream The stream to which the object is written.
+   */
+  void write(Out& stream) const override;
 
 public:
   std::string name;

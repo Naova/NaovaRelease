@@ -35,27 +35,29 @@ std::string DatasetCreator::generate_filepath(bool is_upper) const
 	std::ostringstream os;
 #ifdef TARGET_ROBOT
 	std::string filePath = "/var/volatile";
+	std::string env = "Robot";
 #else
 	std::string filePath = File::getBHDir();
+	std::string env = "Simulation";
 #endif
 	//create folders if they don't exist
-	std::string s = "mkdir -p " + filePath + "/Dataset/upper/YCbCr/batch_" + batch +
-					" " + filePath + "/Dataset/lower/YCbCr/batch_" + batch;
+	std::string s = "mkdir -p " + filePath + "/Dataset/"+env+"/upper/YCbCr/batch_" + batch +
+					" " + filePath + "/Dataset/"+env+"/lower/YCbCr/batch_" + batch;
 	std::system(s.c_str());
 
 	std::string which_camera = "upper";
 	if (!is_upper) which_camera = "lower";
-	filePath += "/Dataset/" + which_camera + "/YCbCr/batch_" + batch + "/batch_";
+	filePath += "/Dataset/"+env+"/" + which_camera + "/YCbCr/batch_" + batch + "/batch_";
 	filePath += batch + "_image_" + nb_images + ".png";
 	//std::cout << filePath << std::endl;
 	return filePath;
 }
 
-void DatasetCreator::update(const Image& image, bool label, float x, float y, float radius)
+void DatasetCreator::update(const CameraImage& image, bool label, float x, float y, float radius)
 {
 	bool is_upper = image.width == 320;
 
-	if(nb_images_saved > 5000)
+	if(nb_images_saved > 6000)
 		return;
 
 	if (!label && save_with_ball_only) {
@@ -80,13 +82,18 @@ void DatasetCreator::update(const Image& image, bool label, float x, float y, fl
 	nb_images_saved += 1;
 }
 
-void DatasetCreator::saveCurrentImageToFile(std::string filePath, const Image& image) const
+void DatasetCreator::saveCurrentImageToFile(std::string filePath, const CameraImage& image) const
 {
 	uint8_t * image_array;
-	image_array = new uint8_t[image.height * image.width * YOLO_BALL_INPUT_CHANNELS];
-	image.convertToFPNGformat(image_array);
+	CameraImage img;
+	if (image.width == 320)
+		image.getResizedImage(320,240,img);
+	else 
+		image.getResizedImage(160,120,img);
+	image_array = new uint8_t[img.height * img.width* YOLO_BALL_INPUT_CHANNELS];
+	img.convertToFPNGformat(image_array);
 
-	fpng::fpng_encode_image_to_file(filePath.c_str(), image_array, image.width, image.height, 3);
+	fpng::fpng_encode_image_to_file(filePath.c_str(), image_array, img.width, img.height, 3);
 	
 	delete image_array;
 }

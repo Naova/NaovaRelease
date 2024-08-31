@@ -6,12 +6,10 @@
 #define EIGEN_MATRIXBASE_PLUGIN "Tools/Math/EigenMatrixBaseExtensions.h"
 #define EIGEN_ARRAY_PLUGIN "Tools/Math/EigenArrayExtensions.h"
 
-#ifdef WINDOWS
-#define WARN_UNUSED_RESULT
-#else
-#define WARN_UNUSED_RESULT __attribute__ ((warn_unused_result))
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
 #endif
-
+#include <Eigen/StdVector>
 #include <Eigen/Dense>
 #include "Tools/Streams/Eigen.h"
 
@@ -39,8 +37,10 @@ using Vector5d = Eigen::Matrix<double, 5, 1>;
 using Vector5f = Eigen::Matrix<float, 5, 1>;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Vector6f = Eigen::Matrix<float, 6, 1>;
+using Vector12a = Eigen::Matrix<Angle, 12, 1>;
 using VectorXd = Eigen::VectorXd;
 using VectorXf = Eigen::VectorXf;
+
 
 using RowVector2d = Eigen::RowVector2d;
 using RowVector2f = Eigen::RowVector2f;
@@ -69,10 +69,12 @@ using Matrix4x3d = Eigen::Matrix<double, 4, 3>;
 using Matrix4x3f = Eigen::Matrix<float, 4, 3>;
 using Matrix2xXd = Eigen::Matrix<double, 2, Eigen::Dynamic>;
 using Matrix2xXf = Eigen::Matrix<float, 2, Eigen::Dynamic>;
+using Matrix5f = Eigen::Matrix<float, 5, 5>;
 using Matrix6d = Eigen::Matrix<double, 6, 6>;
 using Matrix6f = Eigen::Matrix<float, 6, 6>;
 using Matrix6x2f = Eigen::Matrix<float, 6, 2>;
 using Matrix6x4f = Eigen::Matrix<float, 6, 4>;
+using Matrix12x12a= Eigen::Matrix<Angle, 12, 12>;
 using MatrixXx2d = Eigen::Matrix<double, Eigen::Dynamic, 2>;
 using MatrixXx2f = Eigen::Matrix<float, Eigen::Dynamic, 2>;
 using MatrixXx3d = Eigen::Matrix<double, Eigen::Dynamic, 3>;

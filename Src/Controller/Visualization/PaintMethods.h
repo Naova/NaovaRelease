@@ -10,6 +10,8 @@
 
 #include "DebugDrawing.h"
 
+#include <QImage>
+
 class DebugDrawing;
 class QPainter;
 class QBrush;
@@ -27,6 +29,7 @@ private:
   static QBrush noBrush;
   static QPen pen;
   static QPen noPen;
+  static QImage robot;
 
 public:
   /**
@@ -44,6 +47,7 @@ public:
   static void paintOrigin(const DebugDrawing::Origin& element, QPainter& painter, const QTransform& baseTrans);
   static void paintText(const DebugDrawing::Text& element, QPainter& painter);
   static void paintRectangle(const DebugDrawing::Rectangle& element, QPainter& painter);
+  static void paintRobot(const DebugDrawing::Robot& element, QPainter& painter);
 
   static void setPen(const DebugDrawing::Element& element, QPainter& painter);
   static void setBrush(const Drawings::BrushStyle brushStyle, const ColorRGBA& brushColor, QPainter& painter);

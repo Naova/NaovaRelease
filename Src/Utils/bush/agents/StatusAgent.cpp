@@ -1,13 +1,10 @@
 #include "Utils/bush/agents/StatusAgent.h"
 #include "Utils/bush/agents/PingAgent.h"
 #include "Utils/bush/Session.h"
-#include "Utils/bush/tools/Sleeper.h"
 #include "Utils/bush/tools/StringTools.h"
 #include "Utils/bush/tools/ShellTools.h"
 #include "Utils/bush/models/Robot.h"
 #include "Platform/Time.h"
-#include <iostream>
-
 
 #define UPDATE_TIME 5000
 
@@ -24,16 +21,13 @@ StatusAgent::~StatusAgent()
 
 void StatusAgent::initialize(std::map<std::string, Robot*>& robotsByName)
 {
-
   Session::getInstance().registerPingListener(this);
   for(auto it = robotsByName.cbegin(), end = robotsByName.cend(); it != end; ++it)
   {
-
     power[it->first] = Power();
     logs[it->first] = 0;
     timeOfLastUpdate[it->first] = -UPDATE_TIME;
     processes[it->first] = new QProcess(this);
-
     connect(processes[it->first], SIGNAL(readyReadStandardOutput()), this, SLOT(statusReadable()));
   }
   emit powerChanged(&this->power);
@@ -100,7 +94,7 @@ void StatusAgent::reset(Robot* robot)
     power[robot->name].batteryCharging = false;
     timeOfLastUpdate[robot->name] = -UPDATE_TIME;
 
-    logs[robot->name] = false;
+    logs[robot->name] = 0;
 
     emit powerChanged(&this->power);
     emit logsChanged(&this->logs);

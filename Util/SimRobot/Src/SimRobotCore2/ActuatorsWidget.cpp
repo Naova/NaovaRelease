@@ -1,28 +1,33 @@
 /**
-* @file ActuatorsWidget.cpp
-* Implementation of class ActuatorsWidget and ActuatorWidget
-*/
+ * @file ActuatorsWidget.cpp
+ * Implementation of class ActuatorsWidget and ActuatorWidget
+ */
 
+#include "ActuatorsWidget.h"
+#include "CoreModule.h"
+#include "Simulation/Simulation.h"
+#include "Simulation/UserInput.h"
+#include "Tools/Math/Constants.h"
+#include <QCheckBox>
+#include <QDoubleSpinBox>
 #include <QLabel>
-#include <QVBoxLayout>
-#include <QSlider>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QSpinBox>
-#include <QCheckBox>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QSettings>
-
-#include "Simulation/Simulation.h"
-#include "Simulation/UserInput.h"
-#include "ActuatorsWidget.h"
-#include "CoreModule.h"
+#include <QSlider>
+#include <QVBoxLayout>
 
 static inline float toDeg(float angleInRad)
-{ return (float) (angleInRad * 180.0f / M_PI);}
+{
+  return angleInRad * 180.0f / pi;
+}
+
 static inline float toRad(float angleInDegree)
-{ return (float) (angleInDegree * M_PI / 180.0f);}
+{
+  return angleInDegree * pi / 180.0f;
+}
 
 SimRobot::Widget* ActuatorsObject::createWidget()
 {
@@ -30,17 +35,21 @@ SimRobot::Widget* ActuatorsObject::createWidget()
 }
 
 /**
-* @class FlowLayout
-* A vertical flow layout that horizontally spreads items if there is enough space.
-* It is based on http://qt-project.org/doc/qt-4.8/layouts-flowlayout.html
-*/
+ * @class FlowLayout
+ * A vertical flow layout that horizontally spreads items if there is enough space.
+ * It is based on http://qt-project.org/doc/qt-4.8/layouts-flowlayout.html
+ */
 class FlowLayout : public QLayout
 {
 public:
   ~FlowLayout();
-  void addItem(QLayoutItem *item) {itemList.append(item);}
+  void addItem(QLayoutItem* item) {itemList.append(item);}
   int horizontalSpacing() const {return 0;}
+#ifdef MACOS
+  int verticalSpacing() const {return -5;}
+#else
   int verticalSpacing() const {return 0;}
+#endif
   Qt::Orientations expandingDirections() const {return Qt::Horizontal;}
   int count() const {return itemList.size();}
   QLayoutItem* itemAt(int index) const {return itemList.value(index);}
@@ -56,7 +65,7 @@ private:
 
 FlowLayout::~FlowLayout()
 {
-  QLayoutItem *item;
+  QLayoutItem* item;
   while((item = takeAt(0)))
     delete item;
 }
@@ -69,7 +78,7 @@ QLayoutItem* FlowLayout::takeAt(int index)
     return nullptr;
 }
 
-void FlowLayout::setGeometry(const QRect &rect)
+void FlowLayout::setGeometry(const QRect& rect)
 {
   QLayout::setGeometry(rect);
   doLayout(rect, false);
@@ -78,9 +87,8 @@ void FlowLayout::setGeometry(const QRect &rect)
 QSize FlowLayout::minimumSize() const
 {
   QSize size;
-  QLayoutItem* item;
-  foreach(item, itemList)
-    size = size.expandedTo(item->minimumSize());
+  for(QLayoutItem* item : itemList)
+    size += size.expandedTo(item->minimumSize());
 
   return size + QSize(2 * margin(), 2 * margin());
 }
@@ -91,15 +99,14 @@ int FlowLayout::doLayout(const QRect& rect, bool testOnly) const
   int y = rect.y();
   int numOfRows = 1;
   int lineWidth = 0;
-  QLayoutItem* item;
-  foreach(item, itemList)
+  for(const QLayoutItem* item : itemList)
   {
     lineWidth = qMax(item->sizeHint().width(), lineWidth);
-    int nextY = y + item->sizeHint().height();
+    int nextY = y + item->sizeHint().height() + verticalSpacing();
     if(nextY > rect.bottom())
     {
       y = rect.y();
-      nextY = y + item->sizeHint().height();
+      nextY = y + item->sizeHint().height() + verticalSpacing();
       ++numOfRows;
     }
 
@@ -112,14 +119,14 @@ int FlowLayout::doLayout(const QRect& rect, bool testOnly) const
   // place items
   int x = rect.x();
   y = rect.y();
-  foreach(item, itemList)
+  for(QLayoutItem* item : itemList)
   {
-    int nextY = y + item->sizeHint().height();
+    int nextY = y + item->sizeHint().height() + verticalSpacing();
     if(nextY > rect.bottom())
     {
       y = rect.y();
       x = x + lineWidth;
-      nextY = y + item->sizeHint().height();
+      nextY = y + item->sizeHint().height() + verticalSpacing();
     }
 
     if(!testOnly)
@@ -139,7 +146,7 @@ ActuatorWidget::ActuatorWidget(SimRobotCore2::ActuatorPort* actuator, QWidget* p
   QLabel* label = new QLabel(nameList[nameList.size() - 2], this);
   slider = new QSlider(Qt::Horizontal, this);
   slider->setMinimumWidth(40);
-  txbValue = new QSpinBox(this);
+  txbValue = new QDoubleSpinBox(this);
   cbxSet = new QCheckBox(tr(""), this);
   btnExit = new QPushButton(tr("x"), this);
 #ifdef MACOS
@@ -151,7 +158,7 @@ ActuatorWidget::ActuatorWidget(SimRobotCore2::ActuatorPort* actuator, QWidget* p
   btnExit->setMaximumHeight(btnExit->height() / 2);
 #endif
 
-  QHBoxLayout *layout = new QHBoxLayout(this);
+  QHBoxLayout* layout = new QHBoxLayout(this);
 
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(5);
@@ -165,33 +172,35 @@ ActuatorWidget::ActuatorWidget(SimRobotCore2::ActuatorPort* actuator, QWidget* p
   layout->addWidget(cbxSet);
 
   connect(slider, SIGNAL(valueChanged(int)), this, SLOT(valueChanged(int)));
-  connect(txbValue, SIGNAL(valueChanged(int)), this, SLOT(valueChanged(int)));
+  connect(txbValue, SIGNAL(valueChanged(double)), this, SLOT(valueChanged(double)));
   connect(btnExit, SIGNAL(released()), this, SIGNAL(releasedClose()));
 
   float minVal, maxVal;
+  int factor;
   actuator->getMinAndMax(minVal, maxVal);
 
   if(isAngle)
   {
     minVal = toDeg(minVal);
     maxVal = toDeg(maxVal);
+    factor = 10;
   }
   else
-  {
-    minVal *= 100;
-    maxVal *= 100;
-  }
+    factor = 1000;
 
-  slider->setRange((int)minVal, (int)maxVal);
-  slider->setValue(value);
+  slider->setRange(static_cast<int>(minVal * factor), static_cast<int>(maxVal * factor));
+  slider->setValue(static_cast<int>(value * factor));
 
-  txbValue->setRange((int)minVal, (int)maxVal);
+  txbValue->setRange(minVal, maxVal);
+  txbValue->setDecimals(isAngle ? 1 : 3);
+  txbValue->setSingleStep(isAngle ? 0.1 : 0.001);
   txbValue->setValue(value);
+  txbValue->setAlignment(Qt::AlignRight);
 
   // restore layout
   QSettings* settings = &CoreModule::application->getLayoutSettings();
   settings->beginGroup(actuatorName);
-  valueChanged(settings->value("Value", int(0)).toInt());
+  valueChanged(settings->value("Value", 0.0).toDouble());
   cbxSet->setChecked(settings->value("Set", true).toBool());
   settings->endGroup();
 }
@@ -211,20 +220,24 @@ ActuatorWidget::~ActuatorWidget()
 
 void ActuatorWidget::valueChanged(int value)
 {
-  txbValue->setValue(value);
-  slider->setValue(value);
-  this->value = value;
+  float factor = isAngle ? 0.1f : 0.001f;
+  txbValue->setValue(value * factor);
+  this->value = static_cast<float>(value) * factor;
+}
+
+void ActuatorWidget::valueChanged(double value)
+{
+  slider->setValue(static_cast<int>(value * (isAngle ? 10 : 1000)));
+  this->value = static_cast<float>(value);
 }
 
 void ActuatorWidget::adoptActuator()
 {
   if(cbxSet->checkState() == Qt::Checked)
   {
-    float value = (float) this->value;
+    float value = static_cast<float>(this->value);
     if(isAngle)
       value = toRad(value);
-    else
-      value /= 100.f;
     actuator->setValue(value);
   }
   else
@@ -235,7 +248,7 @@ void ActuatorWidget::adoptActuator()
   }
 }
 
-ActuatorsWidget* ActuatorsWidget::actuatorsWidget = 0;
+ActuatorsWidget* ActuatorsWidget::actuatorsWidget = nullptr;
 
 ActuatorsWidget::ActuatorsWidget()
 {
@@ -243,15 +256,15 @@ ActuatorsWidget::ActuatorsWidget()
   actuatorsWidget = this;
 
   //setFocusPolicy(Qt::StrongFocus);
-  QVBoxLayout* outerlayout = new QVBoxLayout(this);
+  QVBoxLayout* outerLayout = new QVBoxLayout(this);
   layout = new FlowLayout;
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
-  outerlayout->setContentsMargins(0, 0, 0, 0);
+  outerLayout->setContentsMargins(0, 0, 0, 0);
   QScrollArea* scrollArea = new QScrollArea(this);
   clientArea = new QWidget;
   clientArea->setLayout(layout);
-  outerlayout->addWidget(scrollArea);
+  outerLayout->addWidget(scrollArea);
   scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   scrollArea->setWidgetResizable(true);
 
@@ -260,7 +273,7 @@ ActuatorsWidget::ActuatorsWidget()
   settings.beginGroup("Actuators");
   QStringList openedActuators = settings.value("OpenedActuators").toStringList();
   settings.endGroup();
-  foreach(QString actuator, openedActuators)
+  for(const QString& actuator : openedActuators)
     openActuator(actuator);
 
   scrollArea->setWidget(clientArea);
@@ -288,12 +301,12 @@ void ActuatorsWidget::openActuator(const QString& actuatorName)
 {
   if(actuators.contains(actuatorName))
   {
-    ActuatorWidget *widget = actuators.value(actuatorName);
+    ActuatorWidget* widget = actuators.value(actuatorName);
     widget->setFocus();
     return;
   }
 
-  SimRobotCore2::ActuatorPort* actuator = (SimRobotCore2::ActuatorPort*)CoreModule::application->resolveObject(actuatorName, SimRobotCore2::actuatorPort);
+  SimRobotCore2::ActuatorPort* actuator = static_cast<SimRobotCore2::ActuatorPort*>(CoreModule::application->resolveObject(actuatorName, SimRobotCore2::actuatorPort));
   if(!actuator)
     return;
   ActuatorWidget* widget = new ActuatorWidget(actuator, this);
@@ -305,7 +318,7 @@ void ActuatorsWidget::openActuator(const QString& actuatorName)
 
 void ActuatorsWidget::adoptActuators()
 {
-  foreach(ActuatorWidget* widget, actuators)
+  for(ActuatorWidget* widget : actuators)
     widget->adoptActuator();
 }
 

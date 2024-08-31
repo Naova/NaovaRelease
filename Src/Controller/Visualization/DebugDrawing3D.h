@@ -9,11 +9,13 @@
 
 #include <vector>
 
+#include "Tools/Debugging/ColorRGBA.h"
 #include "Tools/Math/Pose3f.h"
 #include "Tools/Math/Eigen.h"
 #include "Tools/MessageQueue/InMessage.h"
 #include <SimRobotCore2.h>
 
+struct CameraImage;
 class RobotConsole;
 
 class DebugDrawing3D : public SimRobotCore2::Controller3DDrawing
@@ -72,7 +74,7 @@ public:
     float innerRadius;
     float outerRadius;
     float startAngle;
-    float sweeptAngle;
+    float sweptAngle;
   };
 
   struct Image3D : public Element
@@ -80,7 +82,7 @@ public:
     Vector3f point;
     Vector3f rotation;
     float width, height;
-    Image* image = nullptr;
+    CameraImage* cameraImage = nullptr;
 
     Image3D() = default;
     Image3D(const Image3D& other) { *this = other; }
@@ -92,14 +94,14 @@ public:
   bool drawn = false; /**< is this drawing already registered? */
   bool flip = false; /**< rotate drawings 180 degrees around the z-axis */
   RobotConsole* robotConsole = nullptr;
-  unsigned timeStamp; /**< The time when this drawing was created. */
+  unsigned timestamp; /**< The time when this drawing was created. */
 
   DebugDrawing3D();
   DebugDrawing3D(const DebugDrawing3D& other);
   DebugDrawing3D(const DebugDrawing3D* pDebugDrawing3D);
 
   /** draw the elements of this drawing. */
-  virtual void draw();
+  void draw() override;
   void draw2();
 
   /** The function empties the drawing. */
@@ -152,12 +154,12 @@ public:
   void sphere(const Vector3f& v, float radius, ColorRGBA color);
 
   /**
-   * Adds an ellypsoid to the debug drawing.
-   * @param pose Pose of the ellypsoid.
-   * @param radii Radii of the ellypsoid.
-   * @param color The color of the ellypsoid.
+   * Adds an ellipsoid to the debug drawing.
+   * @param pose Pose of the ellipsoid.
+   * @param radii Radii of the ellipsoid.
+   * @param color The color of the ellipsoid.
    */
-  void ellypsoid(const Pose3f& pose, const Vector3f& radii, ColorRGBA color);
+  void ellipsoid(const Pose3f& pose, const Vector3f& radii, ColorRGBA color);
 
   /**
    * Adds a cylinder to the debug drawing.
@@ -188,11 +190,11 @@ public:
    * @param rot Rotation of the image around x/y/z axes
    * @param w Width of the image
    * @param h Height of the height
-   * @param i Pointer to the image. The image will automatically be freed.
+   * @param ci Pointer to the image. The image will automatically be freed.
    */
-  void image(const Vector3f& v, const Vector3f& rot, float w, float h, Image* i);
+  void image(const Vector3f& v, const Vector3f& rot, float w, float h, CameraImage* ci);
 
-  bool addShapeFromQueue(InMessage& message, Drawings3D::ShapeType shapeType, char identifier);
+  bool addShapeFromQueue(InMessage& message, Drawings3D::ShapeType shapeType);
 
 private:
   Vector3f scale = Vector3f::Ones();
@@ -208,5 +210,5 @@ private:
   std::vector<PartDisc>  partDiscs;
   std::vector<Image3D>   images;
 
-  char* copyImage(const Image& srcImage, int& width, int& height) const;
+  char* copyImage(const CameraImage& srcImage, unsigned int& width, unsigned int& height) const;
 };

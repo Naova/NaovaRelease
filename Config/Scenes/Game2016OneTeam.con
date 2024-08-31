@@ -1,5 +1,0 @@
-call Includes/Normal
-call Includes/ImageViews
-
-dr debugDrawing3d:representation:RobotPose
-dr debugDrawing3d:representation:TeamBallModel on

@@ -1,46 +1,47 @@
 /**
-* @file Simulation/Motors/VelocityMotor.h
-* Declaration of class VelocityMotor
-* @author Colin Graf
-* @author Thomas Röfer
-*/
+ * @file Simulation/Motors/VelocityMotor.h
+ * Declaration of class VelocityMotor
+ * @author Colin Graf
+ * @author Thomas Röfer
+ */
 
 #pragma once
 
-#include "Motor.h"
+#include "Simulation/Motors/Motor.h"
 #include "Simulation/Sensors/Sensor.h"
 
 /**
-* @class VelocityMotor
-* A motor for controlling the rotational speed of an axis
-*/
+ * @class VelocityMotor
+ * A motor for controlling the rotational speed of an axis
+ */
 class VelocityMotor : public Motor
 {
 public:
-  float maxVelocity;
-  float maxForce;
+  float maxVelocity = 0.f;
+  float maxForce = 0.f;
 
   /** Default constructor */
   VelocityMotor();
 
 private:
   /**
-  * @class AngleSensor
-  * An angle sensor interface
-  */
+   * @class PositionSensor
+   * A position sensor interface
+   */
   class PositionSensor : public Sensor::Port
   {
   public:
     Joint* joint;
+    float lastPos;
 
     //API
-    virtual void updateValue();
-    virtual bool getMinAndMax(float& min, float& max) const;
+    void updateValue() override;
+    bool getMinAndMax(float& min, float& max) const override;
   } positionSensor;
 
   /**
    * @class VelocitySensor
-   * An velocity sensor interface
+   * A velocity sensor interface
    */
   class VelocitySensor : public Sensor::Port
   {
@@ -49,23 +50,23 @@ private:
     float maxVelocity;
 
     //API
-    virtual void updateValue();
-    virtual bool getMinAndMax(float& min, float& max) const;
+    void updateValue() override;
+    bool getMinAndMax(float& min, float& max) const override;
   } velocitySensor;
 
   /**
-  * Initializes the motor
-  * @param joint The joint that is controlled by this motor
-  */
-  virtual void create(Joint* joint);
+   * Initializes the motor
+   * @param joint The joint that is controlled by this motor
+   */
+  void create(Joint* joint) override;
 
   /** Called before computing a simulation step to update the joint */
-  virtual void act();
+   void act() override;
 
   /** Registers this object at SimRobot's GUI */
-  virtual void registerObjects();
+  void registerObjects() override;
 
   // actuator API
-  virtual void setValue(float value);
-  virtual bool getMinAndMax(float& min, float& max) const;
+  void setValue(float value) override;
+  bool getMinAndMax(float& min, float& max) const override;
 };

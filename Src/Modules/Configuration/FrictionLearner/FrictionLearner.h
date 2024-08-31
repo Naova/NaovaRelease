@@ -41,6 +41,7 @@ MODULE(FrictionLearner,
     (int)(1000) timeout,                 /** Time in ms. If there has not been observed any ball for timeout ms, the data collection phase ends. */
     (unsigned int)(20) minObservations,  /** Minimum number of ball observations that is required for optimization */
     (unsigned int)(8) offset,            /** Buffer index offset between two observations that are used as a pair for optimization*/
+    (bool)(false) acceptGuessedBalls,    /** Incorporate guessed balls in friction estimation, if set to true */
   }),
 });
 
@@ -61,18 +62,20 @@ private:
     {}
 
     Vector2f pos;      /**< The position on the field (relative to the robot)*/
-    unsigned int time;  /**< The point of time (in ms) of the observation */
+    unsigned int time; /**< The point of time (in ms) of the observation */
   };
 
-  std::vector<BallObservation> balls;      /** List of observed balls */
+  std::vector<BallObservation> balls; /** List of observed balls */
 
-  /** Main function that triggers the estimation process
+  /**
+   * Main function that triggers the estimation process
    * @param dummy Nothing interesting at all
    */
-  void update(DummyRepresentation& dummy);
+  void update(DummyRepresentation& dummy) override;
 
-  /** If enough data has been collected by the update method, this method is called for the actual computation.
-   *  The output is printed to the console window.
+  /**
+   * If enough data has been collected by the update method, this method is called for the actual computation.
+   * The output is printed to the console window.
    */
   void determineFrictionCoefficient();
 };

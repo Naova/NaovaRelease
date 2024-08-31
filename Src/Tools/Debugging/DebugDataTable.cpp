@@ -14,7 +14,7 @@
 
 DebugDataTable::~DebugDataTable()
 {
-  for(std::unordered_map< std::string, char*>::iterator iter = table.begin(); iter != table.end(); ++iter)
+  for(std::unordered_map<std::string, char*>::iterator iter = table.begin(); iter != table.end(); ++iter)
     delete[] iter->second;
 }
 

@@ -7,12 +7,13 @@
 // Assert::print and Assert::abort implementations are the same as on Linux
 #include "Platform/Linux/BHAssert.cpp"
 
+#include <cstdio>
+
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <cstring>
-#include <cstdio>
 #include <sstream>
 #include <ctime>
 #include <cassert>
@@ -24,7 +25,7 @@ public:
   {
     char file[128];
     int line;
-    char message[128];
+    char message[256];
   };
 
   struct Track
@@ -52,7 +53,7 @@ public:
   int fd;
   Data* data;
 
-  AssertFramework() : fd(-1), data((Data*)MAP_FAILED) {}
+  AssertFramework() : fd(-1), data(static_cast<Data*>(MAP_FAILED)) {}
 
   ~AssertFramework()
   {
@@ -72,7 +73,7 @@ public:
       return false;
 
     if(ftruncate(fd, sizeof(Data)) == -1 ||
-       (data = (Data*)mmap(nullptr, sizeof(Data), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == MAP_FAILED)
+       (data = static_cast<Data*>(mmap(nullptr, sizeof(Data), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0))) == MAP_FAILED)
     {
       close(fd);
       fd = -1;
@@ -97,7 +98,7 @@ bool Assert::logInit(const char* name)
   if(assertFramework.data != MAP_FAILED)
     thread = assertFramework.data->currentThread++;
   pthread_mutex_unlock(&AssertFramework::mutex);
-  ASSERT(thread >= 0 && thread < int(sizeof(assertFramework.data->thread) / sizeof(*assertFramework.data->thread)));
+  assert(thread >= 0 && thread < int(sizeof(assertFramework.data->thread) / sizeof(*assertFramework.data->thread)));
   AssertFramework::threadData = &assertFramework.data->thread[thread];
   memccpy(AssertFramework::threadData->name, name, 0, sizeof(AssertFramework::threadData->name) - 1);
   AssertFramework::threadData->name[sizeof(AssertFramework::threadData->name) - 1] = 0;
@@ -118,22 +119,16 @@ void Assert::logAdd(int trackId, const char* file, int lineNum, const std::strin
   track->active = true;
 }
 
-// Get current date/time, format is YYYY-MM-DD_HH:mm:ss
-const std::string currentTimeStamp()
+void Assert::logDump(bool toStderr, int termSignal)
 {
-  time_t     now = time(0);
-  struct tm  tstruct;
-  char       buf[80];
-  tstruct = *localtime(&now);
-  strftime(buf, sizeof(buf), "%F_%T", &tstruct);
-  return buf;
-}
+  // This is not written to /home/nao/logging because bhuman might have crashed due to USB drive disconnection and we still want to have the crash dump.
+  FILE* fp = toStderr ? stderr : fopen("/home/nao/bhdump.log", "w");
+  if(!fp)
+    return;
+  setvbuf(fp, nullptr, _IONBF, 0);
 
-void Assert::logDump(int termSignal)
-{
+#ifndef NDEBUG
   assertFramework.init(false);
-
-  FILE* fp =  stderr;
 
   for(int i = 0; i < int(sizeof(assertFramework.data->thread) / sizeof(*assertFramework.data->thread)); ++i)
   {
@@ -159,22 +154,23 @@ void Assert::logDump(int termSignal)
       }
     }
   }
+#endif // NDEBUG
 
   const char* termSignalNames[] =
   {
     "",
-    "",
+    "sigHUP",
     "sigINT",
     "sigQUIT",
     "sigILL",
-    "",
+    "sigTRAP",
     "sigABRT",
-    "",
+    "sigBUS",
     "sigFPE",
     "sigKILL",
-    "",
+    "sigUSR1",
     "sigSEGV",
-    "",
+    "sigUSR2",
     "sigPIPE",
     "sigALRM",
     "sigTERM"
@@ -184,4 +180,9 @@ void Assert::logDump(int termSignal)
   const char* termSignalName = termSignal < 0 || termSignal >= int(sizeof(termSignalNames) / sizeof(*termSignalNames)) ? "" : termSignalNames[termSignal];
   if(*termSignalName)
     fprintf(fp, "%s\n", termSignalName);
+  else
+    fprintf(fp, "term signal %d\n", termSignal);
+
+  if(fp != stderr)
+    fclose(fp);
 }

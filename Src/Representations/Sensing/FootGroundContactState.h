@@ -23,10 +23,10 @@ STREAMABLE(FootGroundContactState,
   FootGroundContactState(),
 
   (Foot)(none) contact,
-  (ENUM_INDEXED_ARRAY(bool, (FsrSensors) FsrSensor)) leftSensorContacts, /**< Contact boolean for each sonsor in the left foot. */
-  (ENUM_INDEXED_ARRAY(bool, (FsrSensors) FsrSensor)) rightSensorContacts, /**< Contact boolean for each sonsor in the right foot. */
-  (ENUM_INDEXED_ARRAY(Vector2f, (Legs) Leg)) centerOfPressure, /**< The center of pressures for both feet, relative to their coordinate system. Undefined if no contact was detected for a foot. */
-  (ENUM_INDEXED_ARRAY(float, (Legs) Leg)) relativeMassDistribution, /**< The distribution of the total mass per foot. */
+  (ENUM_INDEXED_ARRAY(bool, FsrSensors::FsrSensor)) leftSensorContacts, /**< Contact boolean for each sonsor in the left foot. */
+  (ENUM_INDEXED_ARRAY(bool, FsrSensors::FsrSensor)) rightSensorContacts, /**< Contact boolean for each sonsor in the right foot. */
+  (ENUM_INDEXED_ARRAY(Vector2f, Legs::Leg)) centerOfPressure, /**< The center of pressures for both feet, relative to their coordinate system. Undefined if no contact was detected for a foot. */
+  (ENUM_INDEXED_ARRAY(float, Legs::Leg)) relativeMassDistribution, /**< The distribution of the total mass per foot. */
   (ENUM_INDEXED_ARRAY(float, Foot)) totalMass, /**< The masses (in kg) per foot and for both feet. */
   (float)(0.f) maxTotal, /**< An upper bound for the masses measured. */
 });

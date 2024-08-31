@@ -29,7 +29,7 @@ std::vector<std::string> CompileCmd::complete(const std::string& cmdLine) const
 
   if(commandWithArgs.size() == 1)
     return getBuildConfigs();
-  else if(commandWithArgs.size() == 2 && *--cmdLine.end() != ' ')
+  else if(commandWithArgs.size() == 2 && cmdLine.back() != ' ')
     return getBuildConfigs(commandWithArgs[1]);
   else if(commandWithArgs.size() == 2)
     return Filesystem::getProjects("");
@@ -80,7 +80,7 @@ std::string CompileCmd::CompileTask::getLabel()
 }
 
 #ifdef LINUX
-#define LABEL "make"
+#define LABEL "cmake"
 #elif defined MACOS
 #define LABEL "xcodebuild"
 #elif defined WINDOWS
@@ -120,15 +120,17 @@ bool CompileCmd::execute(Context& context, const std::vector<std::string>& param
 #ifdef WINDOWS
 QString CompileCmd::getCommand()
 {
-  return QString(getVisualStudioPath().c_str()) + "MSBuild\\15.0\\Bin\\MSBuild.exe";
+  return QString(getVisualStudioPath().c_str()) + "MSBuild\\Current\\Bin\\MSBuild.exe";
 }
 
 QStringList CompileCmd::getParams(const QString& config, const QString& project)
 {
   QStringList args;
-  const QString makeDir(fromString(makeDirectory()));
-  args << fromString(std::string(File::getBHDir())).replace("/", "\\") + "\\Make\\" + makeDir + "\\B-Human.sln";
-  args << QString("/t:" + project) << QString("/p:Configuration=" + config);
+  args << fromString(std::string(File::getBHDir())).replace("/", "\\") + "\\Build\\Windows\\CMake\\B-Human.sln";
+  args << QString("/t:" + project) << QString("/p:Configuration=" + config)
+       << QString("/nologo") // Do not show MSBuild version and copyright information
+       << QString("/m")  // Use as many parallel processes as possible
+       << QString("/v:m"); // Set logging verbosity to minimal
   return args;
 }
 #elif defined MACOS
@@ -146,19 +148,15 @@ QStringList CompileCmd::getParams(const QString& config, const QString& project)
 #else
 QString CompileCmd::getCommand()
 {
-  return fromString("bash"); // hack for those who use 64bit systems and bash functions to set right CFLAGS
+  return fromString("cmake");
 }
 
 QStringList CompileCmd::getParams(const QString& config, const QString& project)
 {
   QStringList args;
-  args << "-c";
-
-  QString mke = "make -C " + fromString(std::string(File::getBHDir()) + "/Make/Linux");
-  mke += fromString(" CONFIG=") + config + " " + project;
-
-  args << mke;
-
+  args << "--build" << fromString(std::string(File::getBHDir()) + "/Build/Linux/CMake/") + config;
+  args << "--target" << project;
+  args << "--config" << config;
   return args;
 }
 #endif // WINDOWS

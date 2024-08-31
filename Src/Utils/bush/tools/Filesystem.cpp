@@ -16,32 +16,32 @@
 #include <cerrno>
 #endif
 
-std::vector<std::string> Filesystem::getWlanConfigs(const std::string prefix)
+std::vector<std::string> Filesystem::getWlanConfigs(const std::string& prefix)
 {
   return getEntries(std::string(File::getBHDir())
-                    + "/Install/Network/Profiles/" + prefix, true, false);
+                    + "/Install/Profiles/" + prefix, true, false);
 }
 
-std::vector<std::string> Filesystem::getLocations(const std::string prefix)
+std::vector<std::string> Filesystem::getLocations(const std::string& prefix)
 {
   return getEntries(std::string(File::getBHDir())
                     + "/Config/Locations/" + prefix, false, true);
 }
 
-std::vector<std::string> Filesystem::getScenarios(const std::string prefix)
+std::vector<std::string> Filesystem::getScenarios(const std::string& prefix)
 {
   return getEntries(std::string(File::getBHDir())
                     + "/Config/Scenarios/" + prefix, false, true);
 }
 
-std::vector<std::string> Filesystem::getProjects(const std::string prefix)
+std::vector<std::string> Filesystem::getProjects(const std::string& prefix)
 {
 #ifdef WINDOWS
   return getEntries(std::string(File::getBHDir())
                     + "/Make/" + makeDirectory() + "/" + prefix, true, false, ".vcxproj", false);
 #else
   return getEntries(std::string(File::getBHDir())
-                    + "/Make/Linux/" + prefix, true, false, ".make", false);
+                    + "/Make/CMake/" + prefix, true, false, ".cmake", false);
 #endif
 }
 
@@ -82,7 +82,7 @@ std::string Filesystem::getFileAsString(const std::string& filename)
   std::ifstream fin(filename.c_str());
 
   char c;
-  while(fin.good() && (c = (char) fin.get()) != EOF)
+  while(fin.good() && (c = static_cast<char>(fin.get())) != EOF)
     buf << c;
   fin.close();
 

@@ -3,7 +3,7 @@
  *
  * This file declares the class RoboCupCtrl.
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 
 #pragma once
@@ -11,34 +11,38 @@
 #include "SimulatedRobot.h"
 #include "GameController.h"
 #include "Tools/Settings.h"
+#include <SimRobotCore2.h>
+#include <SimRobotCore2D.h>
 
+#include <QBrush>
 #include <QList>
 #include <QString>
 #include <list>
 
-class Robot;
+class ControllerRobot;
 
 /**
  * The class implements the SimRobot controller for RoboCup.
  */
-class RoboCupCtrl : public SimRobot::Module, public SimRobotCore2::CollisionCallback
+class RoboCupCtrl : public SimRobot::Module, public SimRobotCore2::CollisionCallback, public SimRobotCore2D::CollisionCallback
 {
 public:
   static RoboCupCtrl* controller; /**< A pointer to the SimRobot controller. */
-  static SimRobot::Application* application; /**< The interface to the SimRobot GUI */
+  static SimRobot::Application* application; /**< The interface to the SimRobot GUI. */
   GameController gameController;
-  Settings::TeamColor firstTeamColor; /** Color of the first team */
-  Settings::TeamColor secondTeamColor; /** Color of the second team */
+  Settings::TeamColor firstTeamColor = static_cast<Settings::TeamColor>(-1); /**< Color of the first team. */
+  Settings::TeamColor secondTeamColor = static_cast<Settings::TeamColor>(-1); /**< Color of the second team. */
+  bool is2D = false; /**< Whether the controller is loaded in the 2D simulator (otherwise it is 3D simulation). */
+  SimRobot::Object* ballGeometry = nullptr; /**< The collision geometry belonging to the ball. */
+  float simStepLength; /**< The length of one simulation step (in ms). */
 
 protected:
-  const char* robotName; /**< The name of the robot currently constructed. */
-  std::list<Robot*> robots; /**< The list of all robots. */
-  int simStepLength; /**< The length of one simulation step (in ms) */
-  bool simTime = false; /**< Switches between simulation time mode and real time mode. */
+  std::list<ControllerRobot*> robots; /**< The list of all robots. */
   float delayTime = 0.f; /**< Delay simulation to reach this duration of a step. */
-  int time; /**< The simulation time. */
   float lastTime = 0.f; /**< The last time execute was called. */
   QString statusText; /**< The text to be printed in the status bar. */
+  std::string location = "Default"; /**< The location for simulated robots. */
+  std::array<std::string, 2> scenarios = {"Default", "Default"}; /**< The scenarios for simulated robots per team. */
 
 private:
   QList<SimRobot::Object*> views; /**< List of registered views */
@@ -47,9 +51,17 @@ public:
   RoboCupCtrl(SimRobot::Application& application);
 
 protected:
-  virtual ~RoboCupCtrl();
+  ~RoboCupCtrl();
 
 public:
+  /**
+   * Return the alternate background color for views. It is used when
+   * view separate different rows by switching between two different
+   * background colors.
+   * @return The color.
+   */
+  QBrush getAlternateBackgroundColor() const;
+
   /**
    * Adds a scene graph object to the scene graph displayed in SimRobot
    * @param object The scene graph object to add
@@ -97,34 +109,16 @@ public:
    */
   void removeCategory(SimRobot::Object* object);
 
-  /**
-   * The function returns the full name of the robot currently constructed.
-   * @return The name of the robot.
-   */
-  static const char* getRobotFullName() { return controller->robotName; }
-
-  /**
-   * The function returns the name of the robot associated to the current thread.
-   * @return The name of the robot.
-   */
-  std::string getRobotName() const;
-
-  /**
-   * The function returns the simulation time.
-   * @return The pseudo-time in milliseconds.
-   */
-  unsigned getTime() const;
-
 protected:
   /**
    * The function is called to initialize the module.
    */
-  virtual bool compile();
+  bool compile() override;
 
   /**
    * The function is called in each simulation step.
    */
-  virtual void update();
+  void update() override;
 
   /**
    * The callback function.
@@ -132,20 +126,23 @@ protected:
    * @param geom1 The geometry at which the interface has been registered
    * @param geom2 The other geometry
    */
-  virtual void collided(SimRobotCore2::Geometry& geom1, SimRobotCore2::Geometry& geom2);
+  void collided(SimRobotCore2::Geometry& geom1, SimRobotCore2::Geometry& geom2) override;
 
   /**
-   * Has to be called by derived class to start processes.
+   * The callback function for the 2D core.
+   * Called whenever the geometry at which this interface is registered collides with another geometry.
+   * @param geom1 The geometry at which the interface has been registered
+   * @param geom2 The other geometry
+   */
+  void collided(SimRobotCore2D::Geometry& geom1, SimRobotCore2D::Geometry& geom2) override;
+
+  /**
+   * Has to be called by derived class to start threads.
    */
   void start();
 
   /**
-   * Has to be called by derived class to stop processes.
+   * Has to be called by derived class to stop threads.
    */
   void stop();
-
-  /**
-   * Maps a std::string to a color enum from Settings.
-   */
-  Settings::TeamColor parseColorFromString(const std::string& color);
 };

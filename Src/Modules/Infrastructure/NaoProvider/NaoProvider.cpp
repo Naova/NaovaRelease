@@ -1,35 +1,32 @@
 /**
- * @file Modules/Infrastructure/NaoProvider.cpp
- * The file declares a module that provides information from the Nao via DCM.
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @file NaoProvider.cpp
+ *
+ * This file implements a module that communicates with LoLA.
+ *
+ * @author Thomas Röfer
  */
 
 #include "NaoProvider.h"
-#include "Platform/SystemCall.h"
+#include "Platform/BHAssert.h"
+#include "Platform/File.h"
+#include "Platform/Thread.h"
+#include "Platform/Time.h"
 #include "Tools/Communication/MsgPack.h"
-MAKE_MODULE(NaoProvider, motionInfrastructure)
+#include "Tools/Global.h"
+#include "Tools/Settings.h"
+#include "Tools/Streams/OutStreams.h"
+#include <cstdlib>
+#include <cstring>
+#include <csignal>
+
+MAKE_MODULE(NaoProvider, infrastructure);
 
 #ifdef TARGET_ROBOT
 
-#include "Platform/Time.h"
-#include "Platform/File.h"
-#include "Tools/Debugging/Debugging.h"
-#include "Tools/Settings.h"
-
-#include "libbhuman/bhuman.h"
-
-#include <csignal>
-
-
-#include <cstdio>
-#include <cstring>
-#include <algorithm>
+#include <sys/fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-
-// #include <netinet/in.h>
-// #include <arpa/inet.h>
-
+#include <unistd.h>
 
 thread_local NaoProvider* NaoProvider::theInstance = nullptr;
 
@@ -75,14 +72,14 @@ const KeyStates::Key NaoProvider::keyMappings[KeyStates::numOfKeys] =
   KeyStates::headMiddle,
   KeyStates::headRear,
 
-  KeyStates::leftFootLeft,
-  KeyStates::leftFootRight,
+  KeyStates::lFootLeft,
+  KeyStates::lFootRight,
   KeyStates::lHandBack,
   KeyStates::lHandLeft,
   KeyStates::lHandRight,
 
-  KeyStates::rightFootLeft,
-  KeyStates::rightFootRight,
+  KeyStates::rFootLeft,
+  KeyStates::rFootRight,
   KeyStates::rHandBack,
   KeyStates::rHandLeft,
   KeyStates::rHandRight
@@ -185,18 +182,18 @@ const LEDRequest::LED NaoProvider::chestMappings[] =
 
 const LEDRequest::LED NaoProvider::skullMappings[] =
 {
-  LEDRequest::headLedFrontLeft1,
-  LEDRequest::headLedFrontLeft0,
-  LEDRequest::headLedMiddleLeft0,
-  LEDRequest::headLedRearLeft0,
-  LEDRequest::headLedRearLeft1,
-  LEDRequest::headLedRearLeft2,
-  LEDRequest::headLedRearRight2,
-  LEDRequest::headLedRearRight1,
-  LEDRequest::headLedRearRight0,
-  LEDRequest::headLedMiddleRight0,
-  LEDRequest::headLedFrontRight0,
-  LEDRequest::headLedFrontRight1,
+  LEDRequest::headFrontLeft1,
+  LEDRequest::headFrontLeft0,
+  LEDRequest::headMiddleLeft0,
+  LEDRequest::headRearLeft0,
+  LEDRequest::headRearLeft1,
+  LEDRequest::headRearLeft2,
+  LEDRequest::headRearRight2,
+  LEDRequest::headRearRight1,
+  LEDRequest::headRearRight0,
+  LEDRequest::headMiddleRight0,
+  LEDRequest::headFrontRight0,
+  LEDRequest::headFrontRight1,
 };
 
 const LEDRequest::LED NaoProvider::leftFootMappings[] =
@@ -232,6 +229,15 @@ NaoProvider::NaoProvider()
   std::memset(&jointStiffnesses[0], 0, sizeof(jointStiffnesses));
   std::memset(&leds[0], 0, sizeof(leds));
 
+  static_assert(numOfCPUCores <= 8);
+  char cpuTemperaturePath[] = "/sys/class/hwmon/hwmon1/temp2_input";
+  for(size_t i = 0; i < numOfCPUCores; ++i)
+  {
+    cpuTemperatureFiles[i] = ::open(cpuTemperaturePath, O_RDONLY);
+    ASSERT(cpuTemperatureFiles[i] >= 0);
+    ++cpuTemperaturePath[28];
+  }
+
   socket = ::socket(AF_UNIX, SOCK_STREAM, 0);
   ASSERT(socket > 0);
   sockaddr_un address;
@@ -240,83 +246,109 @@ NaoProvider::NaoProvider()
   VERIFY(!connect(socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)));
 
   // Receive a first packet and setup all tables
-  
-
   receivePacket();
-
-  // //Initialize socket for gameController
-  // VERIFY(socketGameController.setBlocking(false));
-  // VERIFY(socketGameController.bind("0.0.0.0", GAMECONTROLLER_DATA_PORT));
 }
 
 NaoProvider::~NaoProvider()
 {
+  for(size_t i = 0; i < numOfCPUCores; ++i)
+    close(cpuTemperatureFiles[i]);
   close(socket);
-
-  NaoProvider::theInstance = nullptr;
+  theInstance = nullptr;
 }
 
-void NaoProvider::finishFrame()
+void NaoProvider::update(FrameInfo& theFrameInfo)
 {
-  if(theInstance)
-    theInstance->sendPacket();
+  theFrameInfo.time = timeWhenPacketReceived;
 }
 
-void NaoProvider::waitForFrameData()
+void NaoProvider::update(FsrSensorData& theFsrSensorData)
 {
-  DEBUG_RESPONSE_ONCE("module:NaoProvider:robotName")
+  FOREACH_ENUM(Legs::Leg, leg)
   {
-    if(Global::getSettings().headName == Global::getSettings().bodyName)
-      OUTPUT_TEXT("Hi, I am " << Global::getSettings().headName << ".");
-    else
-      OUTPUT_TEXT("Hi, I am " << Global::getSettings().headName << " (using " << Global::getSettings().bodyName << "'s body).");
-
-    OUTPUT(idRobotname, bin, Global::getSettings().headName << Global::getSettings().bodyName << Global::getSettings().location);
-  }
-
-  if(theInstance)
-    theInstance->receivePacket();
-}
-
-void NaoProvider::sendPacket()
-{
-  FOREACH_ENUM((Joints) Joint, joint)
-    if(joint != Joints::rHipYawPitch)
+    theFsrSensorData.totals[leg] = 0.f;
+    FOREACH_ENUM(FsrSensors::FsrSensor, fsr)
     {
-      if(theJointRequest.angles[joint] == static_cast<float>(SensorData::off) || !theJointRequest.stiffnessData.stiffnesses[joint])
-      {
-        MsgPack::writeFloat(MsgPack::readFloat(jointAngles[joint]), jointRequests[joint]);
-        MsgPack::writeFloat(0.f, jointStiffnesses[joint]);
-      }
-      else
-      {
-        MsgPack::writeFloat(theJointRequest.angles[joint] + theJointCalibration.offsets[joint], jointRequests[joint]);
-        MsgPack::writeFloat(static_cast<float>(theJointRequest.stiffnessData.stiffnesses[joint]) * 0.01f, jointStiffnesses[joint]);
-      }
+      theFsrSensorData.pressures[leg][fsr] = MsgPack::readFloat(fsrs[leg][fsr]);
+      theFsrSensorData.totals[leg] += theFsrSensorData.pressures[leg][fsr];
     }
-
-  bool on = (timeWhenPacketReceived / 400 & 1) == 1;
-  bool fastOn = (timeWhenPacketReceived / 80 & 1) == 0;
-  FOREACH_ENUM((LEDRequest) LED, led)
-  {
-    LEDRequest::LEDState state = theLEDRequest.ledStates[led];
-    MsgPack::writeFloat(state == LEDRequest::on ||
-                        (state == LEDRequest::blinking && on) ||
-                        (state == LEDRequest::fastBlinking && fastOn)
-                        ? 1.0f
-                        : state == LEDRequest::half ? 0.5f : 0.0f, leds[led]);
   }
-  VERIFY(send(socket, reinterpret_cast<char*>(packetToSend), packetToSendSize, 0) == static_cast<ssize_t>(packetToSendSize));
+}
+
+void NaoProvider::update(InertialSensorData& theInertialSensorData)
+{
+  for(size_t i = 0; i < 3; ++i)
+  {
+    theInertialSensorData.gyro(i) = MsgPack::readFloat(gyros[i]);
+    theInertialSensorData.acc(i) = MsgPack::readFloat(accs[i]);
+    theInertialSensorData.angle(i) = MsgPack::readFloat(torsoAngles[i]);
+  }
+
+  // Invert accelerometer signs
+  theInertialSensorData.acc *= -1.f;
+}
+
+void NaoProvider::update(JointSensorData& theJointSensorData)
+{
+  FOREACH_ENUM(Joints::Joint, joint)
+  {
+    if(joint == Joints::rHipYawPitch)
+    {
+      theJointSensorData.angles[joint] = theJointSensorData.angles[Joints::lHipYawPitch] + theJointCalibration.offsets[Joints::lHipYawPitch]
+                                         - theJointCalibration.offsets[joint];
+      theJointSensorData.currents[joint] = theJointSensorData.currents[Joints::lHipYawPitch];
+      theJointSensorData.temperatures[joint] = theJointSensorData.temperatures[Joints::lHipYawPitch];
+      theJointSensorData.status[joint] = theJointSensorData.status[Joints::lHipYawPitch];
+    }
+    else
+    {
+      theJointSensorData.angles[joint] = MsgPack::readFloat(jointAngles[joint]) - theJointCalibration.offsets[joint];
+      theJointSensorData.currents[joint] = static_cast<short>(1000.f * MsgPack::readFloat(jointCurrents[joint]));
+      theJointSensorData.temperatures[joint] = static_cast<unsigned char>(MsgPack::readFloat(jointTemperatures[joint]));
+      theJointSensorData.status[joint] = static_cast<JointSensorData::TemperatureStatus>(jointStatuses[joint] ? *jointStatuses[joint] : 0);
+    }
+  }
+  theJointSensorData.timestamp = timeWhenPacketReceived;
+}
+
+void NaoProvider::update(KeyStates& theKeyStates)
+{
+  FOREACH_ENUM(KeyStates::Key, key)
+    theKeyStates.pressed[key] = MsgPack::readFloat(keys[key]) != 0.f;
+
+  if(!theKeyStates.pressed[KeyStates::chest])
+    timeWhenChestButtonUnpressed = theFrameInfo.time;
+  else if(timeWhenChestButtonUnpressed && theFrameInfo.getTimeSince(timeWhenChestButtonUnpressed) >= timeChestButtonPressedUntilShutdown)
+  {
+    raise(SIGINT);
+    timeWhenChestButtonUnpressed = 0;
+  }
+}
+
+void NaoProvider::update(SystemSensorData& theSystemSensorData)
+{
+  if(theFrameInfo.getTimeSince(timeWhenCPUTemperatureRead) >= timeBetweenCPUTemperatureUpdates)
+  {
+    theSystemSensorData.cpuTemperature = readCPUTemperature();
+    timeWhenCPUTemperatureRead = theFrameInfo.time;
+  }
+  theSystemSensorData.batteryLevel = MsgPack::readFloat(batteryLevel);
+  theSystemSensorData.batteryCurrent = MsgPack::readFloat(batteryCurrent);
+  theSystemSensorData.batteryTemperature = MsgPack::readFloat(batteryTemperature);
+  theSystemSensorData.batteryCharging = (static_cast<short>(MsgPack::readFloat(batteryCharging)) & 0x80) != 0;
+  if(theFrameInfo.getTimeSince(timeWhenBatteryLevelWritten) >= timeBetweenBatteryLevelUpdates)
+  {
+    OutTextFile("/var/volatile/tmp/batteryLevel.txt") << theSystemSensorData.batteryLevel << MsgPack::readFloat(batteryCharging);
+    timeWhenBatteryLevelWritten = theFrameInfo.time;
+  }
 }
 
 void NaoProvider::receivePacket()
 {
   // Read maximum size for first packet, but the smaller size for all further packets.
   const long bytesRead = recv(socket, reinterpret_cast<char*>(receivedPacket), sizeof(receivedPacket), 0);
-  if(bytesRead < 0){
+  if(bytesRead < 0)
     OUTPUT_ERROR("Could not receive packet from NAO");
-  }
-
   else
   {
     timeWhenPacketReceived = std::max(Time::getCurrentSystemTime(), timeWhenPacketReceived + 1);
@@ -324,8 +356,6 @@ void NaoProvider::receivePacket()
     // Initialize tables if they have not been so far
     if(!batteryLevel)
     {
-    fprintf(stderr, "paressssssssssssssssssssssssssssssssssssssssssssssssssssssssssssseux\n");
-
       MsgPack::parse(receivedPacket, bytesRead,
 
         // Most data is encoded as float 32
@@ -382,7 +412,7 @@ void NaoProvider::receivePacket()
         },
 
         // Ignore strings
-        [](const std::string& key, const unsigned char* p, size_t size) {});
+        [](const std::string&, const unsigned char*, size_t) {});
 
       // Initialize the packet to send to LoLA
       // Please note that the code assumes that the order of sensors and actuators is the same
@@ -401,15 +431,15 @@ void NaoProvider::receivePacket()
       for(int i = 0; i < Joints::numOfJoints - 1; ++i)
         jointStiffnesses[jointMappings[i]] = MsgPack::write(0.f, p);
 
-      // Determine addresses for leds
+      // Determine addresses for LEDs
       writeLEDs("REar", rightEarMappings, LEDRequest::chestRed - LEDRequest::earsRight0Deg, p);
       writeLEDs("LEar", leftEarMappings, LEDRequest::earsRight0Deg - LEDRequest::earsLeft0Deg, p);
-      writeLEDs("Chest", chestMappings, LEDRequest::headLedRearLeft0 - LEDRequest::chestRed, p);
+      writeLEDs("Chest", chestMappings, LEDRequest::headRearLeft0 - LEDRequest::chestRed, p);
       writeLEDs("LEye", leftEyeMappings, LEDRequest::faceRightRed0Deg - LEDRequest::faceLeftRed0Deg, p);
       writeLEDs("REye", rightEyeMappings, LEDRequest::earsLeft0Deg - LEDRequest::faceRightRed0Deg, p);
       writeLEDs("LFoot", leftFootMappings, LEDRequest::footRightRed - LEDRequest::footLeftRed, p);
       writeLEDs("RFoot", rightFootMappings, LEDRequest::numOfLEDs - LEDRequest::footRightRed, p);
-      writeLEDs("Skull", skullMappings, LEDRequest::footLeftRed - LEDRequest::headLedRearLeft0, p);
+      writeLEDs("Skull", skullMappings, LEDRequest::footLeftRed - LEDRequest::headRearLeft0, p);
 
       packetToSendSize = static_cast<int>(p - packetToSend);
       ASSERT(packetToSendSize <= static_cast<int>(sizeof(packetToSend)));
@@ -425,126 +455,81 @@ void NaoProvider::writeLEDs(const std::string category, const LEDRequest::LED* l
     leds[ledMappings[i]] = MsgPack::write(0.f, p);
 }
 
-void NaoProvider::update(FrameInfo& theFrameInfo)
+void NaoProvider::sendPacket()
 {
-  theFrameInfo.time = timeWhenPacketReceived;
-}
-
-void NaoProvider::update(FsrSensorData& theFsrSensorData)
-{
-
-  FOREACH_ENUM((Legs) Leg, leg)
-  {
-    theFsrSensorData.totals[leg] = 0.f;
-    FOREACH_ENUM((FsrSensors) FsrSensor, fsr)
+  FOREACH_ENUM(Joints::Joint, joint)
+    if(joint != Joints::rHipYawPitch)
     {
-      theFsrSensorData.pressures[leg][fsr] = MsgPack::readFloat(fsrs[leg][fsr]);
-      theFsrSensorData.totals[leg] += theFsrSensorData.pressures[leg][fsr];
+      if(theJointRequest.angles[joint] == SensorData::off || !theJointRequest.stiffnessData.stiffnesses[joint])
+      {
+        MsgPack::writeFloat(MsgPack::readFloat(jointAngles[joint]), jointRequests[joint]);
+        MsgPack::writeFloat(0.f, jointStiffnesses[joint]);
+      }
+      else
+      {
+        MsgPack::writeFloat(theJointRequest.angles[joint] + theJointCalibration.offsets[joint], jointRequests[joint]);
+        MsgPack::writeFloat(static_cast<float>(theJointRequest.stiffnessData.stiffnesses[joint]) * 0.01f, jointStiffnesses[joint]);
+      }
     }
+
+  bool on = (timeWhenPacketReceived / 400 & 1) == 1;
+  bool fastOn = (timeWhenPacketReceived / 80 & 1) == 0;
+  FOREACH_ENUM(LEDRequest::LED, led)
+  {
+    LEDRequest::LEDState state = theLEDRequest.ledStates[led];
+    MsgPack::writeFloat(state == LEDRequest::on ||
+                        (state == LEDRequest::blinking && on) ||
+                        (state == LEDRequest::fastBlinking && fastOn)
+                        ? 1.0f
+                        : state == LEDRequest::half ? 0.5f : 0.0f, leds[led]);
   }
+
+  VERIFY(send(socket, reinterpret_cast<char*>(packetToSend), packetToSendSize, 0) == static_cast<ssize_t>(packetToSendSize));
 }
 
-void NaoProvider::update(InertialSensorData& theInertialSensorData)
+void NaoProvider::waitForFrameData()
 {
-  for(size_t i = 0; i < 3; ++i)
+  DEBUG_RESPONSE_ONCE("module:NaoProvider:robotName")
   {
-    theInertialSensorData.gyro(i) = MsgPack::readFloat(gyros[i]);
-    theInertialSensorData.acc(i) = MsgPack::readFloat(accs[i]);
-  if(i<=1)
-  { 
-    theInertialSensorData.angle(i) = MsgPack::readFloat(torsoAngles[i]);
-  }
-
-  }
-
-  // Invert accelerometer signs
-
-  theInertialSensorData.acc *= -1.f;
-
-}
-
-void NaoProvider::update(JointSensorData& theJointSensorData)
-{
-  FOREACH_ENUM((Joints) Joint, joint)
-  {
-    if(joint == Joints::rHipYawPitch)
-    {
-      theJointSensorData.angles[joint] = theJointSensorData.angles[Joints::lHipYawPitch] + theJointCalibration.offsets[Joints::lHipYawPitch]
-                                         - theJointCalibration.offsets[joint];
-      theJointSensorData.currents[joint] = theJointSensorData.currents[Joints::lHipYawPitch];
-      theJointSensorData.temperatures[joint] = theJointSensorData.temperatures[Joints::lHipYawPitch];
-      theJointSensorData.status[joint] = theJointSensorData.status[Joints::lHipYawPitch];
-    }
+    if(Global::getSettings().headName == Global::getSettings().bodyName)
+      OUTPUT_TEXT("Hi, I am " << Global::getSettings().headName << ".");
     else
-    {
-      theJointSensorData.angles[joint] = MsgPack::readFloat(jointAngles[joint]) - theJointCalibration.offsets[joint];
-      theJointSensorData.currents[joint] = static_cast<short>(1000.f * MsgPack::readFloat(jointCurrents[joint]));
-      theJointSensorData.temperatures[joint] = static_cast<unsigned char>(MsgPack::readFloat(jointTemperatures[joint]));
-      theJointSensorData.status[joint] = static_cast<JointSensorData::TemperatureStatus>(jointStatuses[joint] ? *jointStatuses[joint] : 0);
-    }
+      OUTPUT_TEXT("Hi, I am " << Global::getSettings().headName << " (using " << Global::getSettings().bodyName << "'s body).");
+
+    OUTPUT(idRobotname, bin, Global::getSettings().headName << Global::getSettings().bodyName << Global::getSettings().location << Global::getSettings().scenario << Global::getSettings().playerNumber);
   }
-  theJointSensorData.timestamp = timeWhenPacketReceived;
+
+  if(theInstance)
+    theInstance->receivePacket();
 }
 
-void NaoProvider::update(KeyStates& theKeyStates)
+void NaoProvider::finishFrame()
 {
-  FOREACH_ENUM((KeyStates) Key, key){
-    theKeyStates.pressed[key] = MsgPack::readFloat(keys[key]) != 0.f;
-  }
-  
-  if(!theKeyStates.pressed[KeyStates::chest]){
-    timeWhenChestButtonUnpressed = theFrameInfo.time;
-  }
-  else if(timeWhenChestButtonUnpressed && theFrameInfo.getTimeSince(timeWhenChestButtonUnpressed) >= timeChestButtonPressedUntilShutdown)
+  DEBUG_RESPONSE("module:NaoProvider:lag100") Thread::sleep(100);
+  DEBUG_RESPONSE("module:NaoProvider:lag200") Thread::sleep(200);
+  DEBUG_RESPONSE("module:NaoProvider:lag300") Thread::sleep(300);
+  DEBUG_RESPONSE("module:NaoProvider:lag1000") Thread::sleep(1000);
+  DEBUG_RESPONSE("module:NaoProvider:lag3000") Thread::sleep(3000);
+  DEBUG_RESPONSE("module:NaoProvider:lag6000") Thread::sleep(6000);
+  DEBUG_RESPONSE("module:NaoProvider:segfault") *static_cast<volatile char*>(nullptr) = 0;
+
+  if(theInstance)
+    theInstance->sendPacket();
+}
+
+float NaoProvider::readCPUTemperature() const
+{
+  float result = 0.f;
+  char buffer[8];
+  for(size_t i = 0; i < numOfCPUCores; ++i)
   {
-    raise(SIGINT);
-    timeWhenChestButtonUnpressed = 0;
+    VERIFY(::lseek(cpuTemperatureFiles[i], 0, SEEK_SET) == 0);
+    ssize_t length = ::read(cpuTemperatureFiles[i], buffer, 8);
+    ASSERT(length > 1);
+    ASSERT(buffer[length - 1] == '\n');
+    result = std::max(result, static_cast<float>(std::atoi(buffer)) / 1000.f);
   }
+  return result;
 }
 
-void NaoProvider::update(OpponentTeamInfo& opponentTeamInfo)
-{
-  (RoboCup::TeamInfo&) opponentTeamInfo = gameControlData.teams[gameControlData.teams[0].teamNumber == Global::getSettings().teamNumber ? 1 : 0];
-}
-
-void NaoProvider::update(OwnTeamInfo& ownTeamInfo)
-{
-  (RoboCup::TeamInfo&) ownTeamInfo = gameControlData.teams[gameControlData.teams[0].teamNumber == Global::getSettings().teamNumber ? 0 : 1];
-}
-
-void NaoProvider::update(RawGameInfo& rawGameInfo)
-{
-  memcpy(&(RoboCup::RoboCupGameControlData&) rawGameInfo, &gameControlData, sizeof(gameControlData));
-  rawGameInfo.timeLastPackageReceived = gameControlTimeStamp;
-
-}
-
-void NaoProvider::update(RobotInfo& robotInfo)
-{
-
-  RoboCup::TeamInfo& team = gameControlData.teams[gameControlData.teams[0].teamNumber == Global::getSettings().teamNumber ? 0 : 1];
-  (RoboCup::RobotInfo&) robotInfo = team.players[Global::getSettings().playerNumber - 1];
-  robotInfo.number = Global::getSettings().playerNumber;
-
-  DEBUG_RESPONSE_ONCE("module:NaoProvider:robotInfo")
-  {
-    OUTPUT(idRobotInfo, bin, robotInfo);
-  }
-}
-
-void NaoProvider::update(SystemSensorData& theSystemSensorData)
-{
-
-  
-  theSystemSensorData.batteryLevel = MsgPack::readFloat(batteryLevel);
-  theSystemSensorData.batteryCurrent = MsgPack::readFloat(batteryCurrent);
-  theSystemSensorData.batteryTemperature = MsgPack::readFloat(batteryTemperature);
-  theSystemSensorData.batteryCharging = (static_cast<short>(MsgPack::readFloat(batteryCharging)) & 0x80) != 0;
-  if(theFrameInfo.getTimeSince(timeWhenBatteryLevelWritten) >= timeBetweenBatteryLevelUpdates)
-  {
-    OutTextFile("/var/volatile/tmp/batteryLevel.txt") << theSystemSensorData.batteryLevel << MsgPack::readFloat(batteryCharging);
-    timeWhenBatteryLevelWritten = theFrameInfo.time;
-  }
-}
-
-#endif // TARGET_ROBOT
+#endif

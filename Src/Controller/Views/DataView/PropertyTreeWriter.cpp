@@ -10,7 +10,7 @@ void PropertyTreeWriter::inUInt(unsigned int& value)
 {
   Entry& e = stack.back();
   if(e.type == -1) // array size
-    value = (unsigned)e.property->subProperties().size();
+    value = static_cast<unsigned>(e.property->subProperties().size());
   else
     in(value);
 }
@@ -21,7 +21,7 @@ void PropertyTreeWriter::inAngle(Angle& value)
   value = propertyManager.value(e.property).value<AngleWithUnity>();
 }
 
-void PropertyTreeWriter::select(const char* name, int type, const char* (*enumToString)(int))
+void PropertyTreeWriter::select(const char*, int type, const char*)
 {
   Entry& e = stack.back();
   const QtProperty* property;

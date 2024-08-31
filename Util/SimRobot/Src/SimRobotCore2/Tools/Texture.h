@@ -1,17 +1,17 @@
 /**
-* @file Tools/Texture.h
-* Declaration of class Texture
-* @author Colin Graf
-*/
+ * @file Tools/Texture.h
+ * Declaration of class Texture
+ * @author Colin Graf
+ */
 
 #pragma once
 
 #include <string>
 
 /**
-* @class Texture
-* A class for managing texture data
-*/
+ * @class Texture
+ * A class for managing texture data
+ */
 class Texture
 {
 public:
@@ -29,22 +29,22 @@ public:
   ~Texture();
 
   /**
-  * Loads a texture from a bmp or tga file (detected by file endling)
-  * @param The path to the file to load
-  * @return Whether the texture was successfully loaded or not
-  */
+   * Loads a texture from a BMP or TGA file (detected by file ending)
+   * @param The path to the file to load
+   * @return Whether the texture was successfully loaded or not
+   */
   bool load(const std::string& file);
 
   /**
-  * Adds the texture to the currently selected OpenGL context
-  */
+   * Adds the texture to the currently selected OpenGL context
+   */
   void createGraphics();
 
 private:
   /**
-  * Loads a texture from a tga file
-  * @param The path to the file to load
-  * @return Whether the texture was successfully loaded or not
-  */
+   * Loads a texture from a TGA file
+   * @param The path to the file to load
+   * @return Whether the texture was successfully loaded or not
+   */
   bool loadTGA(const std::string& file);
 };

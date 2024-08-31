@@ -30,7 +30,7 @@ VisualContext::VisualContext(QWidget* parent)
 VisualContext::Entry::~Entry()
 {
   // do not delete context. It takes care of itself.
-  if(text) delete text;
+  if(type != CONTEXT && text) delete text;
 }
 
 static inline VisualContext::Entry::Type targetToType(ConsolePrintTarget target)
@@ -40,7 +40,7 @@ static inline VisualContext::Entry::Type targetToType(ConsolePrintTarget target)
 
 void VisualContext::updateWidget(size_t index, Entry* entry)
 {
-  QWidget* widget = widgets[(int) index];
+  QWidget* widget = widgets[static_cast<int>(index)];
   if(widget->inherits("QLabel"))
   {
     QLabel* label = dynamic_cast<QLabel*>(widget);
@@ -133,7 +133,7 @@ void VisualContext::cancel()
   emit sCancel();
 }
 
-void VisualContext::executeInContext(Console* console, TeamSelector* teamSelector, const QString& cmdLine)
+void VisualContext::executeInContext(Console*, TeamSelector* teamSelector, const QString& cmdLine)
 {
   Context* context = new Context(teamSelector->getSelectedRobots(),
                                  teamSelector->getSelectedTeam());

@@ -10,69 +10,45 @@
 #include "Tools/Global.h"
 #include "Tools/MessageQueue/InMessage.h"
 #include "Tools/MessageQueue/OutMessage.h"
-#include "Controller/Views/AnnotationView/AnnotationView.h"
+#include "Controller/Views/AnnotationView.h"
 
 #include <QRegExp>
 
-AnnotationInfo::AnnotationInfo()
+void AnnotationInfo::clear()
 {
-  annotationProcesses['c'];
-  annotationProcesses['m'];
+  SYNC;
+  timeOfLastMessage = Time::getCurrentSystemTime();
+  newAnnotations.push_back(AnnotationData());
+  newAnnotations.back().name = "CLEAR";
 }
 
-bool AnnotationInfo::handleMessage(InMessage& message)
+void AnnotationInfo::addMessage(InMessage& message, unsigned currentFrame)
 {
-  if(message.getMessageID() == idProcessBegin)
+  SYNC;
+  timeOfLastMessage = Time::getCurrentSystemTime();
+  newAnnotations.push_back(AnnotationData());
+  AnnotationData& data = newAnnotations.back();
+
+  message.bin >> data.annotationNumber;
+  if(!(data.annotationNumber & 0x80000000))
+    message.bin >> data.frame; // Compatibility with old annotations
+  data.annotationNumber &= ~0x80000000;
+  data.frame = currentFrame;
+  message.text >> data.name;
+  data.annotation = message.text.readAll();
+
+  if(view && view->stopOnFilter)
   {
-    char current;
-    message.bin >> current;
-    switch(current)
+    const QString name = QString(data.name.c_str()).toLower();
+    const QString annotation = QString(data.annotation.c_str()).toLower();
+
+    if(view->filterIsRegEx)
     {
-      case 'c':
-        currentProcess = &annotationProcesses['c'];
-        break;
-      case 'm':
-        currentProcess = &annotationProcesses['m'];
-        break;
-      default:
-        ASSERT(false);
+      QRegExp regex(view->filter);
+      if(regex.exactMatch(name) || regex.exactMatch(annotation))
+        view->application->simStop();
     }
+    else if(name.contains(view->filter) || annotation.contains(view->filter))
+      view->application->simStop();
   }
-  else if(message.getMessageID() == idProcessFinished)
-  {
-    currentProcess = nullptr;
-  }
-  else if(message.getMessageID() == idAnnotation && currentProcess != nullptr)
-  {
-    currentProcess->timeOfLastMessage = Time::getCurrentSystemTime();
-    {
-      SYNC_WITH(*currentProcess);
-      currentProcess->newAnnotations.push_back(AnnotationData());
-      AnnotationData& data = currentProcess->newAnnotations.back();
-
-      message.bin >> data.annotationNumber;
-      message.bin >> data.frame;
-      message.text >> data.name;
-      data.annotation = message.text.readAll();
-
-      if(currentProcess->view && currentProcess->view->stopOnFilter)
-      {
-        const QString name = QString(data.name.c_str()).toLower();
-        const QString annotation = QString(data.annotation.c_str()).toLower();
-
-        if(currentProcess->view->filterIsRegEx)
-        {
-          QRegExp regex(currentProcess->view->filter);
-          if(regex.exactMatch(name) || regex.exactMatch(annotation))
-            currentProcess->view->application->simStop();
-        }
-        else
-        {
-          if(name.contains(currentProcess->view->filter) || annotation.contains(currentProcess->view->filter))
-            currentProcess->view->application->simStop();
-        }
-      }
-    }
-  }
-  return true;
 }

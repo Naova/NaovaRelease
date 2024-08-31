@@ -10,8 +10,8 @@
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Streams/Streamable.h"
 
-#include "../FieldPercepts/FieldLines.h"
-#include "../FieldPercepts/FieldLineIntersections.h"
+#include "Representations/Perception/FieldPercepts/FieldLines.h"
+#include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
 #include "FieldFeature.h"
 #include "FieldMarker.h"
 
@@ -21,8 +21,8 @@ STREAMABLE(IntersectionRelations,
   {
     IntersectionLineRelations(),
 
-    ((MarkedLine) LineMarker[MarkedIntersection::firstIntersectionMarkerOther]) lineMarkerOfDir1,
-    ((MarkedLine) LineMarker[MarkedIntersection::firstIntersectionMarkerOther]) lineMarkerOfDir2,
+    (MarkedLine::LineMarker[MarkedIntersection::firstIntersectionMarkerOther]) lineMarkerOfDir1,
+    (MarkedLine::LineMarker[MarkedIntersection::firstIntersectionMarkerOther]) lineMarkerOfDir2,
   });
 
   struct LineIntersectionRelations : public Streamable
@@ -34,7 +34,17 @@ STREAMABLE(IntersectionRelations,
     float intersectionPositions[MarkedLine::firstLineMarkerOther][4];
 
   protected:
-    virtual void serialize(In* in, Out* out);
+    /**
+     * Read this object from a stream.
+     * @param stream The stream from which the object is read.
+     */
+    void read(In& stream) override;
+
+    /**
+     * Write this object to a stream.
+     * @param stream The stream to which the object is written.
+     */
+    void write(Out& stream) const override;
   };
 
   IntersectionRelations() = default;

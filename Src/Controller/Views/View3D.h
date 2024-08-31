@@ -3,7 +3,7 @@
  *
  * Declaration of class View3D
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 
 #pragma once
@@ -19,7 +19,7 @@
  *
  * The base class for all 3-D views.
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 class View3D : public SimRobot::Object
 {
@@ -55,7 +55,7 @@ protected:
    * The function returns the view distance.
    * @return The distance from which the scene is viewed.
    */
-  virtual float getViewDistance() const { return 8.0; }
+  virtual float getViewDistance() const { return 8.f; }
 
 private:
   const QString fullName; /**< The path to this view in the scene graph */
@@ -66,10 +66,10 @@ private:
    * The caller has to delete this instance. (Qt handles this)
    * @return The widget.
    */
-  virtual SimRobot::Widget* createWidget();
+  SimRobot::Widget* createWidget() override;
 
-  virtual const QString& getFullName() const { return fullName; }
-  virtual const QIcon* getIcon() const { return &icon; }
+  const QString& getFullName() const override { return fullName; }
+  const QIcon* getIcon() const override { return &icon; }
 
   friend class View3DWidget;
 };

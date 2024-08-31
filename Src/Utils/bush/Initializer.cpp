@@ -1,7 +1,6 @@
 #include "Utils/bush/Initializer.h"
 #include "Utils/bush/agents/PingAgent.h"
 #include "Utils/bush/agents/StatusAgent.h"
-#include "Utils/bush/bhwrapper/Framework.h"
 #include "Utils/bush/cmdlib/ProcessRunner.h"
 #include "Utils/bush/models/Robot.h"
 #include "Utils/bush/models/Team.h"
@@ -13,31 +12,31 @@
 #include <cstdlib>
 
 #include <QApplication>
+#include "Tools/FunctionList.h"
 #include "Utils/bush/ui/MainWindow.h"
 
 Initializer::Initializer(int& argc, char** argv) : logLevel(WARN), app(0)
 {
   log(TRACE, "Initializer: Initialization started.");
 
+  FunctionList::execute();
+  {
 #ifdef WINDOWS
-  ProcessRunner r("taskkill /F /IM ping.exe");
+    ProcessRunner r("taskkill /F /IM ping.exe");
 #else // Linux, MACOS
-  ProcessRunner r("ps axco pid,command | grep \" ping$\" | awk '{ print $1; }' | xargs kill");
+    ProcessRunner r("ps axco pid,command | grep \" ping$\" | awk '{ print $1; }' | xargs kill");
 #endif
-  r.run();
-  if(r.error())
-    log(WARN, "Initializer: Could not kill any ping processes.");
-  else
-    log(TRACE, "Initializer: Killed all active ping processes.");
+    r.run();
+    if(r.error())
+      log(WARN, "Initializer: Could not kill any ping processes.");
+    else
+      log(TRACE, "Initializer: Killed all active ping processes.");
+  }
 
   log(TRACE, "Initializer: changing working directory to...");
   goToConfigDirectory(argv[0]);
 
-  Framework::getInstance("Initializer");
   app = new QApplication(argc, argv);
-#ifdef MACOS
-  app->setStyle("macintosh");
-#endif
   app->setApplicationName("B-Human User Shell (bush)");
   app->setCursorFlashTime(0);
   Icons::getInstance().init();
@@ -48,6 +47,19 @@ Initializer::Initializer(int& argc, char** argv) : logLevel(WARN), app(0)
 
   Session::getInstance().logLevel = WARN;
   log(TRACE, "Initializer: Set log level to " + toString(Session::getInstance().logLevel) + ".");
+
+  {
+#ifdef WINDOWS
+    ProcessRunner r("cmd /c bash -c \"cp ../Install/Keys/id_rsa_nao /tmp/id_rsa_nao\"");
+#else
+    ProcessRunner r("cp ../Install/Keys/id_rsa_nao /tmp/id_rsa_nao");
+#endif
+    r.run();
+    if(r.error())
+      log(WARN, "Initializer: Could not copy ssh key.");
+    else
+      log(TRACE, "Initializer: Copied ssh key.");
+  }
 
   Session::getInstance().pingAgent = new PingAgent;
   log(TRACE, "Initializer: Ping agent started.");
@@ -76,8 +88,8 @@ Initializer::~Initializer()
 {
   log(TRACE, "Initializer: Shutdown started.");
 
-  mainWindow->deleteLater();
-  app->deleteLater();
+  delete mainWindow;
+  delete app;
   log(TRACE, "Initializer: Deleted GUI.");
 
   Session::getInstance().console = 0;
@@ -86,8 +98,6 @@ Initializer::~Initializer()
   delete Session::getInstance().pingAgent;
   Session::getInstance().pingAgent = 0;
   log(TRACE, "Initializer: Removed ping angent.");
-
-  Framework::destroy("Initializer");
 
   log(TRACE, "Initializer: Finished shutdown.");
 }

@@ -1,76 +1,76 @@
 /**
  * @file Controller/RemoteRobot.h
- * Declaration of a class representing a process that communicates with a remote robot via TCP.
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * Declaration of a class representing a thread that communicates with a remote robot via TCP.
+ * @author Thomas Röfer
  */
 
 #pragma once
 
 #include "Tools/Debugging/TcpConnection.h"
 #include "RobotConsole.h"
-#include "SimulatedRobot.h"
+
+class SimulatedRobot;
 
 /**
  * @class RemoteRobot
- * A class representing a process that communicates with a remote robot via TCP.
+ *
+ * A class representing a thread that communicates with a remote robot via TCP.
  */
-class RemoteRobot : public RobotConsole, public TcpConnection, private Thread
+class RemoteRobot : public RobotConsole, public TcpConnection
 {
 private:
-  Receiver<MessageQueue> theDebugReceiver;
-  DebugSender<MessageQueue> theDebugSender;
-  const std::string name; /**< The name of the robot. */
   const std::string ip; /**< The ip of the robot. */
-  int bytesTransfered = 0; /**< The number of bytes transfered so far. */
+  int bytesTransferred = 0; /**< The number of bytes transferred so far. */
   float transferSpeed = 0.f; /**< The transfer speed in kb/s. */
-  unsigned timeStamp = 0; /**< The time when the transfer speed was measured. */
-  SimulatedRobot simulatedRobot; /**< The interface to simulated objects. */
-  SimRobotCore2::Body* puppet; /**< A pointer to the puppet when there is one. Otherwise 0. */
+  unsigned timestamp = 0; /**< The time when the transfer speed was measured. */
+  std::unique_ptr<SimulatedRobot> simulatedRobot; /**< The interface to simulated objects. */
+  SimRobotCore2::Body* puppet = nullptr; /**< A pointer to the puppet when there is one. Otherwise 0. */
 
 public:
   /**
-   * @param name The name of the robot.
+   * @param robotName The name of the robot.
    * @param ip The ip address of the robot.
    */
-  RemoteRobot(const std::string& name, const std::string& ip);
-
-  ~RemoteRobot() { Thread::stop(); setGlobals(); }
+  RemoteRobot(const std::string& robotName, const std::string& ip);
 
   /**
-   * The function starts the process.
+   * The function is called to announce the termination of the thread.
    */
-  void start() { Thread::start(this, &RemoteRobot::run); }
-
-  /**
-   * The function is called to announce the termination of the process.
-   */
-  void announceStop();
+  void announceStop() override;
 
   /**
    * The function must be called to exchange data with SimRobot.
    * It sends the motor commands to SimRobot and acquires new sensor data.
    */
-  void update();
+  void update() override;
 
   /**
    * The function returns the name of the robot.
+   *
    * @return The name.
    */
-  const std::string& getName() const { return name; }
+  const std::string getName() const override { return robotName; }
 
-private:
+protected:
   /**
-   * The main loop of the process.
+   * That function is called once before the first main(). It can be used
+   * for things that can't be done in the constructor.
    */
-  void run();
-
-  /**
-   * The function connects to another process.
-   */
-  void connect();
+  void init() override
+  {
+    RobotConsole::init();
+    Thread::nameCurrentThread(robotName + ".RemoteRobot");
+  }
 
   /**
    * The function is called from the framework once in every frame.
    */
-  virtual bool main();
+  bool main() override;
+
+private:
+
+  /**
+   * The function connects to another thread.
+   */
+  void connect();
 };

@@ -1,21 +1,22 @@
 /**
-* @file Simulation/Motors/VelocityMotor.cpp
-* Implementation of class VelocityMotor
-* @author Colin Graf
-* @author Thomas Röfer
-*/
+ * @file Simulation/Motors/VelocityMotor.cpp
+ * Implementation of class VelocityMotor
+ * @author Colin Graf
+ * @author Thomas Röfer
+ */
 
-#include <cmath>
-
-#include "Simulation/Motors/VelocityMotor.h"
-#include "Simulation/Simulation.h"
-#include "Simulation/Scene.h"
-#include "Simulation/Actuators/Joint.h"
-#include "Simulation/Axis.h"
+#include "VelocityMotor.h"
 #include "CoreModule.h"
 #include "Platform/Assert.h"
+#include "Simulation/Actuators/Joint.h"
+#include "Simulation/Axis.h"
+#include "Simulation/Scene.h"
+#include "Simulation/Simulation.h"
+#include "Tools/Math.h"
+#include <ode/objects.h>
+#include <cmath>
 
-VelocityMotor::VelocityMotor() : maxVelocity(0), maxForce(0)
+VelocityMotor::VelocityMotor()
 {
   Simulation::simulation->scene->actuators.push_back(this);
 
@@ -32,14 +33,19 @@ void VelocityMotor::create(Joint* joint)
   this->joint = positionSensor.joint = velocitySensor.joint = joint;
   velocitySensor.maxVelocity = maxVelocity;
   if(dJointGetType(joint->joint) == dJointTypeHinge)
+  {
     dJointSetHingeParam(joint->joint, dParamFMax, maxForce);
+    positionSensor.lastPos = static_cast<float>(dJointGetHingeAngle(joint->joint));
+  }
   else
     dJointSetSliderParam(joint->joint, dParamFMax, maxForce);
 }
 
 void VelocityMotor::act()
 {
-  dJointSetHingeParam(joint->joint, dParamVel, dReal(setpoint));
+  if(dJointGetType(joint->joint) == dJointTypeHinge)
+    positionSensor.lastPos += normalize(static_cast<float>(dJointGetHingeAngle(joint->joint)) - normalize(positionSensor.lastPos));
+  dJointSetHingeParam(joint->joint, dParamVel, setpoint);
 }
 
 void VelocityMotor::setValue(float value)
@@ -62,13 +68,15 @@ bool VelocityMotor::getMinAndMax(float& min, float& max) const
 void VelocityMotor::PositionSensor::updateValue()
 {
   data.floatValue = (dJointGetType(joint->joint) == dJointTypeHinge
-                     ? (float) dJointGetHingeAngle(joint->joint)
-                     : (float) dJointGetSliderPosition(joint->joint)) + (joint->axis->deflection ? joint->axis->deflection->offset : 0.f);
+                     ? static_cast<float>(dJointGetHingeAngle(joint->joint))
+                     : static_cast<float>(dJointGetSliderPosition(joint->joint))) + (joint->axis->deflection ? joint->axis->deflection->offset : 0.f);
+  if(dJointGetType(joint->joint) == dJointTypeHinge)
+    data.floatValue = lastPos + normalize(data.floatValue - normalize(lastPos));
 }
 
 bool VelocityMotor::PositionSensor::getMinAndMax(float& min, float& max) const
 {
-  Axis::Deflection* deflection = joint->axis->deflection;
+  const Axis::Deflection* deflection = joint->axis->deflection;
   if(deflection)
   {
     min = deflection->min;
@@ -81,8 +89,8 @@ bool VelocityMotor::PositionSensor::getMinAndMax(float& min, float& max) const
 void VelocityMotor::VelocitySensor::updateValue()
 {
   data.floatValue = dJointGetType(joint->joint) == dJointTypeHinge
-                    ? (float) dJointGetHingeParam(joint->joint, dParamVel)
-                    : (float) dJointGetSliderParam(joint->joint, dParamVel);
+                    ? static_cast<float>(dJointGetHingeParam(joint->joint, dParamVel))
+                    : static_cast<float>(dJointGetSliderParam(joint->joint, dParamVel));
 }
 
 bool VelocityMotor::VelocitySensor::getMinAndMax(float& min, float& max) const

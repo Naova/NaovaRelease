@@ -14,7 +14,6 @@
 #include <cstring>
 #include "Tools/Math/Pose2f.h"
 #include "Tools/Streams/Enum.h"
-#include "GetupMotion.h"
 
 STREAMABLE(DamageConfigurationHead,
 {
@@ -30,31 +29,23 @@ STREAMABLE(DamageConfigurationBody,
 {
   ENUM(BrokenStandUp,
   {,
-    allFine, /**< try left and if not successful right. */
-    onlyNormal, /**< left stand foot based */
-    onlyMirrored, /**< right stand foot based */
-    allBroken, /**< don't even try to stand. */
+    allFine, /**< normal and mirrored get up is allowed */
+    onlyNormal, /**< only normal get up is allowed */
+    onlyMirrored, /**< only mirrored get up is allowed */
+    allBroken, /**< don't even try to stand */
   });
 
   STREAMABLE(Side,
-  {
-    Side()
-    {
-      brokenFsrs.fill(false);
-    },
-
+  {,
     (bool)(false) weakLeg,
     (bool)(false) footBumperDefect,
     (bool)(false) armContactDefect,
-    (ENUM_INDEXED_ARRAY(bool, (FsrSensors) FsrSensor)) brokenFsrs,
   }),
-
   (bool)(false) noFieldGenuflect,
   (BrokenStandUp)(allFine) brokenStandUp,
-  ((GetUpMotions) GetupMotionVector) getUpBack,
-  ((GetUpMotions) GetupMotionVector) getUpFront,
-  ((Joints) stdVectorJoint)(stdVectorJoint()) jointsToEraseStiffness,
+  (Joints::stdVectorJoint)(Joints::stdVectorJoint()) jointsToEraseStiffness,
   (Vector2f) startTiltLeft,
   (Vector2f) startTiltRight,
-  (ENUM_INDEXED_ARRAY(Side, (Legs) Leg)) sides,
+  (bool) doNotBoost,
+  (ENUM_INDEXED_ARRAY(Side, Legs::Leg)) sides,
 });

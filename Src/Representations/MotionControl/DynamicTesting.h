@@ -10,8 +10,8 @@
 #include "Tools/Function.h"
 #include "Representations/Infrastructure/JointRequest.h"
 #include "Representations/Infrastructure/JointAngles.h"
-#include "Modules/MotionControl/Balancer/LIPStateEstimator.h"
-#include "Modules/MotionControl/Balancer/ZmpController.h"
+#include "Representations/MotionControl/LIPStateEstimator.h"
+#include "Representations/MotionControl/ZmpController.h"
 
 
 STREAMABLE(DynamicTesting,

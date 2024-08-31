@@ -5,7 +5,7 @@
 #include "Utils/bush/models/Team.h"
 #include "Utils/bush/tools/Platform.h"
 
-static const size_t MAX_PLAYERS = 6;
+static const size_t MAX_PLAYERS = 8;
 
 void Team::init()
 {
@@ -32,7 +32,7 @@ Team::Team()
     wlanConfig(""),
     compile(true),
     buildConfig(""),
-    volume(10),
+    volume(100),
     deployDevice(""),
     magicNumber(-1)
 {
@@ -51,7 +51,7 @@ Team::Team(const std::string& name, unsigned short number)
     wlanConfig(""),
     compile(true),
     buildConfig(""),
-    volume(10),
+    volume(100),
     deployDevice(""),
     magicNumber(-1)
 {
@@ -138,9 +138,8 @@ void Team::changePlayer(unsigned short number, unsigned short pos, Robot* robot)
   players[number - 1][pos] = robot;
 }
 
-void Team::serialize(In* in, Out* out)
+void Team::read(In& stream)
 {
-  STREAM_REGISTER_BEGIN
   STREAM(name);
   STREAM(number);
   STREAM(port);
@@ -154,21 +153,32 @@ void Team::serialize(In* in, Out* out)
   STREAM(deployDevice);
   STREAM(magicNumber);
   std::vector<std::string> players;
-  if(out)
-  {
-    std::vector<Robot*> robots = getPlayersWrapped();
-    for(Robot* r : robots)
-      players.push_back(r ? r->name : "_");
-  }
   STREAM(players);
-  if(in)
-  {
-    std::map<std::string, Robot*> robots = Session::getInstance().robotsByName;
-    for(size_t i = 0; i < players.size(); ++i)
-      if(players[i] != "_")
-        addPlayer(i % MAX_PLAYERS, i / MAX_PLAYERS, *robots[players[i]]);
-  }
-  STREAM_REGISTER_FINISH
+  std::map<std::string, Robot*> robots = Session::getInstance().robotsByName;
+  for(size_t i = 0; i < players.size(); ++i)
+    if(players[i] != "_")
+      addPlayer(i % MAX_PLAYERS, i / MAX_PLAYERS, *robots[players[i]]);
+}
+
+void Team::write(Out& stream) const
+{
+  STREAM(name);
+  STREAM(number);
+  STREAM(port);
+  STREAM(color);
+  STREAM(scenario);
+  STREAM(location);
+  STREAM(compile);
+  STREAM(buildConfig);
+  STREAM(wlanConfig);
+  STREAM(volume);
+  STREAM(deployDevice);
+  STREAM(magicNumber);
+  std::vector<std::string> players;
+  std::vector<Robot*> robots = getPlayersWrapped();
+  for(Robot* r : robots)
+    players.push_back(r ? r->name : "_");
+  STREAM(players);
 }
 
 void Team::setSelectPlayer(Robot* robot, bool select)
@@ -219,21 +229,12 @@ unsigned short Team::getPlayerNumber(const Robot& robot) const
 
 void Team::writeTeams(Out& stream, const std::vector<Team>& teams)
 {
-  STREAMABLE(S,
-  {
-    S(std::vector<Team>& teams) : teams(teams) {},
-    (std::vector<Team>&) teams,
-  }) s(const_cast<std::vector<Team>&>(teams));
-  stream << s;
+  stream << TeamsStreamer(const_cast<std::vector<Team>&>(teams));
 }
 
 void Team::readTeams(In& stream, std::vector<Team>& teams)
 {
-  STREAMABLE(S,
-  {
-    S(std::vector<Team>& teams) : teams(teams) {},
-    (std::vector<Team>&) teams,
-  }) s(teams);
+  TeamsStreamer s(teams);
   stream >> s;
   for(Team& t : teams)
     Session::getInstance().log(TRACE, "Team: Loaded team \"" + t.name + "\".");

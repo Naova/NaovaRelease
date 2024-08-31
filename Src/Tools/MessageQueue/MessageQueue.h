@@ -17,22 +17,22 @@
  * @class MessageQueue
  * A class representing a queue of messages.
  * It can be used to collect different types of messages for exchange between different
- * processes or systems.
+ * threads or systems.
  *
  * Usage:
  * <pre>
  * MessageQueue myQueue;
  * myQueue.setSize(100000); // set the size of data that can be stored in the queue
- * Image image1;
- * myQueue.out.bin << image1; // write the binary message
- * myQueue.out.finishMessage(idImage); // finish the message, set the type id of the message
+ * CameraImage cameraImage1;
+ * myQueue.out.bin << cameraImage1; // write the binary message
+ * myQueue.out.finishMessage(idCameraImage); // finish the message, set the type id of the message
  * //
- * // ... copy the queue between processes, systems
+ * // ... copy the queue between threads, systems
  * //
- * if(myQueue.in.getMessageID() == idImage) // check for the type of the next message
+ * if(myQueue.in.getMessageID() == idCameraImage) // check for the type of the next message
  * {
- *   Image image2;
- *   myQueue.in.bin >> image2;  // read the image from the queue
+ *   CameraImage cameraImage2;
+ *   myQueue.in.bin >> cameraImage2;  // read the image from the queue
  * }
  * </pre>
  */
@@ -54,20 +54,18 @@ public:
    * @param reserveForInfrastructure Non-infrastructure messages will be rejected if
    *                                 less than this number of bytes is free.
    */
-  void setSize(unsigned size, unsigned reserveForInfrastructure = 0) {queue.setSize(size, reserveForInfrastructure);}
+  void setSize(size_t size, size_t reserveForInfrastructure = 0) {queue.setSize(size, reserveForInfrastructure);}
+
+  /**
+   * Returns the maximum size of the queue.
+   */
+  size_t getSize() const {return queue.getSize();}
 
   /**
    * The method returns the size of memory which is needed to write the queue to a stream.
    * @return The number of bytes required.
    */
-  unsigned getStreamedSize() const {return MessageQueueBase::queueHeaderSize + queue.usedSize;}
-
-  /**
-   * The method returns the queue in streamed format. It runs in constant time.
-   * @return A buffer of getStreamedSize() bytes. Note that it is only valid until the next
-   *         non-const call to a method of this queue.
-   */
-  char* getStreamedData();
+  size_t getStreamedSize() const {return MessageQueueBase::queueHeaderSize + queue.usedSize;}
 
   /**
    * The method calls a given message handler for all messages in the queue. Note that the messages
@@ -130,10 +128,10 @@ public:
   /**
    * Hacker interface for messages. Allows patching their data after they were added.
    * @param message The number of the message to be patched.
-   * @param index The index of the byte to be patched in the message.
+   * @param index The index of the value to be patched in the message.
    * @param value The new value of the byte.
    */
-  void patchMessage(int message, int index, char value);
+  void patchMessage(int message, int index, const std::string& value);
 
   /**
    * The method writes a header for an appendable message queue to a stream.
@@ -177,9 +175,20 @@ protected:
 
   /**
    * The method reads all messages from a stream and appends them to this message queue.
+   * The data in the stream has to start with a header.
    * @param stream The stream that is read from.
    */
   void append(In& stream);
+
+  /**
+   * The method reads messages from a stream and appends them to this message queue.
+   * The size determines the amount of data to be read. It must contain complete messages, i.e.
+   * it is not allowed that the data read ends in the middle of a message.
+   * The data in the stream has to start with a header, which is skipped.
+   * @param stream The stream that is read from.
+   * @param size The number of bytes to be read.
+   */
+  void append(In& stream, size_t size);
 
   friend In& operator>>(In& stream, MessageQueue& messageQueue); /**< Gives the streaming operator access to append(). */
   friend Out& operator<<(Out& stream, const MessageQueue& messageQueue); /**< Gives the streaming operator access to write(). */
@@ -207,8 +216,3 @@ Out& operator<<(Out& stream, const MessageQueue& messageQueue);
  * @param queue The MessageQueue object.
  */
 void operator>>(InMessage& message, MessageQueue& queue);
-
-class CognitionToDebug : public MessageQueue {};
-class DebugToCognition : public MessageQueue {};
-class MotionToDebug : public MessageQueue {};
-class DebugToMotion : public MessageQueue {};

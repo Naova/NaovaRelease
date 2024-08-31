@@ -4,24 +4,19 @@
  */
 
 #include "GlobalFieldCoverageProvider.h"
+#include <algorithm>
 #include <string>
 
 MAKE_MODULE(GlobalFieldCoverageProvider, modeling);
 
-GlobalFieldCoverageProvider::GlobalFieldCoverageProvider()
-{}
-
 void GlobalFieldCoverageProvider::update(GlobalFieldCoverage& globalFieldCoverage)
 {
-  DECLARE_DEBUG_DRAWING("module:GlobalFieldCoverageProvider:dropInPosition", "drawingOnField");
-  DECLARE_DEBUG_DRAWING("module:GlobalFieldCoverageProvider:ballOutPosition", "drawingOnField");
-
   if(!initDone)
     init(globalFieldCoverage);
 
-  if(theCognitionStateChanges.lastGameState != STATE_SET && theGameInfo.state == STATE_SET)
+  if(theExtendedGameInfo.gameStateLastFrame != STATE_SET && theGameInfo.state == STATE_SET)
   {
-    const int min = -static_cast<int>(Vector2f(theFieldDimensions.xPosOpponentGroundline, theFieldDimensions.yPosLeftSideline).squaredNorm()) / 1000;
+    const int min = -static_cast<int>(Vector2f(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosLeftSideline).squaredNorm()) / 1000;
     for(size_t i = 0; i < globalFieldCoverage.grid.size(); ++i)
     {
       globalFieldCoverage.grid[i].timestamp = theFrameInfo.time;
@@ -45,9 +40,9 @@ void GlobalFieldCoverageProvider::update(GlobalFieldCoverage& globalFieldCoverag
 
   for(size_t y = 0; y < theFieldCoverage.lines.size(); ++y)
     addLine(theFieldCoverage.lines[y]);
-  for(const auto &teammate : theTeamData.teammates)
-    if(!teammate.theFieldCoverage.lines.empty())
-      addLine(teammate.theFieldCoverage.lines.back());
+  for(const auto& teammate : theTeamData.teammates)
+    for(size_t y = 0; y < teammate.theFieldCoverage.lines.size(); ++y)
+      addLine(teammate.theFieldCoverage.lines[y]);
 
   if(theTeamBallModel.isValid)
     setCoverageAtFieldPosition(globalFieldCoverage, theTeamBallModel.position, 0);
@@ -55,43 +50,10 @@ void GlobalFieldCoverageProvider::update(GlobalFieldCoverage& globalFieldCoverag
     setCoverageAtFieldPosition(globalFieldCoverage, theRobotPose * theBallModel.estimate.position, 0);
   setCoverageAtFieldPosition(globalFieldCoverage, theRobotPose.translation, theFrameInfo.time);
 
-  accountForBallDropIn(globalFieldCoverage);
-
   globalFieldCoverage.meanCoverage = 0;
   for(size_t i = 0; i < globalFieldCoverage.grid.size(); ++i)
     globalFieldCoverage.meanCoverage += globalFieldCoverage.grid[i].coverage;
   globalFieldCoverage.meanCoverage /= static_cast<int>(globalFieldCoverage.grid.size());
-}
-
-void GlobalFieldCoverageProvider::accountForBallDropIn(GlobalFieldCoverage& globalFieldCoverage)
-{
-  if(theTeamBallModel.isValid)
-  {
-    if(theFieldDimensions.isInsideField(theTeamBallModel.position))
-    {
-      lastBallPositionInsideField = theTeamBallModel.position;
-      if(theTeamBallModel.velocity.squaredNorm() < 1.f)
-        lastBallPositionLyingInsideField = theTeamBallModel.position;
-    }
-    else if(theFieldDimensions.isInsideField(lastBallPosition))
-    {
-      ballOutPosition = theTeamBallModel.position;
-      lastTimeBallWentOut = theFrameInfo.time;
-    }
-    lastBallPosition = theTeamBallModel.position;
-  }
-}
-
-void GlobalFieldCoverageProvider::calculateDropInPosition(GlobalFieldCoverage& globalFieldCoverage)
-{
-  globalFieldCoverage.ballDropInPosition.y() = lastBallPositionLyingInsideField.y() < 0 ? theFieldDimensions.yPosRightDropInLine : theFieldDimensions.yPosLeftDropInLine;
-
-  if(theFrameInfo.getTimeSince(lastTimeBallWentOut) < maxTimeToBallDropIn)
-  {
-    globalFieldCoverage.ballDropInPosition.y() = ballOutPosition.y() < 0 ? theFieldDimensions.yPosRightDropInLine : theFieldDimensions.yPosLeftDropInLine;
-  }
-
-  globalFieldCoverage.ballDropInPosition.x() = clip(globalFieldCoverage.ballDropInPosition.x(), theFieldDimensions.xPosOwnDropInLine, theFieldDimensions.xPosOpponentDropInLine);
 }
 
 void GlobalFieldCoverageProvider::setCoverageAtFieldPosition(GlobalFieldCoverage& globalFieldCoverage, const Vector2f& positionOnField, const int coverage) const
@@ -100,11 +62,11 @@ void GlobalFieldCoverageProvider::setCoverageAtFieldPosition(GlobalFieldCoverage
   {
     ASSERT(std::isfinite(positionOnField.x()));
     ASSERT(std::isfinite(positionOnField.y()));
-    const int x = static_cast<int>((positionOnField.x() - theFieldDimensions.xPosOwnGroundline) / cellLengthX);
-    const int y = static_cast<int>((positionOnField.y() - theFieldDimensions.yPosRightSideline) / cellLengthY);
+    const int x = std::min(static_cast<int>((positionOnField.x() - theFieldDimensions.xPosOwnGroundLine) / globalFieldCoverage.cellLengthX), globalFieldCoverage.numOfCellsX - 1);
+    const int y = std::min(static_cast<int>((positionOnField.y() - theFieldDimensions.yPosRightSideline) / globalFieldCoverage.cellLengthY), globalFieldCoverage.numOfCellsY - 1);
 
-    globalFieldCoverage.grid[y * numOfCellsX + x].timestamp = theFrameInfo.time;
-    globalFieldCoverage.grid[y * numOfCellsX + x].coverage = coverage;
+    globalFieldCoverage.grid[y * globalFieldCoverage.numOfCellsX + x].timestamp = theFrameInfo.time;
+    globalFieldCoverage.grid[y * globalFieldCoverage.numOfCellsX + x].coverage = coverage;
   }
 }
 
@@ -112,22 +74,22 @@ void GlobalFieldCoverageProvider::init(GlobalFieldCoverage& globalFieldCoverage)
 {
   initDone = true;
 
-  cellLengthX = theFieldDimensions.xPosOpponentGroundline * 2 / numOfCellsX;
-  cellLengthY = theFieldDimensions.yPosLeftSideline * 2 / numOfCellsY;
+  globalFieldCoverage.cellLengthX = theFieldDimensions.xPosOpponentGroundLine * 2 / globalFieldCoverage.numOfCellsX;
+  globalFieldCoverage.cellLengthY = theFieldDimensions.yPosLeftSideline * 2 / globalFieldCoverage.numOfCellsY;
 
-  float positionOnFieldX = theFieldDimensions.xPosOwnGroundline + cellLengthX / 2.f;
-  float positionOnFieldY = theFieldDimensions.yPosRightSideline + cellLengthY / 2.f;
+  float positionOnFieldX = theFieldDimensions.xPosOwnGroundLine + globalFieldCoverage.cellLengthX / 2.f;
+  float positionOnFieldY = theFieldDimensions.yPosRightSideline + globalFieldCoverage.cellLengthY / 2.f;
   const unsigned time = std::max(10000u, theFrameInfo.time);
 
-  globalFieldCoverage.grid.reserve(numOfCellsY * numOfCellsX);
-  for(int y = 0; y < numOfCellsY; ++y)
+  globalFieldCoverage.grid.reserve(globalFieldCoverage.numOfCellsY * globalFieldCoverage.numOfCellsX);
+  for(int y = 0; y < globalFieldCoverage.numOfCellsY; ++y)
   {
-    for(int x = 0; x < numOfCellsX; ++x)
+    for(int x = 0; x < globalFieldCoverage.numOfCellsX; ++x)
     {
-      globalFieldCoverage.grid.emplace_back(time, time, positionOnFieldX, positionOnFieldY, cellLengthX, cellLengthY);
-      positionOnFieldX += cellLengthX;
+      globalFieldCoverage.grid.emplace_back(time, time, positionOnFieldX, positionOnFieldY, globalFieldCoverage.cellLengthX, globalFieldCoverage.cellLengthY);
+      positionOnFieldX += globalFieldCoverage.cellLengthX;
     }
-    positionOnFieldX = theFieldDimensions.xPosOwnGroundline + cellLengthX / 2.f;
-    positionOnFieldY += cellLengthY;
+    positionOnFieldX = theFieldDimensions.xPosOwnGroundLine + globalFieldCoverage.cellLengthX / 2.f;
+    positionOnFieldY += globalFieldCoverage.cellLengthY;
   }
 }

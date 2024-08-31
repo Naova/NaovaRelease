@@ -9,29 +9,28 @@
 
 #include "Representations/Modeling/BallModel.h"
 #include "Representations/BehaviorControl/BehaviorStatus.h"
+#include "Representations/BehaviorControl/TeamBehaviorStatus.h"
+#include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/RobotHealth.h"
+#include "Representations/Infrastructure/TeamTalk.h"
 #include "Representations/Modeling/FieldCoverage.h"
 #include "Representations/Modeling/ObstacleModel.h"
 #include "Representations/Modeling/RobotPose.h"
-#include "Representations/Modeling/SideConfidence.h"
-#include "Representations/BehaviorControl/SPLStandardBehaviorStatus.h"
 #include "Representations/Modeling/Whistle.h"
 
+#include "Tools/BehaviorControl/Strategy/Tactic.h"
+#include "Tools/Communication/SPLStandardMessageBuffer.h"
 #include "Tools/MessageQueue/InMessage.h"
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Function.h"
 #include "Tools/Streams/Enum.h"
-namespace RoboCup
-{
-#include <SPLStandardMessage.h>
-}
 
 #include "Tools/Communication/BNTP.h"
 
 STREAMABLE(Teammate, COMMA public MessageHandler
 {
   const SynchronizationMeasurementsBuffer* bSMB = nullptr;
-  
+
   unsigned toLocalTimestamp(unsigned remoteTimestamp) const
   {
     if(bSMB)
@@ -39,6 +38,8 @@ STREAMABLE(Teammate, COMMA public MessageHandler
     else
       return 0u;
   };
+
+  Vector2f getEstimatedPosition(unsigned time) const;
 
   /** MessageHandler function */
   bool handleMessage(InMessage& message) override;
@@ -48,29 +49,36 @@ STREAMABLE(Teammate, COMMA public MessageHandler
     PENALIZED,                        /** OK   : I receive packets, but robot is penalized */
     FALLEN,                           /** GOOD : Robot is playing but has fallen or currently no ground contact */
     PLAYING,                          /** BEST : Teammate is standing/walking and has ground contact :-) */
-  }),
+  });
+
+  FieldCoverage theFieldCoverage, /**< Do not log this huge representation! */
 
   (int)(-1) number,
-  (bool)(false) isGoalkeeper,
+  (bool)(false) isGoalkeeper, /**< This is for a teammate what \c theRobotInfo.isGoalkeeper() is for the player itself. */
   (bool)(true) isPenalized,
   (bool)(true) isUpright,
-  (unsigned)(0) timeWhenLastPacketReceived,
-  (unsigned)(0) timeOfLastGroundContact,
   (bool)(true) hasGroundContact,
+  (unsigned)(0) timeWhenLastUpright,
+  (unsigned)(0) timeOfLastGroundContact,
+
+  (unsigned)(0) timeWhenLastPacketSent,
+  (unsigned)(0) timeWhenLastPacketReceived,
   (Status)(PENALIZED) status,
+  (unsigned)(0) timeWhenStatusChanged,
+  (signed char)(0) sequenceNumber,
+  (signed char)(0) returnSequenceNumber,
 
   (RobotPose) theRobotPose,
   (BallModel) theBallModel,
-  // (ObstacleModel) theObstacleModel,
+  (FrameInfo) theFrameInfo,
+  (ObstacleModel) theObstacleModel,
   (BehaviorStatus) theBehaviorStatus,
-  // (SPLStandardBehaviorStatus) theSPLStandardBehaviorStatus,
   (Whistle) theWhistle,
-  // (TeammateRoles) theTeammateRoles,
-  (FieldCoverage) theFieldCoverage,
-  // (SideConfidence) theSideConfidence,
+  (TeamBehaviorStatus) theTeamBehaviorStatus,
 
-  // (RobotHealth) theRobotHealth,
-  // (Naova::OwnTeamInfo) theRawGCData,
+  (RobotHealth) theRobotHealth,
+  (TeamTalk) theTeamTalk,
+  (Tactic::Position::Type) supporterPosition,
 });
 
 /**
@@ -80,10 +88,9 @@ STREAMABLE(Teammate, COMMA public MessageHandler
 STREAMABLE(TeamData,
 {
   void draw() const;
-  FUNCTION(void(const RoboCup::SPLStandardMessage* const)) generate,
+  FUNCTION(void(const SPLStandardMessageBufferEntry* const)) generate,
 
-  (std::vector<Teammate>) teammates, //< An unordered(!) list of all teammates that are currently communicating with me */
-  (int)(0) numberOfActiveTeammates,   //< The number of teammates (in the list) that are at not INACTIVE */
-  (unsigned)(0) receivedMessages,     //< The number of received (not self) team messages
-  (bool)(true) canSendMessages, 
+  (std::vector<Teammate>) teammates, /**< An unordered(!) list of all teammates that are currently communicating with me */
+  (int)(0) numberOfActiveTeammates,  /**< The number of teammates (in the list) that are at not PENALIZED */
+  (unsigned)(0) receivedMessages,    /**< The number of received (not self) team messages */
 });

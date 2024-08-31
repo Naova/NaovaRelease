@@ -5,32 +5,25 @@
 
 #pragma once
 
-#include "Tools/Module/Module.h"
-#include "Tools/Math/Eigen.h"
-#include <vector>
-
+#include "Representations/Communication/GameInfo.h"
 #include "Representations/Configuration/BallSpecification.h"
 #include "Representations/Configuration/FieldDimensions.h"
-
-#include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Infrastructure/FrameInfo.h"
-#include "Representations/Infrastructure/GameInfo.h"
-
 #include "Representations/Modeling/Odometer.h"
-
+#include "Representations/Modeling/RobotPose.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
+#include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
+#include "Representations/Perception/FieldPercepts/FieldLines.h"
 #include "Representations/Perception/FieldPercepts/IntersectionsPercept.h"
 #include "Representations/Perception/FieldPercepts/LinesPercept.h"
-
-#include "Representations/Perception/FieldFeatures/GoalFrame.h"
-
-#include "Representations/Perception/FieldPercepts/FieldLines.h"
-#include "Representations/Perception/FieldPercepts/FieldLineIntersections.h"
+#include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
+#include "Tools/Math/Eigen.h"
+#include "Tools/Module/Module.h"
 
 MODULE(FieldLinesProvider,
 {,
-  USES(RobotPose),
+  REQUIRES(RobotPose),
 
   REQUIRES(BallSpecification),
   REQUIRES(FieldDimensions),
@@ -46,19 +39,15 @@ MODULE(FieldLinesProvider,
   REQUIRES(IntersectionsPercept),
   REQUIRES(LinesPercept),
 
-  REQUIRES(GoalFrame),
-
   PROVIDES(FieldLines),
   REQUIRES(FieldLines),
 
   PROVIDES(FieldLineIntersections),
   DEFINES_PARAMETERS(
   {,
-    (float)(sqr(850.f)) squaredBigLineThreshold, /**< the square of the threshold for each linesegment of a long line; This should be a good way longer then a penaltySideLine */
-    (float)(20.f) goalFrameThreshold, /**< the threshold for a perception to be in field according to the goalFrame */
-    (float)(sqr(20.f)) squaredMinLenghOfACuttedLine, /**< minmal length of a cutted line */
+    (float)(1000.f) bigLineThreshold, /**< Internal definition for a long line. TODO: Rethink this! */
     (int)(30) maxTimeOffset,
-    (float)(200.f) lineOfCircleAssumationVariance, /**< variance line distance to the center circle in which it is thrown away */
+    (float)(200.f) maxLineDeviationFromAssumedCenterCircle, /**< If the distance of a short line to the center circle is larger than this, it is not considered to be on the circle. */
   }),
 });
 
@@ -71,7 +60,6 @@ private:
   ENUM(SpotLineStatus,
   {,
     thrown,
-    cutted,
     stayed,
   });
   std::vector<SpotLineStatus> spotLineUsage;
@@ -79,10 +67,11 @@ private:
   std::vector<unsigned> lineIndexTable;
   bool lastCircleWasSeen = false;
   unsigned int lastFrameTime = 1;
+  std::vector<FieldLines::Line> internalListOfLines;  /**< Unsorted list of computed field lines. */
 
 public:
   SpotLine* midLine;
   bool isPointInSegment(const SpotLine& line, const Vector2f& point) const;
-  void update(FieldLines& fieldLines);
-  void update(FieldLineIntersections& fieldLineIntersections);
+  void update(FieldLines& fieldLines) override;
+  void update(FieldLineIntersections& fieldLineIntersections) override;
 };

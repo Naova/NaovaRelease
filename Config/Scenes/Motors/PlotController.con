@@ -1,0 +1,29 @@
+vp RAnklePitch 1500 -15 15
+vp JointRAnklePitch  1500 -15 15
+vpd RAnklePitch module:DynamicController:rAnklePitchAfter blue
+vpd JointRAnklePitch representation:JointAngles:rAnklePitch red
+
+vp LAnklePitch 1500 -15 15
+vp JointLAnklePitch  1500 -15 15
+vpd LAnklePitch module:DynamicController:lAnklePitchAfter blue
+vpd JointLAnklePitch representation:JointAngles:lAnklePitch red
+
+vp RHipPitch 1500 -15 15
+vp JointRHipPitch 1500 -15 15
+vpd RHipPitch module:DynamicController:rHipPitchAfter blue
+vpd JointRHipPitch representation:JointAngles:rHipPitch red
+
+vp LHipPitch 1500 -15 15
+vp JointLHipPitch 1500 -15 15
+vpd LHipPitch module:DynamicController:lHipPitchAfter blue
+vpd JointLHipPitch representation:JointAngles:lHipPitch red
+
+vp RKneePitch 1500 -15 15
+vp JointRKneePitch  1500 -15 15
+vpd RKneePitch module:DynamicController:rKneePitchAfter blue
+vpd JointRKneePitch representation:JointAngles:rKneePitch red
+
+vp LKneePitch 1500 -15 15
+vp JointLKneePitch  1500 -15 15
+vpd LKneePitch module:DynamicController:lKneePitchAfter blue
+vpd JointLKneePitch representation:JointAngles:lKneePitch red

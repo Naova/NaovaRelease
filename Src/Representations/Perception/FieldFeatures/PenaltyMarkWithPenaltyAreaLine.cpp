@@ -29,8 +29,8 @@ void PenaltyMarkWithPenaltyAreaLine::draw() const
   if(Blackboard::getInstance().exists("CameraInfo"))
   {
     std::string thread = static_cast<const CameraInfo&>(Blackboard::getInstance()["CameraInfo"]).camera == CameraInfo::upper ? "Upper" : "Lower";
-    // DEBUG_DRAWING("representation:PenaltyMarkWithPenaltyAreaLine:field", "drawingOnField")
-      // THREAD("representation:PenaltyMarkWithPenaltyAreaLine:field", thread);
+    DEBUG_DRAWING("representation:PenaltyMarkWithPenaltyAreaLine:field", "drawingOnField")
+      THREAD("representation:PenaltyMarkWithPenaltyAreaLine:field", thread);
     if(!isValid)
       return;
     static const float size = 1000.f;

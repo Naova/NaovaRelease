@@ -15,13 +15,12 @@ static constexpr float MAX_DIST_ON_FIELD = 142127.f; // Human soccer field diago
 
 Vector2f Transformation::robotToField(const Pose2f& rp, const Vector2f& relPos)
 {
-  float s = std::sin(rp.rotation);
-  float c = std::cos(rp.rotation);
-  return Vector2f(relPos.x() * c - relPos.y() * s, relPos.x() * s + relPos.y() * c) + rp.translation;
+  return rp * relPos;
 }
 
 Vector2f Transformation::fieldToRobot(const Pose2f& rp, const Vector2f& fieldCoord)
 {
+  // return rp.inverse * fieldCoord; would be slower
   const float invRotation = -rp.rotation;
   const float s = std::sin(invRotation);
   const float c = std::cos(invRotation);
@@ -40,7 +39,7 @@ bool Transformation::imageToRobot(const float x, const float y, const CameraMatr
                                   const CameraInfo& cameraInfo, Vector2f& relativePosition)
 {
   const float xFactor = cameraInfo.focalLengthInv;
-  const float yFactor = cameraInfo.focalLengthInv;
+  const float yFactor = cameraInfo.focalLengthHeightInv;
   const Vector3f vectorToCenter(1.f, (cameraInfo.opticalCenter.x() - x) * xFactor,
                                 (cameraInfo.opticalCenter.y() - y) * yFactor);
   const Vector3f vectorToCenterWorld = cameraMatrix.rotation * vectorToCenter;
@@ -87,7 +86,7 @@ bool Transformation::imageToRobotHorizontalPlane(const Vector2f& pointInImage, f
                                                  const CameraMatrix& cameraMatrix, const CameraInfo& cameraInfo, Vector2f& pointOnPlane)
 {
   const float xFactor = cameraInfo.focalLengthInv;
-  const float yFactor = cameraInfo.focalLengthInv;
+  const float yFactor = cameraInfo.focalLengthHeightInv;
   const Vector3f vectorToCenter(1.f, (cameraInfo.opticalCenter.x() - pointInImage.x()) * xFactor,
                                 (cameraInfo.opticalCenter.y() - pointInImage.y()) * yFactor);
   const Vector3f vectorToCenterWorld = cameraMatrix.rotation * vectorToCenter;
@@ -116,8 +115,8 @@ bool Transformation::robotToImage(const Vector3f& point, const CameraMatrix& cam
   if(pointInCam.x() <= 0)
     return false;
 
-  pointInCam *= cameraInfo.focalLength / pointInCam.x();
-  pointInImage = cameraInfo.opticalCenter - Vector2f(pointInCam.y(), pointInCam.z());
+  pointInCam /= pointInCam.x();
+  pointInImage = cameraInfo.opticalCenter - pointInCam.tail<2>().cwiseProduct(Vector2f(cameraInfo.focalLength, cameraInfo.focalLengthHeight));
   return pointInCam.x() > 0;
 }
 

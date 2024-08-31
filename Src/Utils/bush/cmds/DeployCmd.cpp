@@ -28,19 +28,13 @@ bool DeployCmd::DeployTask::execute()
    */
   QString command = DeployCmd::getCommand();
 
-  QStringList args = QStringList();
+  QStringList args;
   args.push_back(QString("-nc"));
   args.push_back(QString("-nr"));
   args.push_back(buildConfig);
   args.push_back(fromString(robot->getBestIP(context())));
-  if(team->getPlayersPerNumber()[team->getPlayerNumber(*robot) - 1][1] == robot)
-  {
-    args.push_back(QString("-n"));
-  }
-  else
-  {
+  if(team->getPlayersPerNumber()[team->getPlayerNumber(*robot) - 1][0] == robot)
     args.push_back(QString("-b"));
-  }
   args.push_back(QString("-t"));
   args.push_back(QString::number(team->number));
   args.push_back(QString("-o"));
@@ -86,7 +80,7 @@ std::string DeployCmd::getName() const
 
 std::string DeployCmd::getDescription() const
 {
-  return "Deploys code to selected robots. (Uses the copyfiles script)";
+  return "Deploys code to selected robots. (Uses the deploy script)";
 }
 
 std::vector<std::string> DeployCmd::complete(const std::string& cmdLine) const
@@ -113,7 +107,12 @@ bool DeployCmd::preExecution(Context& context, const std::vector<std::string>& p
     buildConfig = fromString(params[0]);
 
   // compile and deploy if compiling was successful
-  return team->compile ? context.execute("compile " + toString(buildConfig)) : true;
+  if(team->compile)
+  {
+    if(!context.execute("compile " + toString(buildConfig)))
+      return false;
+  }
+  return true;
 }
 
 Task* DeployCmd::perRobotExecution(Context& context, Robot& robot)
@@ -124,11 +123,11 @@ Task* DeployCmd::perRobotExecution(Context& context, Robot& robot)
 #ifdef WINDOWS
 QString DeployCmd::getCommand()
 {
-  return fromString(std::string(File::getBHDir()) + "/Make/" + makeDirectory() + "/copyfiles.cmd");
+  return fromString(std::string(File::getBHDir()) + "/Make/" + makeDirectory() + "/deploy.cmd");
 }
 #else
 QString DeployCmd::getCommand()
 {
-  return fromString(std::string(File::getBHDir()) + "/Make/" + makeDirectory() + "/copyfiles");
+  return fromString(std::string(File::getBHDir()) + "/Make/" + makeDirectory() + "/deploy");
 }
 #endif

@@ -89,78 +89,6 @@ bool InverseKinematic::calcLegJoints(const Pose3f& positionLeft, const Pose3f& p
   return calcLegJoints(positionLeft, positionRight, bodyRot, jointAngles, robotDimensions, ratio);
 }
 
-bool InverseKinematic::isPosePossible(const Pose3f& swingInSupportFoot, const Pose3f& torso, float hipYawPitch, const RobotDimensions& robotDimensions, const JointLimits jointLimits)
-{
-  //Maybe expects sole instead of limb (but every time false...)
-  //check overlapping
-  if(std::abs(swingInSupportFoot.translation.x()) < 40 && std::abs(swingInSupportFoot.translation.y()) < 60) //TODO: measure values
-    return false;
-
-  Pose3f footPos = torso.inverse() * swingInSupportFoot;
-
-  if(footPos.translation.y() < 0)
-  {
-    footPos.translation(1) = -footPos.translation.y();
-    //TODO: mirror y-rotation
-  }
-
-  JointAngles jointAngles = JointAngles();
-  const Rangef cosClipping = Rangef::OneRange();
-
-  static const Pose3f rotMinusPi_4 = RotationMatrix::aroundX(-pi_4);
-  const float h1 = robotDimensions.upperLegLength;
-  const float h2 = robotDimensions.lowerLegLength;
-
-  const Pose3f lTarget0 = ((rotMinusPi_4 + Vector3f(0.f, -robotDimensions.yHipOffset, 0.f))  *= footPos) += Vector3f(0.f, 0.f, robotDimensions.footHeight);
-  const Pose3f lTarget1 = RotationMatrix::aroundZ(hipYawPitch) * lTarget0;
-  const float hl = lTarget1.translation.norm();
-
-  //check distance
-  if(hl > h1 + h2)
-    return false;
-
-  const float h1Sqr = h1 * h1;
-  const float h2Sqr = h2 * h2;
-  const float hlSqr = hl * hl;
-
-  const Vector3f& lHipToFoot = lTarget1.translation;
-  const float lCosMinusAlpha = (h1Sqr + hlSqr - h2Sqr) / (2.f * h1 * hl);
-  const float lCosMinusBeta = (h2Sqr + hlSqr - h1Sqr) / (2.f * h2 * hl);
-
-  const float lMinusPi_4MinusJoint1 = -std::atan2(-lHipToFoot.y(), -lHipToFoot.z());
-  const float lJoint2MinusAlpha = std::atan2(-lHipToFoot.x(), std::sqrt(sqr(lHipToFoot.y()) + sqr(lHipToFoot.z())) * -sgn(lHipToFoot.z()));
-  const float lBeta = -std::acos(cosClipping.limit(lCosMinusBeta));
-  const float lAlpha = -std::acos(cosClipping.limit(lCosMinusAlpha));
-  const Vector3f lFootRotationC2 = Rotation::aroundY(-lJoint2MinusAlpha) * Rotation::aroundX(-lMinusPi_4MinusJoint1) * lTarget1.rotation.col(2);
-
-  jointAngles.angles[Joints::lHipYawPitch] = hipYawPitch;
-  jointAngles.angles[Joints::lHipRoll] = (lMinusPi_4MinusJoint1 + pi_4);
-  jointAngles.angles[Joints::lHipPitch] = lJoint2MinusAlpha + lAlpha;
-  jointAngles.angles[Joints::lKneePitch] = -lAlpha - lBeta;
-  jointAngles.angles[Joints::lAnklePitch] = std::atan2(lFootRotationC2.x(), lFootRotationC2.z()) + lBeta;
-  jointAngles.angles[Joints::lAnkleRoll] = std::asin(-lFootRotationC2.y());
-
-  //check angles
-  for(const Angle& angle : jointAngles.angles)
-    if(!std::isfinite(angle))
-      return false;
-
-  for(int j = Joints::firstLeftLegJoint; j < Joints::firstRightLegJoint; j++)
-    if(!jointLimits.limits[j].isInside(jointAngles.angles[j]))
-      return false;
-
-  //recheck pose with forwardkinematic
-  ENUM_INDEXED_ARRAY(Pose3f, (Limbs) Limb) limbs;
-  ForwardKinematic::calculateLegChain(Legs::left, jointAngles, robotDimensions, limbs);
-  Pose3f target = limbs[Limbs::footLeft] += Vector3f(0.f, 0.f, -robotDimensions.footHeight);
-
-  Pose3f diff = target.inverse() * footPos;
-  if(std::abs(diff.translation.sum()) > 1)
-    return false;
-
-  return true;
-}
-
 bool InverseKinematic::calcLegJoints(const Pose3f& positionLeft, const Pose3f& positionRight, const Quaternionf& bodyRotation,
                                      JointAngles& jointAngles, const RobotDimensions& robotDimensions, float ratio)
 {
@@ -230,37 +158,29 @@ bool InverseKinematic::calcLegJoints(const Pose3f& positionLeft, const Pose3f& p
 }
 
 void InverseKinematic::calcHeadJoints(const Vector3f& position, const Angle imageTilt, const RobotDimensions& robotDimensions,
-                                      const bool lowerCamera, Vector2a& panTilt, const CameraCalibration& cameraCalibration)
+                                      CameraInfo::Camera camera, Vector2a& panTilt, const CameraCalibration& cameraCalibration)
 {
   const Vector2f headJoint2Target(std::sqrt(sqr(position.x()) + sqr(position.y())), position.z() - robotDimensions.hipToNeckLength);
-  const Vector2f headJoint2Camera(robotDimensions.getXOffsetNeckToCamera(lowerCamera),
-                                  robotDimensions.getZOffsetNeckToCamera(lowerCamera));
+  const Vector2f headJoint2Camera(robotDimensions.getXOffsetNeckToCamera(camera == CameraInfo::lower),
+                                  robotDimensions.getZOffsetNeckToCamera(camera == CameraInfo::lower));
   const float headJoint2CameraAngle = std::atan2(headJoint2Camera.x(), headJoint2Camera.y());
-  const float cameraAngle = pi3_2 - imageTilt - (pi_2 - headJoint2CameraAngle) - robotDimensions.getTiltNeckToCamera(lowerCamera);
-  const float targetAngle = std::asin(headJoint2Camera.norm() * std::sin(cameraAngle) / headJoint2Target.norm());
+  const float cameraAngle = pi3_2 - imageTilt - (pi_2 - headJoint2CameraAngle) - robotDimensions.getTiltNeckToCamera(camera == CameraInfo::lower);
+  const float targetAngle = std::asin(Rangef(-1.f, 1.f).limit(headJoint2Camera.norm() * std::sin(cameraAngle) / headJoint2Target.norm()));
   const float headJointAngle = pi - targetAngle - cameraAngle;
   panTilt.y() = std::atan2(headJoint2Target.x(), headJoint2Target.y()) - headJointAngle - headJoint2CameraAngle;
   panTilt.x() = std::atan2(position.y(), position.x());
-  if(lowerCamera)
-  {
-    panTilt.x() -= cameraCalibration.lowerCameraRotationCorrection.z();
-    panTilt.y() -= cameraCalibration.lowerCameraRotationCorrection.y();
-  }
-  else
-  {
-    panTilt.x() -= cameraCalibration.upperCameraRotationCorrection.z();
-    panTilt.y() -= cameraCalibration.upperCameraRotationCorrection.y();
-  }
+  panTilt.x() -= cameraCalibration.cameraRotationCorrections[camera].z();
+  panTilt.y() -= cameraCalibration.cameraRotationCorrections[camera].y();
 }
 
 unsigned InverseKinematic::calcArmJoints(const Arms::Arm arm, const Vector3f& elBowPosition, const Vector3f& handPosition,
-    const RobotDimensions& robotDimensions, const JointLimits& jointLimits,
-    JointAngles& jointAngles)
+                                         const RobotDimensions& robotDimensions, const JointLimits& jointLimits,
+                                         JointAngles& jointAngles)
 {
   unsigned errCode(0);
   const unsigned indexOffset = arm == Arms::left ? 0 : Joints::firstRightArmJoint - Joints::firstLeftArmJoint;
   const float sign(arm == Arms::left ? 1.f : -1.f);
-  static const constexpr Angle smallValue(0.0001_rad);
+  static constexpr Angle smallValue(0.0001_rad);
 
   //shoulder
   const Pose3f shoulder(robotDimensions.armOffset.x(), robotDimensions.armOffset.y() * sign + robotDimensions.yOffsetElbowToShoulder * sign, robotDimensions.armOffset.z());
@@ -304,7 +224,7 @@ unsigned InverseKinematic::calcArmJoints(const Arms::Arm arm, const Vector3f& el
 }
 
 unsigned InverseKinematic::calcArmJoints(const Arms::Arm arm, const Pose3f& handPose, const RobotDimensions& robotDimensions,
-    const JointLimits& jointLimits, JointAngles& jointAngles)
+                                         const JointLimits& jointLimits, JointAngles& jointAngles)
 {
   const Vector3f elbowPositon = handPose * Vector3f(-robotDimensions.handOffset.x() - robotDimensions.xOffsetElbowToWrist, 0.f, 0.f);
   return calcArmJoints(arm, elbowPositon, handPose.translation, robotDimensions, jointLimits, jointAngles);
@@ -312,7 +232,7 @@ unsigned InverseKinematic::calcArmJoints(const Arms::Arm arm, const Pose3f& hand
 
 //this is not correct for the normal purpose, but for pointing it is
 unsigned InverseKinematic::calcShoulderJoints(const Arms::Arm arm, const Vector3f& elBowPosition, const RobotDimensions& robotDimensions,
-    const JointLimits& jointLimits, JointAngles& jointAngles)
+                                              const JointLimits& jointLimits, JointAngles& jointAngles)
 {
   unsigned errCode(0);
   const unsigned indexOffset = arm == Arms::left ? 0 : Joints::firstRightArmJoint - Joints::firstLeftArmJoint;

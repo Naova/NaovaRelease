@@ -1,8 +1,6 @@
 /**
  * @file GroundContactDetector.h
  * Declaration of a module that detects ground contact based on FSR measurements.
- * This changes the semantics of ground contact, because this module does not
- * care whether the robot is shaking heavily while there is still foot contact.
  * @author Thomas Röfer
  */
 
@@ -37,5 +35,5 @@ private:
   unsigned lastTimeWithPressure = 0; /**< Last time when there was enough pressure while ground contact is still assumed (in ms). */
   unsigned lastTimeWithoutPressure = 0; /**< Last time when there wasn't enough pressure while ground contact is not yet assumed (in ms). */
 
-  void update(GroundContactState& groundContactState);
+  void update(GroundContactState& groundContactState) override;
 };

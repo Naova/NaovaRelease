@@ -18,59 +18,15 @@
 #define __AVX2__ 1
 #endif
 #else
+#ifdef __clang__
+#pragma clang system_header
+#endif
+#if defined MACOS && defined __arm64__
+#include <sse2neon.h>
+#else
 #include <x86intrin.h>
+#endif
 #define ALWAYSINLINE inline __attribute((always_inline))
-#endif
-
-/**
- * Workarounds for clang-3.7.
- */
-#if defined __clang__ && defined __has_builtin
-#if __has_builtin(__builtin_shufflevector) && !__has_builtin(__builtin_ia32_pslldqi128)
-#undef _mm_slli_si128
-#define _mm_slli_si128(a, imm) __extension__ ({                         \
-    (__m128i)__builtin_shufflevector((__v16qi)_mm_setzero_si128(),        \
-                                     (__v16qi)(__m128i)(a),               \
-                                     ((imm)&0xF0) ? 0 : 16 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 17 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 18 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 19 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 20 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 21 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 22 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 23 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 24 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 25 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 26 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 27 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 28 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 29 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 30 - ((imm)&0xF), \
-                                     ((imm)&0xF0) ? 0 : 31 - ((imm)&0xF)); })
-#endif
-
-#if __has_builtin(__builtin_shufflevector) && !__has_builtin(__builtin_ia32_psrldqi128)
-#undef _mm_srli_si128
-#define _mm_srli_si128(a, imm) __extension__ ({                          \
-    (__m128i)__builtin_shufflevector((__v16qi)(__m128i)(a),                \
-                                     (__v16qi)_mm_setzero_si128(),         \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 0,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 1,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 2,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 3,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 4,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 5,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 6,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 7,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 8,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 9,  \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 10, \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 11, \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 12, \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 13, \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 14, \
-                                     ((imm)&0xF0) ? 16 : ((imm)&0xF) + 15); })
-#endif
 #endif
 
 /**

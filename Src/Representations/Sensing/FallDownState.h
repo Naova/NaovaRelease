@@ -43,4 +43,5 @@ STREAMABLE(FallDownState,
   (State)(pickedUp) state, /**< Current state of the robot's body. */
   (Direction)(none) direction, /**< The robot is falling / fell into this direction. */
   (float)(0) odometryRotationOffset,
+  (unsigned int)(0) timeSinceFallen,
 });

@@ -3,29 +3,32 @@
  *
  * This file implements the class ConsoleRoboCupCtrl.
  *
- * @author <a href="mailto:Thomas.Roefer@dfki.de">Thomas Röfer</a>
+ * @author Thomas Röfer
  */
 
 #include "ConsoleRoboCupCtrl.h"
+#include "Controller/BHToolBar.h"
+#include "Controller/ControllerRobot.h"
+#include "Controller/LocalRobot.h"
+#include "Controller/RemoteRobot.h"
+#include "Controller/Views/ConsoleView.h"
+#include "Platform/File.h"
+#include "Platform/Time.h"
+#include "Tools/FunctionList.h"
 
+#include <SimRobotEditor.h>
+
+#include <QDir>
 #include <QDirIterator>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QSettings>
 
 #include <algorithm>
-#include <iostream>
 #include <cctype>
-
-#include "LocalRobot.h"
-#include "Controller/Views/ConsoleView.h"
-#include "Controller/Views/CABSLGraphView.h"
-#include "Platform/Time.h"
-#include "Platform/SimulatedNao/Robot.h"
-#include "RemoteRobot.h"
-#include <SimRobotEditor.h>
-#include "Platform/File.h"
-#include "BHToolBar.h"
+#include <functional>
+#include <iostream>
+#include <string>
 
 #define FRAMES_PER_SECOND 60
 
@@ -40,18 +43,18 @@ ConsoleRoboCupCtrl::ConsoleRoboCupCtrl(SimRobot::Application& application) :
   addView(consoleView, nullptr, SimRobot::Flag::verticalTitleBar);
   addView(new ConsoleView("Console.Pad", *this, true), consoleView, SimRobot::Flag::verticalTitleBar);
 
-  SimRobot::Object* documentationCategory = addCategory("Docs", nullptr, ":/Icons/page_white_h.png");
-  addView(new CABSLGraphViewObject("Docs.BehaviorControl", "BehaviorControl", "Options.h"), documentationCategory);
-
   // file names for representations
   representationToFile["representation:BallSpecification"] = "ballSpecification.cfg";
-  representationToFile["representation:BehaviorParameters"] = "behaviorParameters.cfg";
   representationToFile["representation:CameraCalibration"] = "cameraCalibration.cfg";
   representationToFile["representation:CameraIntrinsics"] = "cameraIntrinsics.cfg";
+  representationToFile["representation:CameraSettings"] = "cameraSettings.cfg";
+  representationToFile["representation:FootOffset"] = "footOffset.cfg";
+  representationToFile["representation:FootSoleRotationCalibration"] = "footSoleRotationCalibration.cfg";
   representationToFile["representation:HeadLimits"] = "headLimits.cfg";
   representationToFile["representation:IMUCalibration"] = "imuCalibration.cfg";
   representationToFile["representation:JointCalibration"] = "jointCalibration.cfg";
   representationToFile["representation:JointLimits"] = "jointLimits.cfg";
+  representationToFile["representation:KickInfo"] = "kickInfo.cfg";
   representationToFile["representation:MassCalibration"] = "massCalibration.cfg";
   representationToFile["representation:RobotDimensions"] = "robotDimensions.cfg";
 }
@@ -74,38 +77,30 @@ bool ConsoleRoboCupCtrl::compile()
   if(!RoboCupCtrl::compile())
     return false;
 
+  if(is2D)
+    calculateImage = false;
+
   if(!robots.empty())
-    selected.push_back((*robots.begin())->getRobotProcess());
+    selected.push_back((*robots.begin())->getRobotThread());
 
   start();
-  Global::theStreamHandler = &streamHandler;
 
   executeFile("", fileName, false, nullptr, false);
 
-  for(Robot* robot : robots)
-    robot->getRobotProcess()->handleConsole("endOfStartScript");
+  for(ControllerRobot* robot : robots)
+    robot->getRobotThread()->handleConsole("endOfStartScript");
   for(RemoteRobot* remoteRobot : remoteRobots)
     remoteRobot->handleConsole("endOfStartScript");
-  Global::theStreamHandler = &streamHandler;
   return true;
 }
 
 void ConsoleRoboCupCtrl::link()
 {
-  SimRobotEditor::Editor* editor = (SimRobotEditor::Editor*)application->resolveObject("Editor");
+  SimRobotEditor::Editor* editor = static_cast<SimRobotEditor::Editor*>(application->resolveObject("Editor"));
   if(editor)
   {
     QFileInfo fileInfo(application->getFilePath());
     editor->addFile(fileInfo.path() + "/" + fileInfo.baseName() + ".con", "call[ ]+([\\\\/a-z0-9\\.\\-_]+)");
-
-    SimRobotEditor::Editor* kicksFolder = editor->addFolder("WalkKicks");
-    QString configDir = QFileInfo(fileInfo.dir().path()).dir().path();
-    for(int i = 1; i < WalkKicks::numOfTypes; ++i)
-    {
-      char filePath[256];
-      sprintf(filePath, "/WalkKicks/%s.cfg", WalkKicks::getName(WalkKicks::Type(i)));
-      kicksFolder->addFile(configDir + filePath, "");
-    }
   }
 }
 
@@ -115,7 +110,10 @@ ConsoleRoboCupCtrl::~ConsoleRoboCupCtrl()
     remoteRobot->announceStop();
 
   for(RemoteRobot* remoteRobot : remoteRobots)
+  {
+    remoteRobot->stop();
     delete remoteRobot;
+  }
 
   stop();
   mode = SystemCall::simulatedRobot;
@@ -137,12 +135,13 @@ void ConsoleRoboCupCtrl::update()
     }
     textMessages.clear();
   }
+
+  SimulatedRobot::applyBallFriction(ballFriction);
+
   RoboCupCtrl::update();
 
   for(RemoteRobot* remoteRobot : remoteRobots)
     remoteRobot->update();
-
-  Global::theStreamHandler = &streamHandler;
 
   {
     SYNC;
@@ -164,13 +163,13 @@ void ConsoleRoboCupCtrl::executeFile(const std::string& name1, const std::string
     bool print = false;
     for(std::string name : std::vector<std::string>({name1, name2}))
     {
-      if(name == "")
+      if(name.empty())
       {
         print = printError;
         continue;
       }
 
-      if((int)name.rfind('.') <= (int)name.find_last_of("\\/"))
+      if(static_cast<int>(name.rfind('.')) <= static_cast<int>(name.find_last_of("\\/")))
         name = name + ".con";
       if(name[0] != '/' && name[0] != '\\' && (name.size() < 2 || name[1] != ':'))
         name = std::string("Scenes\\") + name;
@@ -209,12 +208,13 @@ void ConsoleRoboCupCtrl::executeFile(const std::string& name1, const std::string
 void ConsoleRoboCupCtrl::selectedObject(const SimRobot::Object& obj)
 {
   const QString& fullName = obj.getFullName();
-  std::string robotName = fullName.mid(fullName.lastIndexOf('.') + 1).toUtf8().constData();
-  for(Robot* robot : robots)
+  const std::string robotName = fullName.mid(fullName.lastIndexOf('.') + 1).toUtf8().constData();
+
+  for(ControllerRobot* robot : robots)
     if(robotName == robot->getName())
     {
       selected.clear();
-      selected.push_back(robot->getRobotProcess());
+      selected.push_back(robot->getRobotThread());
       printLn("robot " + robot->getName());
       return;
     }
@@ -230,28 +230,22 @@ void ConsoleRoboCupCtrl::pressedKey(int key, bool pressed)
 SystemCall::Mode ConsoleRoboCupCtrl::getMode() const
 {
   std::thread::id threadId = Thread::getCurrentId();
-  for(const Robot* robot : robots)
-    if(robot->getRobotProcess())
-      for(const ProcessBase* robotProcess : *robot)
-        if(robotProcess->getId() == threadId)
-          return robot->getRobotProcess()->mode;
+  for(const ControllerRobot* robot : robots)
+    if(robot->getRobotThread())
+      for(const ThreadFrame* robotThread : *robot)
+        if(robotThread->getId() == threadId)
+          return robot->getRobotThread()->mode;
 
   return mode;
 }
 
 void ConsoleRoboCupCtrl::setRepresentation(const std::string& representationName, const Streamable& representation)
 {
-  OutMapSize size(true);
-  size << representation;
-  char* buf = new char[size.getSize()];
-  OutMapMemory memory(buf, true);
+  OutMapMemory memory(true, 16384);
   memory << representation;
-  buf[size.getSize() - 1] = 0; // overwrite final space
 
-  std::string command = "set representation:" + representationName + " " + buf;
+  std::string command = "set representation:" + representationName + " " + memory.data();
   executeConsoleCommand(command);
-
-  delete[] buf;
 }
 
 void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole* console, bool scenarioAndLocationOnly)
@@ -270,22 +264,32 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
   else if(buffer == "cs" && nesting > 0)
   {
     stream >> buffer;
-    bool exists = QDir(QString(File::getBHDir()) + "/Config/Scenarios/" + buffer.c_str()).exists();
+    const bool exists = QDir(QString(File::getBHDir()) + "/Config/Scenarios/" + buffer.c_str()).exists();
     if(scenarioAndLocationOnly && exists)
-      Settings::settings.scenario = buffer;
+    {
+      const std::string scenario = buffer;
+
+      stream >> buffer;
+      std::size_t index;
+      if(buffer.substr(0, 4) == "team" && (index = atoi(buffer.c_str() + 4) - 1) < scenarios.size())
+        scenarios[index] = scenario;
+      else
+        for(std::size_t i = 0; i < scenarios.size(); ++i)
+          scenarios[i] = scenario;
+    }
     else if(!scenarioAndLocationOnly && !exists)
       printLn("Syntax Error: cs " + buffer);
   }
   else if(buffer == "cl" && nesting > 0)
   {
     stream >> buffer;
-    bool exists = QDir(QString(File::getBHDir()) + "/Config/Locations/" + buffer.c_str()).exists();
+    const bool exists = QDir(QString(File::getBHDir()) + "/Config/Locations/" + buffer.c_str()).exists();
     if(scenarioAndLocationOnly && exists)
-      Settings::settings.location = buffer;
+      location = buffer;
     else if(!scenarioAndLocationOnly && !exists)
       printLn("Syntax Error: cl " + buffer);
   }
-  else if(buffer == "" || scenarioAndLocationOnly) // drop comments or everything if searching for location
+  else if(buffer.empty() || scenarioAndLocationOnly) // drop comments or everything if searching for location
     return;
   else if(buffer == "help" || buffer == "?")
     help(stream);
@@ -294,7 +298,7 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
     stream >> buffer;
     if(buffer == "?")
     {
-      for(const Robot* robot : robots)
+      for(const ControllerRobot* robot : robots)
         print(robot->getName() + " ");
       for(const RemoteRobot* remoteRobot : remoteRobots)
         print(remoteRobot->getName() + " ");
@@ -304,8 +308,8 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
     else if(buffer == "all")
     {
       selected.clear();
-      for(const Robot* robot : robots)
-        selected.push_back(robot->getRobotProcess());
+      for(const ControllerRobot* robot : robots)
+        selected.push_back(robot->getRobotThread());
       for(RemoteRobot* remoteRobot : remoteRobots)
         selected.push_back(remoteRobot);
       return;
@@ -326,47 +330,36 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
   }
   else if(buffer == "ar")
   {
-    stream >> buffer;
-    if(buffer == "on" || buffer == "")
-      gameController.automatic = true;
+    unsigned mask = 0u;
+    while(true)
+    {
+      stream >> buffer;
+      if(buffer.empty() || buffer == "on" || buffer == "off")
+        break;
+      int automaticReferee = TypeRegistry::getEnumValue(typeid(GameController::AutomaticReferee).name(), buffer);
+      if(automaticReferee < 0)
+      {
+        printLn("Syntax Error");
+        break;
+      }
+      mask |= bit(automaticReferee);
+    }
+    if(!mask)
+      mask = ~0u;
+    if(buffer == "on" || buffer.empty())
+      gameController.automatic |= mask;
     else if(buffer == "off")
-      gameController.automatic = false;
-    else
-      printLn("Syntax Error");
+      gameController.automatic &= ~mask;
   }
   else if(buffer == "ci")
   {
-    if(!calcImage(stream))
-      printLn("Syntax Error");
-  }
-  else if(buffer == "st")
-  {
-    stream >> buffer;
-    if(buffer == "on" || buffer == "")
-    {
-      if(!simTime)
-      {
-        // simulation time continues at real time
-        time = getTime();
-        simTime = true;
-      }
-    }
-    else if(buffer == "off")
-    {
-      if(simTime)
-      {
-        // real time contiues at simulation time
-        time = getTime() - Time::getRealSystemTime();
-        simTime = false;
-      }
-    }
-    else
+    if(is2D || !calcImage(stream))
       printLn("Syntax Error");
   }
   else if(buffer == "dt")
   {
     stream >> buffer;
-    if(buffer == "on" || buffer == "")
+    if(buffer == "on" || buffer.empty())
       delayTime = simStepLength;
     else if(buffer == "off")
       delayTime = 0.f;
@@ -386,19 +379,69 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
     if(!gameController.handleGlobalConsole(stream))
       printLn("Syntax Error");
   }
+  else if(buffer == "mvo")
+  {
+    std::string objectID;
+    Vector3f robotTranslationCmd;
+    stream >> objectID >> robotTranslationCmd.x() >> robotTranslationCmd.y() >> robotTranslationCmd.z();
+    SimRobot::Object* robot = application->resolveObject(QString::fromStdString(objectID), is2D ? static_cast<int>(SimRobotCore2D::body) : static_cast<int>(SimRobotCore2::body));
+    if(robot)
+    {
+      if(is2D)
+      {
+        robotTranslationCmd.head<2>() *= 0.001f;
+        static_cast<SimRobotCore2D::Body*>(robot)->move(robotTranslationCmd.data(), Angle::fromDegrees(robotTranslationCmd.z()));
+      }
+      else
+      {
+        Vector3f robotRotationCmd;
+        Matrix3f robotRotation;
+        if(!stream.eof())
+        {
+          stream >> robotRotationCmd.x() >> robotRotationCmd.y() >> robotRotationCmd.z();
+          robotRotation = RotationMatrix::fromEulerAngles(robotRotationCmd * 1_deg);
+        }
+        else
+          robotRotation = Matrix3f::Identity();
+        float robotRotationConverted[3][3];
+        for(int i = 0; i < 3; ++i)
+          for(int j = 0; j < 3; ++j)
+            robotRotationConverted[i][j] = robotRotation(i, j);
+        const Vector3f translationInMeters = robotTranslationCmd * 0.001f;
+        static_cast<SimRobotCore2::Body*>(robot)->move(translationInMeters.data(), robotRotationConverted);
+      }
+    }
+    else
+      printLn("Syntax Error");
+  }
   else if(buffer == "sc")
   {
     if(!startRemote(stream))
     {
       selected.clear();
       if(!robots.empty())
-        selected.push_back(robots.front()->getRobotProcess());
+        selected.push_back(robots.front()->getRobotThread());
     }
   }
   else if(buffer == "sl")
   {
     if(!startLogFile(stream))
-      printLn("Logfile not found!");
+      printLn("Log file not found!");
+  }
+  else if(buffer == "sml")
+  {
+    if(!startMultiLogFile(stream))
+      printLn("Directory not found!");
+  }
+  else if(buffer == "st")
+  {
+    stream >> buffer;
+    if(buffer == "on" || buffer.empty())
+      Time::setSimulatedTime(true);
+    else if(buffer == "off")
+      Time::setSimulatedTime(false);
+    else
+      printLn("Syntax Error");
   }
   else if(selected.empty())
     if(buffer == "cls")
@@ -410,13 +453,11 @@ void ConsoleRoboCupCtrl::executeConsoleCommand(std::string command, RobotConsole
   else if(console)
   {
     console->handleConsole(command);
-    Global::theStreamHandler = &streamHandler;
   }
   else
   {
     for(RobotConsole* selectedConsole : selected)
       selectedConsole->handleConsole(command);
-    Global::theStreamHandler = &streamHandler;
   }
   if(completion.empty() && !scenarioAndLocationOnly)
     createCompletion();
@@ -432,10 +473,10 @@ void ConsoleRoboCupCtrl::executeConsoleCommandOnSelectedRobots(const std::string
 
 bool ConsoleRoboCupCtrl::selectRobot(const std::string& name)
 {
-  for(Robot* robot : robots)
+  for(ControllerRobot* robot : robots)
     if(name == robot->getName())
     {
-      selected.push_back(robot->getRobotProcess());
+      selected.push_back(robot->getRobotThread());
       return true;
     }
 
@@ -454,61 +495,81 @@ void ConsoleRoboCupCtrl::help(In& stream)
   std::string pattern;
   stream >> pattern;
   list("Initialization commands:", pattern, true);
-  list("  sc <name> [<a.b.c.d>] : Starts a TCP connection to a remote robot.", pattern, true);
-  list("  sl <name> <file> : Starts a robot reading its inputs from a log file.", pattern, true);
-  list("  cs <scenario> : Change scenario (only during initial script execution).", pattern, true);
   list("  cl <location> : Change location (only during initial script execution).", pattern, true);
+  list("  cs <scenario> [team1 | team2] : Change scenario (only during initial script execution).", pattern, true);
+  list("  sc <name> [<a.b.c.d>] : Starts a TCP connection to a remote robot.", pattern, true);
+  list("  sl <name> [<file>] : Starts a robot reading its input from a log file.", pattern, true);
+  list("  sml <directory> : Starts robots reading their input from all log files in subfolders.", pattern, true);
   list("Global commands:", pattern, true);
-  list("  ar off | on : Switches automatic referee on or off.", pattern, true);
+  list("  ar {<feature>} off | on : Switches automatic referee on or off.", pattern, true);
   list("  call <file> [<file>] : Execute a script file. If the optional script file is present, execute it instead.", pattern, true);
-  list("  ci off | on | <fps> : Switch the calculation of images on or off or activate it and set the frame rate.", pattern, true);
+  if(!is2D)
+    list("  ci off | on | <fps> : Switch the calculation of images on or off or activate it and set the frame rate.", pattern, true);
   list("  cls : Clear console window.", pattern, true);
   list("  dt off | on | <fps> : Delay time of a simulation step to real time or a certain number of frames per second.", pattern, true);
   list("  echo <text> : Print text into console window. Useful in console.con.", pattern, true);
-  list("  gc initial | ready | set | playing | finished | kickOffFirstTeam | kickOffRed | outByFirstTeam | outByRed | gameMixedTeamPlayoff | gameMixedTeamRoundRobin | gamePlayoff | gameRoundRobin : Set GameController state.", pattern, true);
-  list("  help | ? [<pattern>] : Display this text.", pattern, true);
+  list("  gc initial | ready | set | playing | finished | goalByFirstTeam | goalBySecondTeam | kickOffFirstTeam | kickOffSecondTeam | manualPlacementFirstTeam | manualPlacementSecondTeam | goalKickForFirstTeam | goalKickForSecondTeam | pushingFreeKickForFirstTeam | pushingFreeKickForSecondTeam | cornerKickForFirstTeam | cornerKickForSecondTeam | kickInForFirstTeam | kickInForSecondTeam | penaltyKickForFirstTeam | penaltyKickForSecondTeam | gameNormal | gamePenaltyShootout | competitionPhasePlayoff | competitionPhaseRoundRobin | competitionTypeNormal : Set GameController state.", pattern, true);
+  list("  ( help | ? ) [<pattern>] : Display this text.", pattern, true);
+  if(is2D)
+    list("  mvo <name> <x> <y> [<rot>] : Move the object with the given name to the given position.", pattern, true);
+  else
+    list("  mvo <name> <x> <y> <z> [<rotx> <roty> <rotz>] : Move the object with the given name to the given position.", pattern, true);
   list("  robot ? | all | <name> {<name>} : Connect console to a set of active robots. Alternatively, double click on robot.", pattern, true);
   list("  st off | on : Switch simulation of time on or off.", pattern, true);
   list("  # <text> : Comment.", pattern, true);
   list("Robot commands:", pattern, true);
-  list("  ac ? | both | lower | upper : Change camera source shown in field views.", pattern, true);
-  list("  bc <red%> <green%> <blue%> : Set the background color of all 3-D views.", pattern, true);
-  list("  kick : Adds the KickEngine view.", pattern, true);
+  list("  bc [<red%> [<green%> [<blue%>]]] : Set the background color of all 3-D views.", pattern, true);
   list("  dr ? [<pattern>] | off | <key> ( off | on ) : Send debug request.", pattern, true);
   list("  get ? [<pattern>] | <key> [?]: Show debug data or show its specification.", pattern, true);
-  list("  jc hide | show | motion <num> <command> | ( press | release ) <button> <command> : Set joystick motion (use $1 .. $6) or button command.", pattern, true);
-  list("  jm <axis> ( off | <button> <button> ) : Map two buttons on an axis.", pattern, true);
-  list("  js <axis> <speed> <threshold> [<center>] : Set axis maximum speed and ignore threshold for \"jc motion <num>\" commands.", pattern, true);
-  list("  log start | stop | clear | save <file> | full | jpeg : Record log file and (de)activate image compression.", pattern, true);
-  list("  log saveAudio <file> : Save audio data from log.", pattern, true);
-  list("  log saveBallSpotImages <file> : Save images around ballspots from log.", pattern, true);
-  list("  log saveImages [raw] <file> : Save images from log.", pattern, true);
-  list("  log saveInertialSensorData <file> : Save the inertial sensor data from the log into a dataset.", pattern, true);
-  list("  log saveTiming <file> : Save timing data from log to csv.", pattern, true);
+  list("  jc hide | show | motion ( 1 | 2 ) <command> | ( press | release ) <button> <command> : Set joystick motion (use $1 .. $8) or button command.", pattern, true);
+  list("  jm <axis> <button> <button> : Map two buttons on an axis.", pattern, true);
+  list("  js <axis> <speed> <threshold> [<center>] : Set axis maximum speed and ignore threshold for \"jc motion\" commands.", pattern, true);
+  if(!is2D)
+    list("  kick : Adds the KickEngine view.", pattern, true);
+  list("  log start | stop | clear | full | jpeg : Record log file and (de)activate image compression.", pattern, true);
+  list("  log save [split <parts>] [<file>] : Save log file with given name or modified current log file name. Split command saves in given number of parts", pattern, true);
+  list("  log saveAudio [<file>] : Save audio data from log.", pattern, true);
+  list("  log saveChoregrapheTimeline [<file>] : Save joint requests from log as Choregraphe timeline.", pattern, true);
+  list("  log saveImages [raw] [onlyPlaying] [<takeEachNth>] [<dir>] : Save images from log.", pattern, true);
+  list("  log saveInertialSensorData [<file>] : Save the inertial sensor data from the log into a dataset. Require motion log.", pattern, true);
+  list("  log saveJointAngleData [<file>] : Save the joint angle data from the lot into a dataset. Require motion log.", pattern, true);
+  list("  log saveLabeledBallSpots [<file>] : Extracts labeled BallSpots.", pattern, true);
+  list("  log saveTiming [<file>] : Save timing data from log to csv.", pattern, true);
+  list("  log trim ( until <end frame> | from <start frame> | between <start frame> <end frame> ) : Keep only the given section of the log. WARNING: Overwrites the log file!", pattern, true);
   list("  log ? [<pattern>] : Display information about log file.", pattern, true);
   list("  log load <file> | clear : Load log-file or clear all frames.", pattern, true);
   list("  log merge : Merge a cognition/motion-log with its counterpart.", pattern, true);
-  list("  log keep ( ballPercept [ seen | guessed ] | ballSpots | goalPostPercept | image | penaltyMarkPercept ): Remove the log's frames not matching specified criteria.", pattern, true);
+  list("  log keep ( ballPercept [ seen | guessed ] | ballSpots | circlePercept | lower | option <option> [<state>] | penaltyMarkPercept | upper ): Remove the log's frames not matching specified criteria.", pattern, true);
   list("  log ( keep | remove ) <message> {<message>} : Filter specified messages of all frames.", pattern, true);
   list("  log start | pause | stop | forward [image] | backward [image] | repeat | goto <number> | time <minutes> <seconds> | cycle | once | fastForward | fastBackward : Replay log file.", pattern, true);
-  list("  mof : Recompile motion net and send it to the robot. ", pattern, true);
+  list("  log mr [legacy] [list] : Generate module requests to replay log file.", pattern, true);
+  list("  log analyzeRobotStatus : Find timestamps with joints that are defect or gyros not updating.", pattern, true);
   list("  msg off | on | log <file> | enable | disable : Switch output of text messages on or off. Log text messages to a file. Switch message handling on or off.", pattern, true);
-  list("  mr ? [<pattern>] | modules [<pattern>] | save | <representation> ( ? [<pattern>] | <module> | off ) : Send module request.", pattern, true);
-  list("  mv <x> <y> <z> [<rotx> <roty> <rotz>] : Move the selected simulated robot to the given position.", pattern, true);
-  list("  mvb <x> <y> <z> : Move the ball to the given position.", pattern, true);
+  list("  mr ? [<pattern>] | modules [<pattern>] | save | <representation> ( ? [<pattern>] | ( <module> | off ) [<thread>] | default ) : Send module request.", pattern, true);
+  if(is2D)
+  {
+    list("  mv <x> <y> [<rot>] : Move the selected simulated robot to the given position.", pattern, true);
+    list("  mvb <x> <y> : Move the ball to the given position.", pattern, true);
+  }
+  else
+  {
+    list("  mv <x> <y> <z> [<rotx> <roty> <rotz>] : Move the selected simulated robot to the given position.", pattern, true);
+    list("  mvb <x> <y> <z> : Move the ball to the given position.", pattern, true);
+  }
   list("  poll : Poll for all available debug requests and drawings. ", pattern, true);
-  list("  pr none | illegalBallContact | playerPushing | illegalMotionInSet | inactivePlayer | illegalDefender | leavingTheField | kickOffGoal | requestForPickup | manual : Penalize robot.", pattern, true);
-  list("  qfr queue | replace | reject | collect <seconds> | save [<seconds>] : Send queue fill request.", pattern, true);
-  list("  set ? [<pattern>] | <key> ( ? | unchanged | <data> ) : Change debug data or show its specification.", pattern, true);
+  list("  pr none | illegalBallContact | playerPushing | illegalMotionInSet | inactivePlayer | illegalPosition | leavingTheField | requestForPickup | localGameStuck | illegalPositionInSet | substitute | manual | unstiff | active | calibration : Set robot penalty or mode.", pattern, true);
   list("  save ? [<pattern>] | <key> [<path>] : Save debug data to a configuration file.", pattern, true);
-  list("  si reset | (lower | upper) [number] <file> : Save the lower/upper camera's image.", pattern, true);
-  list("  v3 ? [<pattern>] | <image> [jpeg] [lower | upper] [<name>] : Add a set of 3-D views for a certain image.", pattern, true);
-  list("  vd <debug data> on | off : Show debug data in a window or switch sending it off.", pattern, true);
+  list("  set ? [<pattern>] | <key> ( ? | unchanged | <data> ) : Change debug data or show its specification.", pattern, true);
+  if(!is2D)
+    list("  si reset [<number>] | ( lower | upper ) [number] [grayscale] [<file>] : Save the lower/upper camera's image.", pattern, true);
+  list("  v3 ? [<pattern>] | <image> [jpeg] [<thread>] [<name>] : Add a set of 3-D views for a certain image.", pattern, true);
+  list("  vd <debug data> ( on | off ) : Show debug data in a window or switch sending it off.", pattern, true);
   list("  vf <name> : Add field view.", pattern, true);
   list("  vfd ? [<pattern>] | off | ( all | <name> ) ( ? [<pattern>] | <drawing> ( on | off ) ) : (De)activate debug drawing in field view.", pattern, true);
-  list("  vi ? [<pattern>] | <image> [jpeg] [segmented] [lower | upper] [<name>] [gain <value>] : Add image view.", pattern, true);
+  list("  vi ? [<pattern>] | <image> [jpeg] [<thread>] [<name>] [gain <value>] [ddScale <value>] : Add image view.", pattern, true);
+  list("  vic ? [<pattern>] | ( all | <name> ) [alt | noalt] [ctrl | noctrl] [shift | noshift] <command> : Set image view button release command.", pattern, true);
   list("  vid ? [<pattern>] | off | ( all | <name> ) ( ? [<pattern>] | <drawing> ( on | off ) ) : (De)activate debug drawing in image view.", pattern, true);
-  list("  vp <name> <numOfValues> <minValue> <maxValue> [<yUnit> <xUnit> <xScale>]: Add plot view.", pattern, true);
+  list("  vp <name> <numOfValues> <minValue> <maxValue> [<yUnit> [<xUnit> [<xScale>]]]: Add plot view.", pattern, true);
   list("  vpd ? [<pattern>] | <name> ( ? [<pattern>] | <drawing> ( ? [<pattern>] | <color> [<description>] | off ) ) : Plot data in a certain color in plot view.", pattern, true);
 }
 
@@ -532,18 +593,14 @@ bool ConsoleRoboCupCtrl::startRemote(In& stream)
 {
   std::string name, ip;
   stream >> name >> ip;
-  std::string robotName = std::string(".") + name;
-  this->robotName = robotName.c_str();
 
   mode = SystemCall::remoteRobot;
   RemoteRobot* rr = new RemoteRobot(name, ip);
-  this->robotName = nullptr;
   if(!rr->isClient())
   {
     if(ip != "")
     {
       delete rr;
-      Global::theStreamHandler = &streamHandler;
       Global::theSettings = nullptr;
       printLn(std::string("No connection to ") + ip + " established!");
       return false;
@@ -554,7 +611,7 @@ bool ConsoleRoboCupCtrl::startRemote(In& stream)
   selected.clear();
   remoteRobots.push_back(rr);
   selected.push_back(remoteRobots.back());
-  rr->addViews();
+  rr->addPerRobotViews();
   rr->start();
   return true;
 }
@@ -563,29 +620,58 @@ bool ConsoleRoboCupCtrl::startLogFile(In& stream)
 {
   std::string name, fileName;
   stream >> name >> fileName;
+  if(fileName.empty())
+  {
+    if(logFile.substr(0, 5) == "Logs/")
+      fileName = logFile.substr(5);
+    else
+      fileName = logFile;
+  }
   if(int(fileName.rfind('.')) <= int(fileName.find_last_of("\\/")))
     fileName = fileName + ".log";
   if(fileName[0] != '\\' && fileName[0] != '/' && (fileName.size() < 2 || fileName[1] != ':'))
     fileName = std::string("Logs/") + fileName;
-
   {
     InBinaryFile test(fileName);
     if(!test.exists())
       return false;
   }
 
-  std::string robotName = std::string(".") + name;
-  mode = SystemCall::logfileReplay;
+  mode = SystemCall::logFileReplay;
   logFile = fileName;
-  this->robotName = robotName.c_str();
-  robots.push_back(new Robot(name));
-  this->robotName = nullptr;
-  logFile = "";
+  robots.push_back(new ControllerRobot(Settings(logFile), name));
   selected.clear();
-  RobotConsole* rc = robots.back()->getRobotProcess();
+  RobotConsole* rc = robots.back()->getRobotThread();
   selected.push_back(rc);
   robots.back()->start();
   return true;
+}
+
+bool ConsoleRoboCupCtrl::startMultiLogFile(In& stream)
+{
+  std::string directory;
+  stream >> directory;
+  const std::function<bool(std::string)> func = [this, &func](const std::string& dirName)
+  {
+    QDir dir(dirName.c_str());
+    if(!dir.exists())
+      return false;
+    for(const QString& folder : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks))
+    {
+      func(dirName + '/' + folder.toStdString());
+    }
+    for(const QString& fileName : dir.entryList(QStringList("*_*_*.log"), QDir::Files | QDir::NoDotAndDotDot | QDir::NoSymLinks))
+    {
+      const QStringList& list = fileName.left(fileName.indexOf('.')).split('_');
+      // sl LOG_<NAME>[_<HALF>][_<EXTRA>]
+      executeConsoleCommand("sl LOG_" + list.at(1).toStdString() + (list.size() > 8 ? '_' + list.at(7).toStdString() : "") + (list.size() > 9 ? '_' + list.at(9).toStdString() : "") + (" \"" + dirName + '/' + fileName.toStdString() + "\""));
+      executeConsoleCommand("dr debug:keepAllMessages");
+    }
+    return true;
+  };
+  const bool correct = func(directory);
+  executeConsoleCommand("robot all");
+  return correct;
 }
 
 bool ConsoleRoboCupCtrl::calcImage(In& stream)
@@ -646,16 +732,10 @@ void ConsoleRoboCupCtrl::createCompletion()
 {
   const char* commands[] =
   {
-    "ac both",
-    "ac lower",
-    "ac upper",
     "ar off",
     "ar on",
     "bc",
-    "kick",
     "call",
-    "ci off",
-    "ci on",
     "cls",
     "dr off",
     "dt off",
@@ -670,26 +750,30 @@ void ConsoleRoboCupCtrl::createCompletion()
     "js",
     "log start",
     "log stop",
-    "log save",
-    "log saveInertialSensorData",
-    "log saveJointAngleData",
-    "log saveAudio",
-    "log saveBallSpotImages",
-    "log saveImages raw",
-    "log saveTiming",
     "log clear",
+    "log save split",
     "log full",
     "log jpeg",
+    "log saveAudio",
+    "log saveChoregrapheTimeline",
+    "log saveImages raw onlyPlaying",
+    "log saveInertialSensorData",
+    "log saveLabeledBallSpots gray",
+    "log saveJointAngleData",
+    "log saveTiming",
+    "log trim from",
+    "log trim until",
+    "log trim between",
     "log ?",
     "log merge",
-    "log mr",
+    "log mr legacy list",
     "log mr list",
     "log load",
     "log cycle",
     "log once",
     "log pause",
-    "log forward",
-    "log backward",
+    "log forward image",
+    "log backward image",
     "log repeat",
     "log goto",
     "log time",
@@ -698,10 +782,12 @@ void ConsoleRoboCupCtrl::createCompletion()
     "log keep ballPercept seen",
     "log keep ballPercept guessed",
     "log keep ballSpots",
-    "log keep goalPostPercept",
-    "log keep image",
+    "log keep circlePercept",
+    "log keep lower",
+    "log keep upper",
     "log keep penaltyMarkPercept",
-    "mof",
+    "log keep option",
+    "log analyzeRobotStatus",
     "mr modules",
     "mr save",
     "msg off",
@@ -711,32 +797,40 @@ void ConsoleRoboCupCtrl::createCompletion()
     "msg disable",
     "mv",
     "mvb",
+    "mvo",
     "poll",
-    "qfr queue",
-    "qfr replace",
-    "qfr reject",
-    "qfr collect",
-    "qfr save",
     "robot all",
     "sc",
-    "si lower number",
-    "si upper number",
-    "si reset",
     "sl",
+    "sml",
     "st off",
     "st on",
-    "v3 image upper",
-    "v3 image jpeg upper",
-    "v3 image lower",
-    "v3 image jpeg lower",
+    "v3 image Upper",
+    "v3 image jpeg Upper",
+    "v3 image Lower",
+    "v3 image jpeg Lower",
     "vf",
     "vi none",
-    "vi image jpeg segmented",
-    "vi image segmented",
-    "vi image upper jpeg segmented",
-    "vi image upper segmented",
-    "vi image lower jpeg segmented",
-    "vi image lower segmented"
+    "vi image jpeg",
+    "vi image",
+    "vi image Upper jpeg",
+    "vi image Upper",
+    "vi image Lower jpeg",
+    "vi image Lower"
+  };
+
+  const char* commands3D[] =
+  {
+    "ci off",
+    "ci on",
+    "kick",
+    "si lower grayscale",
+    "si upper grayscale",
+    "si lower number grayscale",
+    "si upper number grayscale",
+    "si lower number",
+    "si upper number",
+    "si reset"
   };
 
   SYNC;
@@ -745,19 +839,26 @@ void ConsoleRoboCupCtrl::createCompletion()
   for(int i = 0; i < num; ++i)
     completion.insert(commands[i]);
 
-  for(Robot* robot : robots)
+  if(!is2D)
+  {
+    const int num3D = sizeof(commands3D) / sizeof(commands3D[0]);
+    for(int i = 0; i < num3D; ++i)
+      completion.insert(commands3D[i]);
+  }
+
+  for(ControllerRobot* robot : robots)
     completion.insert("robot " + robot->getName());
   for(RemoteRobot* remoteRobot : remoteRobots)
     completion.insert("robot " + remoteRobot->getName());
 
   FOREACH_ENUM(MessageID, i)
   {
-    completion.insert(std::string("log keep ") + getName(i));
-    completion.insert(std::string("log remove ") + getName(i));
+    completion.insert(std::string("log keep ") + TypeRegistry::getEnumName(i));
+    completion.insert(std::string("log remove ") + TypeRegistry::getEnumName(i));
   }
 
   addCompletionFiles("log load ", std::string(File::getBHDir()) + "/Config/Logs/*.log");
-  addCompletionFiles("log save ", std::string(File::getBHDir()) + "/Config/Logs/*.log");
+  addCompletionFiles("log save ", std::string(File::getBHDir()) + "/Config/Logs/*.log", false);
   addCompletionFiles("call ", std::string(File::getBHDir()) + "/Config/Scenes/*.con");
 
   if(moduleInfo)
@@ -765,14 +866,18 @@ void ConsoleRoboCupCtrl::createCompletion()
     for(const auto& r : moduleInfo->representations)
     {
       completion.insert(std::string("mr ") + r + " default");
-      completion.insert(std::string("mr ") + r + " off");
+      for(const Configuration::Thread& thread : moduleInfo->config())
+        completion.insert(std::string("mr ") + r + " off " + thread.name);
       for(const auto& m : moduleInfo->modules)
         if(std::find(m.representations.begin(), m.representations.end(), r) != m.representations.end())
-          completion.insert(std::string("mr ") + r + " " + m.name);
+        {
+          for(const Configuration::Thread& thread : moduleInfo->config())
+            completion.insert(std::string("mr ") + r + " " + m.name + " " + thread.name);
+        }
     }
   }
 
-  if(debugRequestTable)
+  if(debugRequestTable && moduleInfo)
   {
     for(const auto& i : debugRequestTable->slowIndex)
     {
@@ -782,18 +887,13 @@ void ConsoleRoboCupCtrl::createCompletion()
       {
         const std::string cleanedSubst = translate(i.first.substr(13));
 
-        completion.insert(std::string("v3 ") + cleanedSubst + " upper");
-        completion.insert(std::string("v3 ") + cleanedSubst + " jpeg upper");
-        completion.insert(std::string("vi ") + cleanedSubst + " upper");
-        completion.insert(std::string("vi ") + cleanedSubst + " segmented upper");
-        completion.insert(std::string("vi ") + cleanedSubst + " jpeg upper");
-        completion.insert(std::string("vi ") + cleanedSubst + " jpeg segmented upper");
-        completion.insert(std::string("v3 ") + cleanedSubst + " lower");
-        completion.insert(std::string("v3 ") + cleanedSubst + " jpeg lower");
-        completion.insert(std::string("vi ") + cleanedSubst + " lower");
-        completion.insert(std::string("vi ") + cleanedSubst + " segmented lower");
-        completion.insert(std::string("vi ") + cleanedSubst + " jpeg lower");
-        completion.insert(std::string("vi ") + cleanedSubst + " jpeg segmented lower");
+        for(const auto& config : moduleInfo->config())
+        {
+          completion.insert(std::string("v3 ") + cleanedSubst + " " + config.name);
+          completion.insert(std::string("v3 ") + cleanedSubst + " jpeg " + config.name);
+          completion.insert(std::string("vi ") + cleanedSubst + " " + config.name);
+          completion.insert(std::string("vi ") + cleanedSubst + " jpeg " + config.name);
+        }
       }
       else if(i.first.substr(0, 11) == "debug data:")
       {
@@ -824,33 +924,49 @@ void ConsoleRoboCupCtrl::createCompletion()
     }
   }
 
-  if(drawingManager)
+  if(imageViews)
+  {
+    for(unsigned int i = 0; i < 18; ++i)
+      completion.insert(std::string("vic all ")
+                        + ((i < 8 || i >= 14) ? (((i & 4) ? "no" : "") + std::string("alt ")) : "")
+                        + (i < 12 ? (((i & 2) ? "no" : "") + std::string("ctrl ")) : "")
+                        + ((i & 1) ? "no" : "") + "shift");
+    for(const auto& imageViewPair : *imageViews)
+      for(unsigned int i = 0; i < 18; ++i)
+        completion.insert(std::string("vic ") + imageViewPair.first + " "
+                          + ((i < 8 || i >= 14) ? (((i & 4) ? "no" : "") + std::string("alt ")) : "")
+                          + (i < 12 ? (((i & 2) ? "no" : "") + std::string("ctrl ")) : "")
+                          + ((i & 1) ? "no" : "") + "shift");
+  }
+
+  if(threadData)
   {
     completion.insert(std::string("vid off"));
     completion.insert(std::string("vfd off"));
-    for(const auto& drawingsPair : drawingManager->drawings)
-    {
-      if(!strcmp(drawingManager->getDrawingType(drawingsPair.first), "drawingOnImage") && imageViews)
+    for(const auto& data : *threadData)
+      for(const auto& drawingsPair : data.second.drawingManager.drawings)
       {
-        completion.insert(std::string("vid all ") + translate(drawingsPair.first) + " on");
-        completion.insert(std::string("vid all ") + translate(drawingsPair.first) + " off");
-        for(const auto& imageViewPair : *imageViews)
+        if(!strcmp(data.second.drawingManager.getDrawingType(drawingsPair.first), "drawingOnImage") && imageViews)
         {
-          completion.insert(std::string("vid ") + imageViewPair.first + " " + translate(drawingsPair.first) + " on");
-          completion.insert(std::string("vid ") + imageViewPair.first + " " + translate(drawingsPair.first) + " off");
+          completion.insert(std::string("vid all ") + translate(drawingsPair.first) + " on");
+          completion.insert(std::string("vid all ") + translate(drawingsPair.first) + " off");
+          for(const auto& imageViewPair : *imageViews)
+          {
+            completion.insert(std::string("vid ") + imageViewPair.first + " " + translate(drawingsPair.first) + " on");
+            completion.insert(std::string("vid ") + imageViewPair.first + " " + translate(drawingsPair.first) + " off");
+          }
+        }
+        else if(!strcmp(data.second.drawingManager.getDrawingType(drawingsPair.first), "drawingOnField") && fieldViews)
+        {
+          completion.insert(std::string("vfd all ") + translate(drawingsPair.first) + " on");
+          completion.insert(std::string("vfd all ") + translate(drawingsPair.first) + " off");
+          for(const auto& fieldViewPair : *fieldViews)
+          {
+            completion.insert(std::string("vfd ") + fieldViewPair.first + " " + translate(drawingsPair.first) + " on");
+            completion.insert(std::string("vfd ") + fieldViewPair.first + " " + translate(drawingsPair.first) + " off");
+          }
         }
       }
-      else if(!strcmp(drawingManager->getDrawingType(drawingsPair.first), "drawingOnField") && fieldViews)
-      {
-        completion.insert(std::string("vfd all ") + translate(drawingsPair.first) + " on");
-        completion.insert(std::string("vfd all ") + translate(drawingsPair.first) + " off");
-        for(const auto& fieldViewPair : *fieldViews)
-        {
-          completion.insert(std::string("vfd ") + fieldViewPair.first + " " + translate(drawingsPair.first) + " on");
-          completion.insert(std::string("vfd ") + fieldViewPair.first + " " + translate(drawingsPair.first) + " off");
-        }
-      }
-    }
   }
 
   if(plotViews && debugRequestTable)
@@ -861,17 +977,26 @@ void ConsoleRoboCupCtrl::createCompletion()
           for(int color = 0; color < RobotConsole::numOfColors; ++color)
             completion.insert(std::string("vpd ") + plotPair.first + " " +
                               translate(i.first).substr(5) + " " +
-                              RobotConsole::getName((RobotConsole::Color) color));
+                              TypeRegistry::getEnumName(static_cast<RobotConsole::Color>(color)));
           completion.insert(std::string("vpd ") + plotPair.first + " " +
                             translate(i.first).substr(5) + " off");
         }
 
-  completion.insert(std::string("save representation:CameraSettings"));
+  for(const auto& repr : representationToFile)
+    completion.insert(std::string("save ") + repr.first);
 
   gameController.addCompletion(completion);
+  for(int i = 0; i < GameController::numOfAutomaticReferees; ++i)
+  {
+    const std::string name = TypeRegistry::getEnumName(static_cast<GameController::AutomaticReferee>(i));
+    completion.insert(std::string("ar ") + name + " on");
+    completion.insert(std::string("ar ") + name + " off");
+  }
+
+  currentCompletionIndex = completion.end();
 }
 
-void ConsoleRoboCupCtrl::addCompletionFiles(const std::string& command, const std::string& pattern)
+void ConsoleRoboCupCtrl::addCompletionFiles(const std::string& command, const std::string& pattern, bool removeExtension)
 {
   QString qpattern(pattern.c_str());
   qpattern.replace("\\", "/");
@@ -886,14 +1011,15 @@ void ConsoleRoboCupCtrl::addCompletionFiles(const std::string& command, const st
   while(it.hasNext())
   {
     QString filename = it.next().remove(0, lastSlashIdx + 1);
-    filename.chop(filename.size() - filename.lastIndexOf("."));
+    if(removeExtension)
+      filename.chop(filename.size() - filename.lastIndexOf("."));
     completion.insert(command + filename.toUtf8().constData());
   }
 }
 
 std::string ConsoleRoboCupCtrl::handleCompletionString(size_t pos, const std::string& s)
 {
-  const std::string separators = " :./";
+  const std::string separators = " :/";
   if(pos < s.length())
     ++pos;
   while(pos < s.length() && separators.find(s[pos]) == std::string::npos)
@@ -974,9 +1100,9 @@ void ConsoleRoboCupCtrl::list(const std::string& text, const std::string& requir
   std::string s1 = text;
   std::string s2 = required;
   for(char& c : s1)
-    c = (char)toupper(c);
+    c = static_cast<char>(toupper(c));
   for(char& c : s2)
-    c = (char)toupper(c);
+    c = static_cast<char>(toupper(c));
   if(s1.find(s2) != std::string::npos)
   {
     if(newLine)
@@ -1034,11 +1160,23 @@ void ConsoleRoboCupCtrl::showInputDialog(std::string& command)
 
       QSettings settings("B-Human", "SimRobot");
 
-      // ${Select Logfile:,../Logs/*.log}
+      // ${Select Log File:,../Logs/*.log}
       // QFileDialog::DontUseNativeDialog is not fine, but it fixes visualisation qt-bug (see https://bugreports.qt.io/browse/QTBUG-29248)
       input = QFileDialog::getOpenFileName(nullptr, label, settings.value(qsl.front(), path).toString(), qsl.join(";;"), nullptr, QFileDialog::DontUseNativeDialog);
       if((ok = input != QString::null))
         settings.setValue(qsl.front(), QDir().absoluteFilePath(input));
+    }
+    else if(list.length() == 2 && list.first().isEmpty())
+    {
+      // ${Select LogFolder:,,../Logs/}
+      QString path(list.last());
+      path.replace("\\", "/");
+
+      QSettings settings("B-Human", "SimRobot");
+
+      input = QFileDialog::getExistingDirectory(nullptr, label, settings.value("LogFolder", path).toString(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+      if((ok = input != QString::null))
+        settings.setValue("LogFolder", input.left(input.lastIndexOf('/')));
     }
     else
     {
@@ -1061,4 +1199,21 @@ void ConsoleRoboCupCtrl::showInputDialog(std::string& command)
   {
     command = "";
   }
+}
+
+SystemCall::Mode SystemCall::getMode()
+{
+  if(RoboCupCtrl::controller)
+  {
+    static thread_local SystemCall::Mode mode = static_cast<ConsoleRoboCupCtrl*>(RoboCupCtrl::controller)->getMode();
+    return mode;
+  }
+  else
+    return simulatedRobot;
+}
+
+extern "C" DLL_EXPORT SimRobot::Module* createModule(SimRobot::Application& simRobot)
+{
+  FunctionList::execute();
+  return new ConsoleRoboCupCtrl(simRobot);
 }

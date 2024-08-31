@@ -7,23 +7,20 @@
 #pragma once
 
 #include "FieldFeature.h"
-#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
+#include "Tools/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Streams/EnumIndexedArray.h"
 
 STREAMABLE(FieldFeatureOverview, COMMA public PureNaovaArbitraryMessageParticle<idFieldFeatureOverview>
 {
   /** NaovaMessageParticle functions */
-  void operator >> (NaovaMessage& m) const override;
+  void operator>>(NaovaMessage& m) const override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
 
   ENUM(Feature,
   {,
-    GoalArea,
-    MidCircle,
-    MidCorner,
-    OuterCorner,
-    GoalFeature,
-    GoalFrame,
+    penaltyArea,
+    midCircle,
+    penaltyMarkWithPenaltyAreaLine,
   });
 
   STREAMABLE_WITH_BASE(FieldFeatureStatus, Pose2f,
@@ -40,7 +37,6 @@ STREAMABLE(FieldFeatureOverview, COMMA public PureNaovaArbitraryMessageParticle<
     };
     ,
     (bool)(false) isValid,       //< Seen in current Frame
-    (bool)(false) isRightSided,  //< just for FieldFeatures with a side (like OuterCorner)
     (unsigned)(0) lastSeen,      //< the timestamp, when this pose was valid
   });
   void draw() const,

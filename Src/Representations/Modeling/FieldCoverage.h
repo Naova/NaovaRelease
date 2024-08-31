@@ -1,20 +1,25 @@
 /**
  * @file FieldCoverage.h
- * @author Andreas Stolpmann
+ *
+ * Declaration to send information about the field coverage.
+ *
+ * @author Nicole Schrader
  */
 
 #pragma once
 
-#include "Tools/Streams/AutoStreamable.h"
+#include "Representations/Infrastructure/FrameInfo.h"
+#include "Tools/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 #include "Tools/Math/Eigen.h"
+#include "Tools/Module/Blackboard.h"
+#include "Tools/Streams/AutoStreamable.h"
 #include <vector>
-#include "Representations/Communication/NaovaTeamMessageParts/NaovaMessageParticule.h"
 
 STREAMABLE(FieldCoverage, COMMA public NaovaMessageParticule<idFieldCoverage>
 {
   /** NaovaMessageParticle functions */
-  void operator >> (NaovaMessage& m) const override;
-  void operator << (const NaovaMessage& m) override;
+  void operator>>(NaovaMessage& m) const override;
+  void operator<<(const NaovaMessage& m) override;
   bool handleArbitraryMessage(InMessage& m, const std::function<unsigned(unsigned)>& toLocalTimestamp) override;
 
   STREAMABLE(GridLine,
@@ -23,6 +28,5 @@ STREAMABLE(FieldCoverage, COMMA public NaovaMessageParticule<idFieldCoverage>
     (std::vector<unsigned>)() timestamps,
   }),
 
-  (int)(0) lineToSendNext,
-  (std::vector<GridLine>) lines,
+  (std::array<GridLine, 12>) lines,
 });
