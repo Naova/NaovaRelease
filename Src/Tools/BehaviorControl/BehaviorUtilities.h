@@ -15,6 +15,13 @@
 
 class BehaviorUtilities
 {
+    /** 
+     * Computes the best score between a list of given targets and the robot position
+     *
+     * @param initialPosition The first point
+     * @param target List of the possible targets.
+     * @param obstacles List of known obstacles
+     */
   public:
     static double score(const Vector2f& initialPosition, const Vector2f& target, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
 

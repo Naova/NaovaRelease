@@ -23,7 +23,7 @@ public:
   using PixelType = Pixel;
   unsigned int width;
   unsigned int height;
-  unsigned int widthStep; /**< The Distance between the first pixels of subsequent lines. */
+  unsigned int  widthStep; /**< The Distance between the first pixels of subsequent lines. */
 
 private:
   std::vector<unsigned char> allocator;

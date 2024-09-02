@@ -1,3 +1,4 @@
+
 /**
  * @file WalkToSupporterPositionCard.cpp
  *
@@ -18,6 +19,7 @@
 #include "Tools/BehaviorControl/Framework/Card/Dealer.h"
 #include "Representations/BehaviorControl/FieldBall.h"
 #include "Representations/Communication/GameInfo.h"
+#include "iostream"
 
 
 CARD(WalkToSupporterPositionCard,
