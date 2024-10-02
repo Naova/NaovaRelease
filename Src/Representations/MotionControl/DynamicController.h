@@ -56,6 +56,9 @@ MODULE(DynamicController,
         (float) K4,
 	(float) di,
 	(float) li,
+        (float) a,
+        (float) b,
+        (float) c,
         (float) lambda_1,
         (float) lambda_2,
         (float) lambda_3,
@@ -64,7 +67,6 @@ MODULE(DynamicController,
         (float) alpha2,
         (float) etat1,
         (float) etat2,
-        (float) offset,
     }),
 });
 
@@ -172,6 +174,7 @@ private:
         Angle saturation(Angle sigma);
         Angle calcTorque(Angle ddQd, Angle dQWithError, Angle QWithError, Angle sigma);// equation 18
         void calcTDE(Angle& torque, Angle torqueT1, Angle ddQ1);// equation 5
+        Angle calcTorqueToPosition(Angle Q, Angle dQ, Angle dQd, Angle torque);//eq 24
         Angle calcAngle(Vector3a desiredAngle0, Vector3a desiredAngle1, Vector2a angle0, Vector2a angle1,  Vector2a angle2, Angle* testtorque);
         Angle calcD(Angle dQWithError, Angle QWithError);
 
@@ -179,16 +182,19 @@ private:
 /*Fonctions utilisees*/
         void  verifMaxError(Angle& error);
         Angle calcS(Angle epsilonPoint, Angle epsilonLatino);//eq 14
-        Angle calcEpsilonTilde(Angle fi, Angle epsilon);// peut ressembler a calcErrorPosition(), changer les valeurs entrees de la fonction. Eq 13 du nouveau paper
-        Angle calcDEpsilonTilde(Angle epsilonTilde);//eq 15
         Angle calcGammaEqM(Angle ddQd, Angle H_hat);//eq 17
         Angle calcGammaFtM(Angle s); //eq 19 pas
         Angle calcGammaM(Angle gammaEqM, Angle gammaFtM);//eq 20
         Angle calcThetaCmd(Angle theta, Angle thetaPoint, Angle gammaM);//eq 21
-        Angle sig(float exponent, Angle argument);
 
 /*Fonction non-utilises*/
+        Angle calcTMax(Angle v1, Angle v2);//eq 9
         Angle calcFi(Angle f0, Angle fInf, double l);//eq 11
+        Angle calcGi(Angle epsilonTilde);//eq 12
+        Angle sig(float exponent, Angle argument);
+        Angle calcEpsilonTilde(Angle fi, Angle epsilon);// peut ressembler a calcErrorPosition(), changer les valeurs entrees de la fonction. Eq 13 du nouveau paper
+        Angle calcDEpsilonTilde(Angle epsilonTilde);//eq 15
+        Angle calcTMax_2(void);// equation 16 a corriger
 
 /*Fonction prncipale*/
         Angle calcAngleNew(Vector3a desiredAngle0, Vector3a desiredAngle1, Vector2a angle0, Vector2a angle1,  Vector2a angle2, Angle* testtorque);

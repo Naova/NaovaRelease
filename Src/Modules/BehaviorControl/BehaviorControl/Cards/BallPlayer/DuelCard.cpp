@@ -3,7 +3,7 @@
  *
  * This file implements a basic duel behavior for the code release.
  *
- * @author Mathieu Gagnon
+ * @author Arne Hasselbring
  */
 
 #include "Representations/BehaviorControl/FieldBall.h"
@@ -32,7 +32,7 @@ CARD(DuelCard,
   {,
     (float)(0.8f) walkSpeed,
     (int)(1000) initialWaitTime,
-    (float)(15_deg) duelAngle,
+    (int)(7000) ballNotSeenTimeout,
   }),
 });
 
@@ -48,20 +48,93 @@ class DuelCard : public DuelCardBase
     return theBallPlayerStrategy.currentStrategy != BallPlayerStrategy::Strategy::duel;
   }
 
-  void execute() override
+  option
   {
     theActivitySkill(BehaviorStatus::duel);
-    Vector2f enemyAbsolute = theRobotPose * theBallPlayerStrategy.closestEnemy.center; //Closest enemy absolute position
+    Vector2f enemyAbsolute = theBallPlayerStrategy.closestEnemy.center + theRobotPose.translation; //Closest enemy absolute position
     Vector2f enemyToBall = theFieldBall.positionOnField - enemyAbsolute;       //Calculate vector between closest enemy and the ball
-    float enemy_angle = (theBallPlayerStrategy.closestEnemy.center).angle();
-    if(enemyToBall.angle() >= 0)
+    initial_state(start)
     {
-      theGoToBallAndKickSkill(enemy_angle + duelAngle, KickInfo::walkForwardsLeft);
+      transition
+      {
+        if((enemyToBall.squaredNorm()) < theFieldBall.positionRelative.squaredNorm()) //Check if enemy is closer to the ball than the robot
+          goto Defend;
+        else
+        {
+          goto Attack;
+        }
+      }
+      action
+      {
+        theLookAtBallSkill();
+        theStandSkill();
+      }
     }
-    else
+
+    state(Attack)
     {
-      theGoToBallAndKickSkill(enemy_angle - duelAngle, KickInfo::walkForwardsRight);
+      transition
+      {
+        if(theGoToBallAndKickSkill.isDone())
+          goto start;
+      }
+      action
+      {
+        float enemy_angle = (theBallPlayerStrategy.closestEnemy.center).angle();
+        if(enemyToBall.angle() >= 0)
+        {
+          theGoToBallAndKickSkill(enemy_angle + 20_deg, KickInfo::walkForwardsLeft);
+
+        }
+        else
+        {
+          theGoToBallAndKickSkill(enemy_angle - 20_deg, KickInfo::walkForwardsRight);
+        }
+      }
     }
+
+    state(Defend)
+    {
+      transition
+      {
+        if(theWalkToPointSkill.isDone())
+          goto DefendCharge;
+      }
+      action
+      {
+        theLookAtBallSkill();
+        theWalkToPointSkill(calculateGoalWallPosition(500));
+      }
+    }
+
+    state(DefendCharge)
+    {
+      transition
+      {
+        if(theGoToBallAndKickSkill.isDone())
+          goto start;
+      }
+      action
+      {
+        theGoToBallAndKickSkill((theBallPlayerStrategy.closestEnemy.center).angle() - 10_deg, KickInfo::walkForwardsLeft);
+      }
+    }
+
+  }
+
+  Angle calcAngleToGoal() const
+  {
+    return (theRobotPose.inversePose * Vector2f(theFieldDimensions.xPosOpponentGroundLine, 0.f)).angle();
+  }
+
+  Pose2f calculateGoalWallPosition(float wallDistance)
+  {
+    Vector2f goalPosition = Vector2f(theFieldDimensions.xPosOwnGoalArea, theFieldDimensions.yPosCenterGoal);
+    Vector2f ballPosition = theFieldBall.teamPositionOnField;
+    Vector2f distanceFromBall = (goalPosition - ballPosition).normalized();
+    Vector2f wallPosition = theRobotPose.inversePose*(theFieldBall.teamPositionOnField + distanceFromBall*wallDistance);
+
+    return Pose2f(theFieldBall.positionRelative.angle(),wallPosition);
   }
 };
 

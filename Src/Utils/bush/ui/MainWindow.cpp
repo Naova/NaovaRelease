@@ -63,6 +63,7 @@ MainWindow::MainWindow()
   downloadLogs->setShortcutContext(Qt::ShortcutContext::ApplicationShortcut);
   shortcutBar->addShortcut("delete logs", "deleteLogs");
   shortcutBar->addShortcut("simulator", "sim");
+  shortcutBar->addShortcut("simulator2v2", "sim 2vs2");
   shortcutBar->addShortcut("ssh", "ssh");
   shortcutBar->addShortcut("restart", "restart bhuman");
   shortcutBar->addShortcut("shutdown", "shutdown -s");

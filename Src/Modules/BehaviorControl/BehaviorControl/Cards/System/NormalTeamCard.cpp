@@ -34,20 +34,19 @@ TEAM_CARD(NormalTeamCard,
   {,
     (int)(5000) ballNotSeenTimeout,
     (int)(4) nbOfSupporters,
-    (int)(2) timeToReachBallPenalty,
   }),
 });
-
+    
 class NormalTeamCard : public NormalTeamCardBase
 {
   bool preconditions() const override
   {
-    return true;
+    return theGameInfo.competitionType != COMPETITION_TYPE_SHARED_AUTONOMY;
   }
 
   bool postconditions() const override
   {
-    return true;
+    return theGameInfo.competitionType == COMPETITION_TYPE_SHARED_AUTONOMY;
   }
 
   void execute() override
@@ -56,7 +55,7 @@ class NormalTeamCard : public NormalTeamCardBase
 
     if (theFieldBall.teamBallWasSeen(ballNotSeenTimeout))
     {
-      theTimeToReachBallSkill(TimeToReachBall(getTimeToReachBall(theRobotPose.translation.x(), theFieldBall.teamPositionRelative)));
+      theTimeToReachBallSkill(TimeToReachBall(getTimeToReachBall(theFieldBall.teamPositionRelative)));
     }
     else
     {
@@ -106,7 +105,7 @@ class NormalTeamCard : public NormalTeamCardBase
     {
       if(teammate.status != Teammate::PENALIZED)
       {
-        unsigned int teammateTimeToReachBall = getTimeToReachBall(teammate.theRobotPose.translation.x(), teammate.theRobotPose.inversePose*theFieldBall.teamPositionOnField);
+        unsigned int teammateTimeToReachBall = getTimeToReachBall(teammate.theRobotPose.inversePose*theFieldBall.teamPositionOnField);
         
         if(teammateTimeToReachBall < theTeamBehaviorStatus.timeToReachBall.timeWhenReachBall)
         {
@@ -185,19 +184,12 @@ class NormalTeamCard : public NormalTeamCardBase
     return true;
   }
 
-  unsigned int getTimeToReachBall(float robotPoseX, Vector2f vectorToReachBall) const
+  unsigned int getTimeToReachBall(Vector2f vectorToReachBall) const
   {
     float timeToReachBall = std::max(1.f, std::max(std::abs(vectorToReachBall.x()) / theWalkingEngineOutput.maxSpeed.translation.x(),
           std::abs(vectorToReachBall.y()) / theWalkingEngineOutput.maxSpeed.translation.y()));
     
-    if (robotPoseX > theFieldBall.teamPositionOnField.x())  //Robot is ahead of the desired ball direction
-    {
-      return static_cast<unsigned int>(timeToReachBall) + timeToReachBallPenalty;  //Time penalty for Robot on the opposite side of the ball
-    }
-    else  //Robot is towards the desired ball direction
-    {
-      return static_cast<unsigned int>(timeToReachBall);
-    }
+    return static_cast<unsigned int>(timeToReachBall);
   }
 };
 

@@ -333,9 +333,6 @@ Tactic::Position SupporterPositioningProvider::firstReadyAssignPosition(std::vec
         break;
       default:
         FAIL("Number of robot is not good");
-        return positions[0]; //Should never be called (Fix for compiler warning)
     }
   }
-  FAIL("No robots");
-  return positions[0]; //Should never be called (Fix for compiler warning)
 }

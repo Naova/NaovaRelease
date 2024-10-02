@@ -19,6 +19,8 @@ void WalkToBallAndKickEngine::update(WalkToBallAndKickGenerator& walkToBallAndKi
   DECLARE_DEBUG_RESPONSE("module:WalkToBallAndKickEngine:forwardTurnInterpolation");
   DECLARE_DEBUG_RESPONSE("module:WalkToBallAndKickEngine:UseMirroredForwardKick");
   MODIFY("module:WalkToBallAndKickGenerator", overrideKickPower);
+  MODIFY("module:WalkToBallAndKickEngine:ignoreBallTimestamp", ignoreBallTimestamp);
+
   walkToBallAndKickGenerator.createPhase = [this](const MotionRequest& motionRequest, const MotionPhase& lastPhase)
   {
     lastPhaseWasKick = lastPhase.type == MotionPhase::kick;
@@ -61,13 +63,51 @@ void WalkToBallAndKickEngine::update(WalkToBallAndKickGenerator& walkToBallAndKi
     {
       case KickInfo::forwardFastLeft:
       case KickInfo::forwardFastLeftLong:
-        isInPositionForKick = ballPosition.y() > forwardFastYThreshold.min && ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastLeftLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
-        isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+        #ifdef TARGET_ROBOT
+          if (theRobotInfo.number == 2) 
+          {
+              isInPositionForKick = true;
+          } 
+          else 
+          {
+              isInPositionForKick = ballPosition.y() > forwardFastYThreshold.min && ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastLeftLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
+              isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+          }
+        #else 
+          if (theRobotInfo.number == 1) 
+          {
+            isInPositionForKick = true;
+          } 
+          else
+          {
+            isInPositionForKick = ballPosition.y() > forwardFastYThreshold.min && ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastLeftLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
+            isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+          }
+        #endif
         break;
       case KickInfo::forwardFastRight:
       case KickInfo::forwardFastRightLong:
-        isInPositionForKick = -ballPosition.y() > forwardFastYThreshold.min && -ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastRightLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
-        isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+        #ifdef TARGET_ROBOT
+          if (theRobotInfo.number == 2) 
+          {
+              isInPositionForKick = true;
+          } 
+          else 
+          {
+            isInPositionForKick = -ballPosition.y() > forwardFastYThreshold.min && -ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastRightLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
+            isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+          }
+        #else 
+          if (theRobotInfo.number == 1) 
+          {
+            isInPositionForKick = true;
+          } 
+          else
+          {
+            isInPositionForKick = -ballPosition.y() > forwardFastYThreshold.min && -ballPosition.y() < forwardFastYThreshold.max && ballPosition.x() < (motionRequest.kickType == KickInfo::forwardFastRightLong ? forwardFastLongXMaxThreshold : forwardFastXThreshold.max) && ballPosition.x() > forwardFastXThreshold.min;
+            isInPositionForKick &= std::abs(targetDirection + theKickInfo[motionRequest.kickType].rotationOffset) < directionThreshold;
+          }
+        #endif
         break;
       case KickInfo::walkForwardsLeft:
       case KickInfo::walkForwardsLeftLong:
@@ -106,11 +146,15 @@ void WalkToBallAndKickEngine::update(WalkToBallAndKickGenerator& walkToBallAndKi
         FAIL("Unknown kick type.");
     }
     isInPositionForKick &= lastPhase.type == MotionPhase::stand || lastPhase.type == MotionPhase::walk; // prevent kicking from potential unstable phases
-    isInPositionForKick &= motionRequest.ballTimeWhenLastSeen >= theMotionInfo.lastKickTimestamp;
+    if (!ignoreBallTimestamp)
+    {
+      isInPositionForKick &= motionRequest.ballTimeWhenLastSeen >= theMotionInfo.lastKickTimestamp;
+      isInPositionForKick &= theFrameInfo.getTimeSince(motionRequest.ballTimeWhenLastSeen) < 3000;
+    }
     // velocity.norm() does not need to be transformed to another coordinate system.
     if(!(motionRequest.kickType == KickInfo::walkForwardStealBallLeft || motionRequest.kickType == KickInfo::walkForwardStealBallRight)) // we are so close to the ball. The velocity might be a false perception
       isInPositionForKick &= motionRequest.ballEstimate.velocity.norm() < maxBallVelocity;
-    // isInPositionForKick &= theFrameInfo.getTimeSince() < 3000;
+      // isInPositionForKick &= theFrameInfo.getTimeSince() < 3000;
     // TODO: check if has been seen (at least since last kick)
     if(isInPositionForKick && motionRequest.alignPrecisely)
     {

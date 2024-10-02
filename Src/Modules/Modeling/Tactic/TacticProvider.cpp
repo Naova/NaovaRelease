@@ -114,27 +114,27 @@ TacticProvider::TacticProvider(){
   }
 
 // TODO À remettre lorsqu'on aura les penaltyShoots
-  FOREACH_ENUM(OwnPenaltyKick::Type, ownPenaltyKick)
-  {
-    InExprMapFile stream(std::string("Behavior/PenaltyKicks/") + TypeRegistry::getEnumName(ownPenaltyKick) + ".cfg", symbols, ~bit(InMap::missingAttribute));
-    ASSERT(stream.exists());
-    stream >> ownPenaltyKicks[ownPenaltyKick];
-#ifndef NDEBUG
-    ownPenaltyKicks[ownPenaltyKick].verify(OwnPenaltyKick::toSetPlay(ownPenaltyKick), tactics);
-#endif
-    setPlays[OwnPenaltyKick::toSetPlay(ownPenaltyKick)] = &ownPenaltyKicks[ownPenaltyKick];
-  }
+//   FOREACH_ENUM(OwnPenaltyKick::Type, ownPenaltyKick)
+//   {
+//     InExprMapFile stream(std::string("Behavior/PenaltyKicks/") + TypeRegistry::getEnumName(ownPenaltyKick) + ".cfg", symbols, ~bit(InMap::missingAttribute));
+//     ASSERT(stream.exists());
+//     stream >> ownPenaltyKicks[ownPenaltyKick];
+// #ifndef NDEBUG
+//     ownPenaltyKicks[ownPenaltyKick].verify(OwnPenaltyKick::toSetPlay(ownPenaltyKick), tactics);
+// #endif
+//     setPlays[OwnPenaltyKick::toSetPlay(ownPenaltyKick)] = &ownPenaltyKicks[ownPenaltyKick];
+//   }
 
-  FOREACH_ENUM(OpponentPenaltyKick::Type, opponentPenaltyKick)
-  {
-    InExprMapFile stream(std::string("Behavior/PenaltyKicks/") + TypeRegistry::getEnumName(opponentPenaltyKick) + ".cfg", symbols, ~bit(InMap::missingAttribute));
-    ASSERT(stream.exists());
-    stream >> opponentPenaltyKicks[opponentPenaltyKick];
-#ifndef NDEBUG
-    opponentPenaltyKicks[opponentPenaltyKick].verify(OpponentPenaltyKick::toSetPlay(opponentPenaltyKick), tactics);
-#endif
-    setPlays[OpponentPenaltyKick::toSetPlay(opponentPenaltyKick)] = &opponentPenaltyKicks[opponentPenaltyKick];
-  }
+//   FOREACH_ENUM(OpponentPenaltyKick::Type, opponentPenaltyKick)
+//   {
+//     InExprMapFile stream(std::string("Behavior/PenaltyKicks/") + TypeRegistry::getEnumName(opponentPenaltyKick) + ".cfg", symbols, ~bit(InMap::missingAttribute));
+//     ASSERT(stream.exists());
+//     stream >> opponentPenaltyKicks[opponentPenaltyKick];
+// #ifndef NDEBUG
+//     opponentPenaltyKicks[opponentPenaltyKick].verify(OpponentPenaltyKick::toSetPlay(opponentPenaltyKick), tactics);
+// #endif
+//     setPlays[OpponentPenaltyKick::toSetPlay(opponentPenaltyKick)] = &opponentPenaltyKicks[opponentPenaltyKick];
+//   }
   FOREACH_ENUM(OwnFreeKick::Type, ownFreeKick)
   {
     InExprMapFile stream(std::string("Behavior/FreeKicks/") + TypeRegistry::getEnumName(ownFreeKick) + ".cfg", symbols, ~bit(InMap::missingAttribute));
@@ -206,7 +206,7 @@ void TacticProvider::update(CurrentTactic& theCurrentTactic)
     if(theGameInfo.state == STATE_READY)
     {
       // During the ready state, all agents can freely propose a set play.
-      const SetPlay::GameState setPlayGameState = theGameInfo.setPlay == SET_PLAY_PENALTY_KICK ?
+      const SetPlay::GameState setPlayGameState = theGameInfo.gamePhase == GAME_PHASE_PENALTYSHOOT ?
         (isKickingTeam ? SetPlay::ownPenaltyKick : SetPlay::opponentPenaltyKick) :
         (isKickingTeam ? SetPlay::ownKickOff : SetPlay::opponentKickOff);
 	  
@@ -218,12 +218,15 @@ void TacticProvider::update(CurrentTactic& theCurrentTactic)
         case SetPlay::opponentKickOff:
           setPlayType = selectNewSetPlay<OpponentKickOff>(strategies[strategy].opponentKickOffs, true);
           break;
-        case SetPlay::ownPenaltyKick:
-          setPlayType = selectNewSetPlay<OwnPenaltyKick>(strategies[strategy].ownPenaltyKicks, false);
-          break;
-        case SetPlay::opponentPenaltyKick:
-          setPlayType = selectNewSetPlay<OpponentPenaltyKick>(strategies[strategy].opponentPenaltyKicks, false);
-          break;
+        // TODO À remettre lorsqu'on aura les penaltyShoots
+        // case SetPlay::ownPenaltyKick:
+        //   setPlayType = selectNewSetPlay<OwnPenaltyKick>(strategies[strategy].ownPenaltyKicks);
+        //   theCurrentTactic.currentOwnPenaltyKick = ownPenaltyKicks.at(0);
+        //   break;
+        // case SetPlay::opponentPenaltyKick:
+        //   setPlayType = selectNewSetPlay<OpponentPenaltyKick>(strategies[strategy].opponentPenaltyKicks);
+        //   theCurrentTactic.currentOpponentPenaltyKick = opponentPenaltyKicks.at(0);
+        //   break;
         default:
           FAIL("Unknown set play type.");
       }
@@ -233,11 +236,6 @@ void TacticProvider::update(CurrentTactic& theCurrentTactic)
     }else if (theGameInfo.setPlay != SET_PLAY_NONE) {
       if(theGameInfo.gamePhase == SET_PLAY_PENALTY_KICK){
         //TODO handle penalty kick
-        if(theGameInfo.kickingTeam == theOwnTeamInfo.teamNumber){
-          setPlayType = selectNewSetPlay<OwnFreeKick>(strategies[strategy].ownFreeKicks, true);
-        }else{
-          setPlayType = selectNewSetPlay<OpponentFreeKick>(strategies[strategy].opponentFreeKicks, true);
-        }
       }else{
         if(theGameInfo.kickingTeam == theOwnTeamInfo.teamNumber){
           setPlayType = selectNewSetPlay<OwnFreeKick>(strategies[strategy].ownFreeKicks, true);

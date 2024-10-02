@@ -3,7 +3,7 @@
  *
  * This file implements a module that provides the BallPlayerStrategy representation
  *
- * @author Elias, Marc-Olivier et Catarina
+ * @author Elias et Marc-Olivier et Nadir
  */
 
 #include "BallPlayerStrategyProvider.h"
@@ -14,50 +14,121 @@ MAKE_MODULE(BallPlayerStrategyProvider, behaviorControl);
 
 void BallPlayerStrategyProvider::update(BallPlayerStrategy& theBallPlayerStrategy)
 {
-    Vector2f teammate = Vector2f(0.f, 0.f);
-    KickOptionInfo kickOptionInfo;
-    KickOptionInfo lastKickOptionInfo;
-    Vector2f initalBallPosition = Vector2f(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
-    float closestEnemyDistance = closestEnemyToDuel(theBallPlayerStrategy);
-    
+    static const double threshold = 55.0;
+    static const double margin = 10.0;
+    static BallPlayerStrategy::Strategy lastStrategy = BallPlayerStrategy::Strategy::unknown;
 
-    if((initalBallPosition - theFieldBall.positionOnField).norm() > ballDifference)
-    {
-        lastKickOptionInfo.kickScore = std::numeric_limits<double>::lowest();
+    float closestEnemyDistance = std::numeric_limits<float>::max();
+    double score = 0.0;
+    double passScore = 0.0;
+    Vector2f bestTarget;
+    Vector2f teammate = Vector2f(0.f, 0.f);
+    std::vector<Vector2f> listPoint{Vector2f(theFieldDimensions.xPosOpponentGroundLine, 0),
+                                    Vector2f(theFieldDimensions.xPosOpponentGroundLine, 250),
+                                    Vector2f(theFieldDimensions.xPosOpponentGroundLine, 500),
+                                    Vector2f(theFieldDimensions.xPosOpponentGroundLine, -250),
+                                    Vector2f(theFieldDimensions.xPosOpponentGroundLine, -500)};
+
+    if(theFieldBall.positionOnField.x() < theFieldDimensions.xPosOwnPenaltyArea)
+    {   
+        theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
+        if(theFieldBall.positionOnField.y() > 0)
+            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * Vector2f(0.f, theFieldDimensions.yPosLeftSideline * 0.8f);
+        else
+            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * Vector2f(0.f, theFieldDimensions.yPosRightSideline * 0.8f);
     }
-    if (!isClearingTheBall(theBallPlayerStrategy))
+    else
     {
-        if (closestEnemyDistance < distanceForDuel) 
+        for (Vector2f target : listPoint)
         {
-            theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::duel;
-            lastStrategy = theBallPlayerStrategy.currentStrategy;
+            double computedScore = BehaviorUtilities::score(theFieldBall.positionOnField, target, theObstacleModel.obstacles, theRobotPose);
+
+            if (computedScore > score)
+            {
+                score = computedScore;
+                bestTarget = target;
+            }
+        }
+
+        teammate = findTeammateForPass();
+
+        if (teammate != Vector2f(0.f, 0.f))
+        {
+            for (Vector2f target : listPoint)
+            {
+                double computedScore = BehaviorUtilities::score(teammate, target, theObstacleModel.obstacles, theRobotPose);
+
+                if (computedScore > passScore)
+                {
+                    passScore = computedScore;
+                }
+            }
+        }
+
+        if ((score > threshold || passScore > threshold) && 
+            (lastStrategy == BallPlayerStrategy::Strategy::pass || lastStrategy == BallPlayerStrategy::Strategy::kickAtGoal))
+        {
+            if(theGameInfo.kickingTeam == theOwnTeamInfo.teamNumber)
+            {
+                if (passScore > (score-offset2v2score))
+                {
+                    theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
+                    theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
+                }
+                else
+                {   
+                    theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
+                    theBallPlayerStrategy.targetForKick = bestTarget;
+                }
+            }
+            else
+            {
+                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
+                theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
+            }
+
+        }
+        else if (score > threshold + margin || passScore > threshold + margin)
+        {
+            if (passScore > score)
+            {
+                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
+                theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
+                lastStrategy = BallPlayerStrategy::Strategy::pass;
+            }
+            else
+            {
+                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
+                theBallPlayerStrategy.targetForKick = bestTarget;
+                lastStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
+            }
         }
         else
         {
-            kickOptionInfo = findBestKickTarget(kickAtGoalOptions);
-            if(!(kickOptionInfo.kickScore > (lastKickOptionInfo.kickScore + scoreDifference)))
+            if(std::abs(theFieldBall.positionOnField.y()) < theFieldDimensions.yPosLeftSideline * 0.7f)
             {
-                kickOptionInfo = lastKickOptionInfo;
-            }
-            else
-            {
-                lastKickOptionInfo = kickOptionInfo;                                                
-            }
-            teammate = findTeammateForPass();
-    
-            double passScore = isPassWorth(teammate, kickAtGoalOptions);
+                for (const Obstacle& obstacle : theObstacleModel.obstacles)
+                {
+                    float obstacleRelative = obstacle.center.norm();
+                    float obstacleAngle = obstacle.center.angle();
+                    if (obstacle.isOpponent() && obstacleRelative < closestEnemyDistance && abs(obstacleAngle) < 80_deg)
+                    {
+                        closestEnemyDistance = obstacleRelative;
+                        theBallPlayerStrategy.closestEnemy = obstacle;
+                    }
+                }
+            }            
 
-            bool isKickingOrPassing = isKickingOrPassingBall(theBallPlayerStrategy, kickOptionInfo, teammate, passScore);
-            
-            if (!isKickingOrPassing)
+            if (closestEnemyDistance < enemyRangeBallDistance) 
             {
-                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::dribble;
-                lastStrategy = theBallPlayerStrategy.currentStrategy;
+                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::duel;
             }
             else
-            {
-                initalBallPosition = theFieldBall.positionOnField;
+            {   
+                theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
+                theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
             }
+            lastStrategy = theBallPlayerStrategy.currentStrategy;
         }
     }
 }
@@ -119,117 +190,4 @@ bool BallPlayerStrategyProvider::isTeammateFree(Vector2f target)
     }
 
     return true;
-}
-
-bool BallPlayerStrategyProvider::isClearingTheBall(BallPlayerStrategy& theBallPlayerStrategy)
-{
-    //If the ball is inside the our penalty area, we clear the ball
-    if(theFieldBall.positionOnField.x() < theFieldDimensions.xPosOwnPenaltyArea)
-    {
-        theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
-        if(theFieldBall.positionOnField.y() > 0)
-            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * clearingPositionLeft;
-        else
-            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * clearingPositionRight;
-        
-        return true;
-    }
-    return false;
-}
-
-BallPlayerStrategyProvider::KickOptionInfo BallPlayerStrategyProvider::findBestKickTarget(const std::vector<Vector2f>& kickAtGoalOptions)
-{
-    KickOptionInfo kickOptionInfo;        
-    kickOptionInfo.kickScore = -1.0;
-    
-    for(const Vector2f &target : kickAtGoalOptions)
-    {
-        double computedScore = BehaviorUtilities::score(theFieldBall.positionOnField, target, theObstacleModel.obstacles, theRobotPose);
-
-        if (computedScore > kickOptionInfo.kickScore)
-        {
-            kickOptionInfo.kickScore = computedScore;
-            kickOptionInfo.bestTarget = target;
-        }
-    }
-
-    return kickOptionInfo;
-}
-
-double BallPlayerStrategyProvider::isPassWorth(Vector2f teammate, const std::vector<Vector2f>& kickAtGoalOptions)
-{
-    double passScore = -1.0;
-
-    if (teammate != Vector2f::Zero())
-    {
-        for(const Vector2f &target : kickAtGoalOptions)
-        {
-            double computedScore = BehaviorUtilities::score(teammate, target, theObstacleModel.obstacles, theRobotPose);
-
-            if (computedScore > passScore)
-            {
-                passScore = computedScore;
-            }
-        }
-    }
-    return passScore;
-}
-
-bool BallPlayerStrategyProvider::isKickingOrPassingBall(BallPlayerStrategy& theBallPlayerStrategy, KickOptionInfo& kickOptionInfo, Vector2f& teammate, double passScore)
-{
-    if ((kickOptionInfo.kickScore > scoreThreshold || passScore > scoreThreshold) && 
-        (lastStrategy == BallPlayerStrategy::Strategy::pass || lastStrategy == BallPlayerStrategy::Strategy::kickAtGoal))
-    {
-        if (passScore > (kickOptionInfo.kickScore + scoreBias))
-        {
-            theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
-            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
-        }
-        else
-        {
-            theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
-            theBallPlayerStrategy.targetForKick = kickOptionInfo.bestTarget;
-        }
-        return true;
-    }
-    else if (kickOptionInfo.kickScore > scoreThreshold + decisionMargin || passScore > scoreThreshold + decisionMargin)
-    {
-        if (passScore > (kickOptionInfo.kickScore + scoreBias))
-        {
-            theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::pass;
-            theBallPlayerStrategy.targetForPass = theRobotPose.inversePose * teammate;
-            lastStrategy = BallPlayerStrategy::Strategy::pass;
-        }
-        else
-        {
-            theBallPlayerStrategy.currentStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
-            theBallPlayerStrategy.targetForKick = kickOptionInfo.bestTarget;
-            lastStrategy = BallPlayerStrategy::Strategy::kickAtGoal;
-        }
-        return true;
-    }
-    return false;
-}
-
-float BallPlayerStrategyProvider::closestEnemyToDuel(BallPlayerStrategy& theBallPlayerStrategy)
-{       
-    float closestEnemyDistance = std::numeric_limits<float>::max();
-
-    if(std::abs(theFieldBall.positionOnField.y()) < theFieldDimensions.yPosLeftSideline * 0.7f && std::abs(theFieldBall.positionOnField.x()) < theFieldDimensions.xPosOpponentGoalArea)
-    {
-        for(const Obstacle& obstacle : theObstacleModel.obstacles)
-        {
-            float obstacleDistance = obstacle.center.norm();
-            Vector2f obstacleToball = (theRobotPose * obstacle.center) - theFieldBall.positionOnField;
-            Vector2f kickDirectionToBall = (kickDirection - theFieldBall.positionOnField);
-            float obstacleToKickAngle = kickDirectionToBall.angleTo(obstacleToball);
-
-            if (obstacle.isOpponent() && obstacleDistance < closestEnemyDistance && abs(obstacleToKickAngle) < angleToConsiderDuel)
-            {
-                closestEnemyDistance = obstacleDistance;
-                theBallPlayerStrategy.closestEnemy = obstacle;
-            }
-        }
-    }
-    return closestEnemyDistance;
 }

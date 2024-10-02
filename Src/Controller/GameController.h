@@ -90,7 +90,6 @@ private:
   static const float footLength; /**< foot length for position check and manual placement at center circle. */
   static const float safeDistance; /**< safe distance from penalty areas for manual placement. */
   static const float dropHeight; /**< height at which robots are manually placed so the fall a little bit and recognize it. */
-  static const float returnFromPenaltyYOffset; /**< when the robot returns from a penalty, it is placed at this y offset from the sideline */
   Pose2f lastBallContactPose; /**< Position where the last ball contact of a robot took place, orientation is toward opponent goal (0/180 degrees). */
   unsigned lastBallContactTime = 0;
   FieldDimensions fieldDimensions;

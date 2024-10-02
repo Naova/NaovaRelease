@@ -24,11 +24,11 @@ std::string SimCmd::getDescription() const
   return "Connects to robots via simulator. Requires a Simulator built with Develop configuration.";
 }
 
-bool SimCmd::execute(Context& context, const std::vector<std::string>&)
+bool SimCmd::execute(Context& context, const std::vector<std::string>& params)
 {
   const std::string buildConfig = "Develop";
   const std::string simulatorExecutable = getSimulatorExecutable(buildConfig);
-  const std::string remoteRobotScene = std::string(File::getBHDir()) + "/Config/Scenes/RemoteRobot.ros2";
+  const std::string remoteRobotScene = std::string(File::getBHDir()) + (params.size() > 0 && params[0] == "2vs2" ? "/Config/Scenes//2v2/2vs2RemoteRobot.ros2" : "/Config/Scenes/RemoteRobot.ros2");
   const std::string connectConPath = "Scenes/Includes/connect.con";
 
   File simFile(simulatorExecutable, "r");

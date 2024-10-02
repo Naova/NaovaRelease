@@ -30,8 +30,7 @@ class InterceptBallCard : public InterceptBallCardBase
 {
   bool preconditions() const override
   {
-    return theRobotInfo.number == 1 && theFieldDimensions.isInOwnPenaltyArea(theRobotPose.translation) && 
-      theFieldBall.isRollingTowardsOwnGoal;
+    return false;
   }
 
   bool postconditions() const override

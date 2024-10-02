@@ -274,12 +274,6 @@ bool Geometry::isPointInsideRectangle(const Vector2f& bottomLeftCorner, const Ve
          bottomLeftCorner.y() <= point.y() && point.y() <= topRightCorner.y());
 }
 
-bool Geometry::isPointInsideRectangle(const Vector2i& bottomLeftCorner, const Vector2i& topRightCorner, const Vector2i& point)
-{
-  return(bottomLeftCorner.x() <= point.x() && point.x() <= topRightCorner.x() &&
-         bottomLeftCorner.y() <= point.y() && point.y() <= topRightCorner.y());
-}
-
 bool Geometry::isPointInsideRectangle2(const Vector2f& corner1, const Vector2f& corner2, const Vector2f& point)
 {
   const Vector2f bottomLeft(std::min(corner1.x(), corner2.x()), std::min(corner1.y(), corner2.y()));
@@ -292,6 +286,12 @@ bool Geometry::isPointInsideRectangle(const Rect& rect, const Vector2f& point)
   const Vector2f bottomLeft(std::min(rect.a.x(), rect.b.x()), std::min(rect.a.y(), rect.b.y()));
   const Vector2f topRight(std::max(rect.a.x(), rect.b.x()), std::max(rect.a.y(), rect.b.y()));
   return isPointInsideRectangle(bottomLeft, topRight, point);
+}
+
+bool Geometry::isPointInsideRectangle(const Vector2i& bottomLeftCorner, const Vector2i& topRightCorner, const Vector2i& point)
+{
+  return(bottomLeftCorner.x() <= point.x() && point.x() <= topRightCorner.x() &&
+         bottomLeftCorner.y() <= point.y() && point.y() <= topRightCorner.y());
 }
 
 int ccw(const Vector2f& p0, const Vector2f& p1, const Vector2f& p2)
@@ -329,25 +329,6 @@ bool Geometry::isPointInsideConvexPolygon(const Vector2f polygon[], const int nu
 }
 
 bool Geometry::isPointInsidePolygon(const Vector3f& point, const std::vector<Vector3f>& V)
-{
-  int i, j = static_cast<int>(V.size()) - 1;
-  bool oddNodes = false;
-
-  for(i = 0; i < static_cast<int>(V.size()); ++i)
-  {
-    if((V[i].y() < point.y() && V[j].y() >= point.y()) || (V[j].y() < point.y() && V[i].y() >= point.y()))
-    {
-      if(V[i].x() + (point.y() - V[i].y()) / (V[j].y() - V[i].y()) * (V[j].x() - V[i].x()) < point.x())
-      {
-        oddNodes = !oddNodes;
-      }
-    }
-    j = i;
-  }
-  return oddNodes;
-}
-
-bool Geometry::isPointInsidePolygon(const Vector2f& point, const std::vector<Vector2f>& V)
 {
   int i, j = static_cast<int>(V.size()) - 1;
   bool oddNodes = false;

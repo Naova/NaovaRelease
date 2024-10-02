@@ -4,4 +4,3 @@ call Includes/Normal
 call Includes/Views
 
 dr debugDrawing3d:representation:RobotPose
-vfd worldState behavior:Tactic:voronoiDiagram

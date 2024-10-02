@@ -24,8 +24,9 @@ FieldScoreProvider::FieldScoreProvider() {
 
 void FieldScoreProvider::update(FieldScore &fieldScore) {
     DECLARE_DEBUG_DRAWING("representation:FieldScoreProvider:scoreOnField", "drawingOnField");
+    DEBUG_RESPONSE("representation:FieldScoreProvider:fieldScore");
 
-    if (static_cast<int>(fieldScore.scores.size()) != numberOfPoints) {
+    if (fieldScore.scores.size() != numberOfPoints) {
         fieldScore.scores.resize(numberOfPoints);
     }
 
@@ -56,8 +57,8 @@ void FieldScoreProvider::update(FieldScore &fieldScore) {
     }
 
     // Goal
-    for (int x = static_cast<int>(theFieldDimensions.xPosOpponentGoalArea); x < theFieldDimensions.xPosOpponentGoal; x += stepX) {
-        for (int y = static_cast<int>(theFieldDimensions.yPosRightGoalArea); y < theFieldDimensions.yPosLeftGoalArea; y += stepY) {
+    for (int x = theFieldDimensions.xPosOpponentGoalArea; x < theFieldDimensions.xPosOpponentGoal; x += stepX) {
+        for (int y = theFieldDimensions.yPosRightGoalArea; y < theFieldDimensions.yPosLeftGoalArea; y += stepY) {
             addScore(fieldScore, source, x, y);
         }
     }

@@ -20,7 +20,6 @@
 const float GameController::footLength = 120.f;
 const float GameController::safeDistance = 150.f;
 const float GameController::dropHeight = 350.f;
-const float GameController::returnFromPenaltyYOffset = 500.f;
 
 GameController::GameController()
 {
@@ -161,6 +160,11 @@ bool GameController::handleCompetitionTypeCommand(const std::string& command)
   else if(command == "competitionTypeNormal")
   {
     gameInfo.competitionType = COMPETITION_TYPE_NORMAL;
+    return true;
+  }
+  else if(command == "competitionType1")
+  {
+    gameInfo.competitionType = 1;
     return true;
   }
   return false;
@@ -731,7 +735,7 @@ void GameController::referee()
     if(automatic & bit(placePlayers) && r.info.penalty != PENALTY_NONE && r.lastPenalty == PENALTY_NONE && r.simulatedRobot)
     {
       placeForPenalty(i, fieldDimensions.xPosOpponentPenaltyMark,
-                      fieldDimensions.yPosRightFieldBorder + footLength, -pi_2);
+                      fieldDimensions.yPosRightFieldBorder + 100.f, -pi_2);
     }
 
     if(r.info.penalty != PENALTY_NONE)
@@ -763,7 +767,7 @@ void GameController::referee()
         Vector2f ballPos;
         r.simulatedRobot->getAbsoluteBallPosition(ballPos);
         placeForPenalty(i, fieldDimensions.xPosOpponentPenaltyMark,
-                        ballPos.y() >= 0.f ? fieldDimensions.yPosRightSideline - returnFromPenaltyYOffset : fieldDimensions.yPosLeftSideline + returnFromPenaltyYOffset,
+                        ballPos.y() >= 0.f ? fieldDimensions.yPosRightSideline : fieldDimensions.yPosLeftSideline,
                         ballPos.y() >= 0.f ? pi_2 : -pi_2);
       }
     }
@@ -1016,7 +1020,8 @@ void GameController::addCompletion(std::set<std::string>& completion) const
     "kickOffFirstTeam",
     "kickOffSecondTeam",
     "gamePenaltyShootout",
-    "gameNormal"
+    "gameNormal",
+    "competitionType1"
   };
   const int num = sizeof(commands) / sizeof(commands[0]);
   for(int i = 0; i < num; ++i)

@@ -30,7 +30,7 @@ CARD(DribbleCard,
   DEFINES_PARAMETERS(
   {,
     (float)(0.8f) walkSpeed,
-    (float)(0.8f) dribbleSpeed,
+    (float) (0.5f) dribbleSpeed,
     (int)(100) iterationSteps, /**< Num of iteration steps. */
     (float)(10.f) stepLength, /**< Iterate this much per step. */
     (float)(15.f) searchStepDrawWidth,

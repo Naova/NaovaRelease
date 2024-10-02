@@ -10,8 +10,8 @@ private:
     unsigned int nb_images_saved = 1;
     const int wait = 4;
     int current_wait = 0;
-	const int batch_number_min = 700;
-    const int batch_number_max = 799;
+	const int batch_number_min = 200;
+    const int batch_number_max = 299;
     int batch_number;
 public:
 #ifdef TARGET_ROBOT
@@ -22,7 +22,7 @@ public:
     bool save_upper = false;
 #endif
 
-    bool save_with_ball_only = true;
+    bool save_with_ball_only = false;
 
     DatasetCreator();
     void update(const CameraImage& image, bool label = false, float x = 0.f, float y = 0.f, float radius = 0.f);

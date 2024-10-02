@@ -34,6 +34,7 @@ CARD(GameplayCard,
     (DeckOfCards<CardRegistry>) normalPlay,
     (DeckOfCards<CardRegistry>) ownPenaltyKick,
     (DeckOfCards<CardRegistry>) opponentPenaltyKick,
+    (DeckOfCards<CardRegistry>) c2vs2,
   }),
 });
 
@@ -89,8 +90,12 @@ class GameplayCard : public GameplayCardBase
       #ifdef TARGET_ROBOT
         const int stateTime = theFrameInfo.time - _context.stateStart;
       #endif
-
-      if(theGameInfo.setPlay != SET_PLAY_NONE)
+      if(theGameInfo.competitionType == COMPETITION_TYPE_SHARED_AUTONOMY)
+      {
+        dealer.deal(c2vs2)->call(); 
+        setState("c2vs2");
+      }
+      else if(theGameInfo.setPlay != SET_PLAY_NONE)
       {
         if(theGameInfo.kickingTeam == theOwnTeamInfo.teamNumber)
         {
@@ -108,7 +113,7 @@ class GameplayCard : public GameplayCardBase
         else
         {
           if(theGameInfo.setPlay == SET_PLAY_PENALTY_KICK)
-        {
+          {
             dealer.deal(opponentPenaltyKick)->call();
             setState("opponentPenaltyKick");
           }

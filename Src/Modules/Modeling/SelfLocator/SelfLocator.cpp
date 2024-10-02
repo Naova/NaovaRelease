@@ -810,7 +810,7 @@ Pose2f SelfLocator::getNewPoseAtWalkInPosition()
   const int effectivePlayerNumber = theOwnTeamInfo.getSubstitutedPlayerNumber(theRobotInfo.number);
   if(effectivePlayerNumber >= 1 && effectivePlayerNumber <= 6)
   {
-    const SetupPoses::SetupPose& p = theSetupPoses.getPoseOfRobot(effectivePlayerNumber);
+    const SetupPoses::SetupPose& p = theSetupPoses.getPoseOfRobot(effectivePlayerNumber, theGameInfo, theOwnTeamInfo);
     Pose2f result;
     result.translation = p.position;
     result.rotation    = (p.turnedTowards - p.position).angle();

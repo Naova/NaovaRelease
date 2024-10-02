@@ -3,7 +3,7 @@
  *
  * This file declares a class that represents functions that will be use in the behavior
  *
- * @author Catarina Castro et Olivier St-Pierre
+ * @author Catarina Castro
  */
 
 #pragma once
@@ -11,24 +11,26 @@
 #include "Tools/Math/Eigen.h"
 #include <vector>
 #include "Tools/Modeling/Obstacle.h"
-#include "Representations/Communication/RobotInfo.h"
 
 class BehaviorUtilities
 {
-    /** 
-     * Computes the best score between a list of given targets and the robot position
-     *
-     * @param initialPosition The first point
-     * @param target List of the possible targets.
-     * @param obstacles List of known obstacles
-     */
-  public:
-    static double score(const Vector2f& initialPosition, const Vector2f& target, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
+  /**
+   * Computes the score between two points
+   *
+   * @param initialPosition The first point
+   * @param target The second point.
+   * @param obstacles List of known obstacles
+   */
+  public : 
+    static double score(Vector2f initialPosition, Vector2f target, std::vector<Obstacle> obstacles, Pose2f inversePose);
 
-    static Vector2f bestScorePosition(const Vector2f& initialPosition, const std::vector<Vector2f>& targets, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
-    static Vector2f bestScorePosition(std::vector<Vector2f> potentialPositions, Vector2f target, Vector2f ballPosition, 
-                                      std::vector<Obstacle> obstacles, Pose2f robotPose);
-
-    static Vector2f bestScorePositionInGoal(const Vector2f& initialPosition, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
-
+/**
+   * Computes the best score between a list of given targets and the robot position
+   *
+   * @param initialPosition The first point
+   * @param target List of the possible targets.
+   * @param obstacles List of known obstacles
+   */
+  public : 
+    static Vector2f bestScorePosition(Vector2f initialPosition, std::vector<Vector2f> targets, std::vector<Obstacle> obstacles, Pose2f inversePose);
 };

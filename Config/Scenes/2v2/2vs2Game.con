@@ -1,0 +1,4 @@
+call Includes/Normal
+call 2v2/2vs2
+
+dr debugDrawing3d:representation:RobotPose

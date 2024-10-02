@@ -13,6 +13,8 @@
 #include "Platform/BHAssert.h"
 #include "Tools/Math/Eigen.h"
 #include "Tools/Streams/AutoStreamable.h"
+#include "Representations/Communication/GameInfo.h"
+#include "Representations/Communication/TeamInfo.h"
 #include <vector>
 
 /**
@@ -37,19 +39,33 @@ STREAMABLE(SetupPoses,
    *  @param number The player number (starting with 1, as the real number)
    *  @return A reference to the pose for setup
    */
-  const SetupPose& getPoseOfRobot(int number) const,
-
-  (std::vector<SetupPose>) poses, /*< A list of all available robot poses, not ordered by number */
+  const SetupPose &getPoseOfRobot(int number, const GameInfo& gameInfo, const OwnTeamInfo& ownTeamInfo) const,
+  (std::vector<SetupPose>)posesAttack,  /*< A list of all available robot poses, not ordered by number, in Attack mode */
+  (std::vector<SetupPose>)posesDefence, /*< A list of all available robot poses, not ordered by number, in Defence mode */
 });
 
-inline const SetupPoses::SetupPose& SetupPoses::getPoseOfRobot(int number) const
+inline const SetupPoses::SetupPose& SetupPoses::getPoseOfRobot(int number, const GameInfo& gameInfo, const OwnTeamInfo& ownTeamInfo) const
 {
-  ASSERT(poses.size() > 0);
-  if(poses.size() == 1)
-    return poses[0];
-  for(const auto& pose : poses)
-    if(pose.playerNumber == number)
-      return pose;
-  ASSERT(false);
-  return poses[0]; // Dummy line to avoid compiler complaints
+  if (gameInfo.kickingTeam == ownTeamInfo.teamNumber)
+  {
+    ASSERT(posesAttack.size() > 0);
+    if (posesAttack.size() == 1)
+      return posesAttack[0];
+    for (const auto &pose : posesAttack)
+      if (pose.playerNumber == number)
+        return pose;
+    ASSERT(false);
+    return posesAttack[0]; // Dummy line to avoid compiler complaints
+  }
+  else
+  {
+    ASSERT(posesDefence.size() > 0);
+    if (posesDefence.size() == 1)
+      return posesDefence[0];
+    for (const auto &pose : posesDefence)
+      if (pose.playerNumber == number)
+        return pose;
+    ASSERT(false);
+    return posesDefence[0]; // Dummy line to avoid compiler complaints
+  }
 }

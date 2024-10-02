@@ -1,24 +1,26 @@
 /**
- * @file PenaltyKickCard.cpp
+ * @file C2vs2Card.cpp
  *
- * This file specifies the behavior for a robot during a penaltykick.
- *
- */
+ * This file specifies the behavior for a robot in a challenge game.
+ * @author Nadir
+ */ 
 
 #include "Representations/BehaviorControl/Skills.h"
+#include "Representations/BehaviorControl/TeamBehaviorStatus.h"
+#include "Representations/Communication/GameInfo.h"
 #include "Tools/BehaviorControl/Framework/Card/Card.h"
 #include "Tools/BehaviorControl/Framework/Card/Dealer.h"
 
-CARD(PenaltyKickCard,
+CARD(C2vs2Card,
 {,
-  CALLS(Activity),
+  REQUIRES(TeamBehaviorStatus),
   LOADS_PARAMETERS(
   {,
-    (DeckOfCards<CardRegistry>) penaltyKickDeck,
+    (DeckOfCards<CardRegistry>) RobotModeDeck,
   }),
 });
 
-class PenaltyKickCard : public PenaltyKickCardBase
+class C2vs2Card : public C2vs2CardBase
 {
   bool preconditions() const override
   {
@@ -32,9 +34,9 @@ class PenaltyKickCard : public PenaltyKickCardBase
 
   void execute() override
   {
-    dealer.deal(penaltyKickDeck)->call();
+        dealer.deal(RobotModeDeck)->call();
   }
   PriorityListDealer dealer; /**< The dealer which selects the card to play. */
 };
 
-MAKE_CARD(PenaltyKickCard);
+MAKE_CARD(C2vs2Card);

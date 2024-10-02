@@ -35,19 +35,17 @@ std::string DatasetCreator::generate_filepath(bool is_upper) const
 	std::ostringstream os;
 #ifdef TARGET_ROBOT
 	std::string filePath = "/var/volatile";
-	std::string env = "Robot";
 #else
 	std::string filePath = File::getBHDir();
-	std::string env = "Simulation";
 #endif
 	//create folders if they don't exist
-	std::string s = "mkdir -p " + filePath + "/Dataset/"+env+"/upper/YCbCr/batch_" + batch +
-					" " + filePath + "/Dataset/"+env+"/lower/YCbCr/batch_" + batch;
+	std::string s = "mkdir -p " + filePath + "/Dataset/upper/YCbCr/batch_" + batch +
+					" " + filePath + "/Dataset/lower/YCbCr/batch_" + batch;
 	std::system(s.c_str());
 
 	std::string which_camera = "upper";
 	if (!is_upper) which_camera = "lower";
-	filePath += "/Dataset/"+env+"/" + which_camera + "/YCbCr/batch_" + batch + "/batch_";
+	filePath += "/Dataset/" + which_camera + "/YCbCr/batch_" + batch + "/batch_";
 	filePath += batch + "_image_" + nb_images + ".png";
 	//std::cout << filePath << std::endl;
 	return filePath;
@@ -57,7 +55,7 @@ void DatasetCreator::update(const CameraImage& image, bool label, float x, float
 {
 	bool is_upper = image.width == 320;
 
-	if(nb_images_saved > 6000)
+	if(nb_images_saved > 5000)
 		return;
 
 	if (!label && save_with_ball_only) {

@@ -263,8 +263,13 @@ void TeamMessageHandler::parseMessageIntoBMate(Teammate& currentTeammate)
 
 //@author #iloveCatarina
 bool TeamMessageHandler::sendMessage(){
-  if (theFrameInfo.getTimeSince(timeLastSent) >= sendInterval && enableCommunication1s)
-    return true;
+  if (theRawGameInfo.state == STATE_PLAYING && theFrameInfo.getTimeSince(timeLastSent) >= sendInterval && enableCommunication1s)
+  {
+    if (getRemainingMessages() <= securityMessage)
+      return false;
+    else
+      return true;
+  }
 
   if (getRemainingMessages() <= securityMessage) {
     return false;
@@ -411,7 +416,7 @@ int TeamMessageHandler::getScoreWhistle(){
 }
 
 int TeamMessageHandler::getScoreWhistleSET() {
-  if (theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) <= maxWhistleTime && theWhistle.confidenceOfLastWhistleDetection >= minWhistleConfidence) {
+  if (theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) <= maxWhistleTime && theWhistle.confidenceOfLastWhistleDetection > minWhistleConfidence) {
     return minScore;
   }
   return 0;

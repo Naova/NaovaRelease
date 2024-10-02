@@ -1,0 +1,35 @@
+<Simulation>
+
+  <Include href="../Includes/2D.rsi2d"/>
+
+  <Scene name="RoboCup" controller="SimulatedNao" stepLength="0.01666666s" background="Textures/field.svg">
+    <Compound ref="field"/>
+
+    <Compound name="robots">
+      <Body ref="player" name="robot1">
+        <Set name="playerColor" value="rgb(0,0,0)"/>
+        <Translation x="0.75" y="1.1"/>
+        <Rotation angle="215degree"/>
+      </Body>
+      <Body ref="player" name="robot2">
+        <Set name="playerColor" value="rgb(0,0,0)"/>
+        <Translation x="0.75" y="0"/>
+        <Rotation angle="180degree"/>
+      </Body>
+      <Body ref="player" name="robot7">
+        <Set name="playerColor" value="rgb(0,0,255)"/>
+        <Translation x="-3.9" y="0"/>
+        <Rotation angle="0degree"/>
+      </Body>
+      <Body ref="player" name="robot8">
+        <Set name="playerColor" value="rgb(0,0,255)"/>
+        <Translation x="-2.9" y="0"/>
+        <Rotation angle="0degree"/>
+      </Body>
+    </Compound>
+
+    <Compound name="balls">
+      <Body ref="ball"/>
+    </Compound>
+  </Scene>
+</Simulation>

@@ -14,8 +14,6 @@ MAKE_MODULE(FieldBallProvider, behaviorControl);
 
 void FieldBallProvider::update(FieldBall& fieldBall)
 {
-  DECLARE_DEBUG_DRAWING("module:fieldBallProvider:keeper", "drawingOnField");
-
   fieldBall.positionRelative        = theBallModel.estimate.position;
   fieldBall.positionOnField         = theRobotPose * fieldBall.positionRelative;
   fieldBall.positionOnFieldClipped  = fieldBall.positionOnField;
@@ -55,11 +53,8 @@ void FieldBallProvider::checkIfBallIsRollingTowardsAGoal(FieldBall& fieldBall)
   const Vector2f rightOwnPost(theFieldDimensions.xPosOwnGroundLine, theFieldDimensions.yPosRightGoal - ownGoalpostYOffset);
 
   // Check, if ball is rolling TOWARDS (this is why we multiply the velocity) the expanded opponent goal:
-  fieldBall.isRollingTowardsOpponentGoal = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 2000.f, leftOppPost, rightOppPost);
-  fieldBall.isRollingTowardsOwnGoal      = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 2000.f, leftOwnPost, rightOwnPost);
-  LINE("module:fieldBallProvider:keeper", bPosField.x(), bPosField.y(), (bPosField + bVelField * 2000.f).x(), (bPosField + bVelField * 2000.f).y(), 100, Drawings::solidPen, fieldBall.isRollingTowardsOwnGoal ? ColorRGBA::magenta : ColorRGBA::brown);
-  LINE("module:fieldBallProvider:keeper", leftOwnPost.x(), leftOwnPost.y(), rightOwnPost.x(), rightOwnPost.y(), 100, Drawings::solidPen, ColorRGBA::green);
-  
+  fieldBall.isRollingTowardsOpponentGoal = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 1000.f, leftOppPost, rightOppPost);
+  fieldBall.isRollingTowardsOwnGoal      = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 1000.f, leftOwnPost, rightOwnPost);
 }
 
 void FieldBallProvider::checkIfBallIsPassingOwnYAxis(FieldBall& fieldBall)

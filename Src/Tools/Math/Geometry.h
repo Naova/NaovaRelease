@@ -141,7 +141,6 @@ namespace Geometry
   [[nodiscard]] bool isPointInsideRectangle(const Rect& rect, const Vector2f& point);
   [[nodiscard]] bool isPointInsideConvexPolygon(const Vector2f polygon[], const int numberOfPoints, const Vector2f& point);
   [[nodiscard]] bool isPointInsidePolygon(const Vector3f& point, const std::vector<Vector3f>& V);
-  [[nodiscard]] bool isPointInsidePolygon(const Vector2f& point, const std::vector<Vector2f>& V);
   [[nodiscard]] bool clipPointInsideRectangle(const Vector2i& bottomLeftCorner, const Vector2i& topRightCorner, Vector2i& point);
   [[nodiscard]] bool clipPointInsideRectangle(const Vector2i& bottomLeftCorner, const Vector2i& topRightCorner, Vector2f& point);
 

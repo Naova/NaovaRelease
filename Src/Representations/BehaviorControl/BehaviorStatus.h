@@ -36,12 +36,12 @@ STREAMABLE(BehaviorStatus, COMMA public BHumanCompressedMessageParticle<Behavior
     duel,
     pass,
     dribble,
-    ready,
+    positionForKickOff,
     supporterPositioning,
     calibrationFinished,
     alignToBall,
     wall,
-    stand,
+    c2vs2,
   });
 
   /**

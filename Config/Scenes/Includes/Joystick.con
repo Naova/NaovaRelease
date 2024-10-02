@@ -1,11 +1,14 @@
 # button 4: walk mode
+# button 5: kick left
+# button 6: kick right
 # button 2: stand mode
 # button 2 in stand mode: sit down (stand mode is default)
 # left stick: walk forward/sideward
 # buttons 1+3: turn left/right
+# button: to define fallen engine 
 # right stick: tilt/pan head
 
-js 6 0.8 0.01 0.32 # head tilt axis
+js 4 1.7 0.01 # head tilt axis
 js 3 1.7 0.01 # head pan axis
 
 js 2 1 0.01 # walk x axis
@@ -15,7 +18,7 @@ js 7 1 0.01 # walk rotation axis
 # map r and l keys to the rotation axis
 jm 7 1 3
 
-jc motion 1 set representation:HeadMotionRequest mode = panTiltMode; cameraControlMode = autoCamera; pan = $3; tilt = $6; speed = 0.5; target = { x = 1; y = 0; z = 0; }; stopAndGoMode = false;
+jc motion 1 set representation:HeadMotionRequest mode = panTiltMode; cameraControlMode = autoCamera; pan = $3; tilt = $4; speed = 0.5; target = { x = 1; y = 0; z = 0; }; stopAndGoMode = false;
 
 # activate walk mode
 jc press 4 jc motion 2 set representation:MotionRequest motion = walkAtRelativeSpeed; standHigh = true; walkSpeed = { rotation = $7; translation = { x = $2; y = $1; }; }; walkTarget = { rotation = 0deg; translation = { x = 0; y = 0; }; }; keepTargetRotation = false; obstacleAvoidance = { avoidance = { x = 0; y = 0; }; path = []; }; targetDirection = 0deg; directionPrecision = { min = 0deg; max = 0deg; }; kickType = forwardFastLeft; kickPower = 0; alignPrecisely = false; preStepAllowed = true; turnKickAllowed = true; keyframeMotionRequest = { keyframeMotion = decideAutomatic; mirror = false; }; odometryData = { rotation = 0; translation = { x = 0; y = 0; }; }; ballEstimate = { position = { x = 0; y = 0; }; velocity = { x = 0; y = 0; }; rotation = 0; radius = 50; covariance = { cols = [ { elems = [ 1, 0 ]; }, { elems = [ 0, 1 ]; } ]; }; }; ballEstimateTimestamp = 0; ballTimeWhenLastSeen = 0;
@@ -29,3 +32,13 @@ jc press 2 jc motion 2 set representation:MotionRequest motion = keyframeMotion;
 # button 2 again -> sit down
 jc release 2 jc press 2 jc motion 2 set representation:MotionRequest motion = keyframeMotion; standHigh = true; walkSpeed = { rotation = 0; translation = { x = 0; y = 0; }; }; walkTarget = { rotation = 0deg; translation = { x = 0; y = 0; }; }; keepTargetRotation = false; obstacleAvoidance = { avoidance = { x = 0; y = 0; }; path = []; }; targetDirection = 0deg; directionPrecision = { min = 0deg; max = 0deg; }; kickType = forwardFastLeft; kickPower = 0; alignPrecisely = false; preStepAllowed = true; turnKickAllowed = true; keyframeMotionRequest = { keyframeMotion = sitDown; mirror = false; }; odometryData = { rotation = 0; translation = { x = 0; y = 0; }; }; ballEstimate = { position = { x = 0; y = 0; }; velocity = { x = 0; y = 0; }; rotation = 0; radius = 50; covariance = { cols = [ { elems = [ 1, 0 ]; }, { elems = [ 0, 1 ]; } ]; }; }; ballEstimateTimestamp = 0; ballTimeWhenLastSeen = 0;
 
+# walk kick left
+jc press 5 jc motion 2 set representation:MotionRequest motion = walkToBallAndKick; standHigh = true; walkSpeed = { rotation = 1; translation = { x = 1; y = 1; }; }; walkTarget = { rotation = 1; translation = { x = 1; y = 1; }; }; keepTargetRotation = false; obstacleAvoidance = { avoidance = { x = 0; y = 0; }; path = []; }; targetOfInterest = []; forceSideWalking = false; shouldInterceptBall = false; targetDirection = 0deg; directionPrecision = { min = -180deg; max = 180deg; }; kickType = forwardFastLeft; kickPower = 1; kickLength = 1; alignPrecisely = false; preStepAllowed = false; turnKickAllowed = false; keyframeMotionRequest = { keyframeMotion = decideAutomatic; mirror = true; }; shiftTurnKickPose = false; diveRequest = prepare; specialRequest = demoBannerWave; odometryData = { rotation = 0; translation = { x = 0; y = 0; }; }; ballEstimate = { position = { x = 200; y = 50; }; velocity = { x = 0; y = 0; }; rotation = 0; radius = 50; covariance = { cols = [ { elems = [ 1, 0 ]; }, { elems = [ 0, 1 ]; } ]; }; }; ballEstimateTimestamp = 0; ballTimeWhenLastSeen = 0; lastKickTimestamp = 0;
+
+# walk kick right
+jc press 6 jc motion 2 set representation:MotionRequest motion = walkToBallAndKick; standHigh = true; walkSpeed = { rotation = 1; translation = { x = 1; y = 1; }; }; walkTarget = { rotation = 1; translation = { x = 1; y = 1; }; }; keepTargetRotation = false; obstacleAvoidance = { avoidance = { x = 0; y = 0; }; path = []; }; targetOfInterest = []; forceSideWalking = false; shouldInterceptBall = false; targetDirection = 0deg; directionPrecision = { min = -180deg; max = 180deg; }; kickType = forwardFastRight; kickPower = 1; kickLength = 1; alignPrecisely = false; preStepAllowed = false; turnKickAllowed = false; keyframeMotionRequest = { keyframeMotion = decideAutomatic; mirror = true; }; shiftTurnKickPose = false; diveRequest = prepare; specialRequest = demoBannerWave; odometryData = { rotation = 0; translation = { x = 0; y = 0; }; }; ballEstimate = { position = { x = 200; y = -50; }; velocity = { x = 0; y = 0; }; rotation = 0; radius = 50; covariance = { cols = [ { elems = [ 1, 0 ]; }, { elems = [ 0, 1 ]; } ]; }; }; ballEstimateTimestamp = 0; ballTimeWhenLastSeen = 0; lastKickTimestamp = 0;
+
+# fallen engine 
+jc press 10 jc motion 2 set representation:MotionRequest motion = getUp; standHigh = true; walkSpeed = { rotation = 1; translation = { x = 1; y = 1; }; }; walkTarget = { rotation = 1; translation = { x = 1; y = 1; }; }; keepTargetRotation = false; obstacleAvoidance = { avoidance = { x = 0; y = 0; }; path = []; }; targetOfInterest = []; forceSideWalking = false; shouldInterceptBall = false; targetDirection = 0deg; directionPrecision = { min = -180deg; max = 180deg; }; kickType = forwardFastRight; kickPower = 1; kickLength = 1; alignPrecisely = false; preStepAllowed = false; turnKickAllowed = false; keyframeMotionRequest = { keyframeMotion = decideAutomatic; mirror = true; }; shiftTurnKickPose = false; diveRequest = prepare; specialRequest = demoBannerWave; odometryData = { rotation = 0; translation = { x = 0; y = 0; }; }; ballEstimate = { position = { x = 200; y = -50; }; velocity = { x = 0; y = 0; }; rotation = 0; radius = 50; covariance = { cols = [ { elems = [ 1, 0 ]; }, { elems = [ 0, 1 ]; } ]; }; }; ballEstimateTimestamp = 0; ballTimeWhenLastSeen = 0; lastKickTimestamp = 0;
+
+set module:WalkToBallAndKickEngine:ignoreBallTimestamp true

@@ -13,22 +13,6 @@ robot all
 # Fast, because we do not compute images
 ci off
 
-# field views
-vf worldState
-vfd worldState fieldLines
-vfd worldState goalFrame
-vfd worldState fieldPolygons
-vfd worldState representation:RobotPose
-vfd worldState representation:FieldBall:global
-
-# views relative to robot
-vfd worldState cognition:RobotPose
-vfd worldState representation:BallModel:endPosition
-vfd worldState representation:BallModel
-vfd worldState representation:MotionRequest
-vfd worldState representation:ObstacleModel:rectangle
-vfd worldState representation:FieldBall:relative
-
 # Select modules for simulator
 mr CameraInfo LogDataProvider Lower
 mr CameraInfo LogDataProvider Upper

@@ -100,7 +100,8 @@ class TacticProvider : public TacticProviderBase
   std::array<OpponentKickOff, OpponentKickOff::numOfTypes> opponentKickOffs;
   std::array<OwnFreeKick, OwnFreeKick::numOfTypes> ownFreeKicks;
   std::array<OpponentFreeKick, OpponentFreeKick::numOfTypes> opponentFreeKicks;
-  std::array<OwnPenaltyKick, OwnPenaltyKick::numOfTypes> ownPenaltyKicks;
-  std::array<OpponentPenaltyKick, OpponentPenaltyKick::numOfTypes> opponentPenaltyKicks;
+  // TODO À remettre lorsqu'on aura les penaltyShoots
+  // std::array<OwnPenaltyKick, OwnPenaltyKick::numOfTypes> ownPenaltyKicks;
+  // std::array<OpponentPenaltyKick, OpponentPenaltyKick::numOfTypes> opponentPenaltyKicks;
 
 };

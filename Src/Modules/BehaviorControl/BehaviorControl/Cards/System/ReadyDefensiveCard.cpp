@@ -1,7 +1,7 @@
 /**
- * @file ReadyCard.cpp
+ * @file ReadyDefensiveCard.cpp
  *
- * This file implements the behavior for the ready.
+ * This file implements the behavior for the ready when we DON'T have the kickoff.
  *
  * @author Olivier St-Pierre
  */
@@ -9,35 +9,43 @@
 #include "Representations/BehaviorControl/Skills.h"
 #include "Tools/BehaviorControl/Framework/Card/Card.h"
 #include "Representations/Communication/GameInfo.h"
+#include "Representations/Communication/TeamInfo.h"
 #include "Representations/Configuration/FieldDimensions.h"
+#include "Representations/Configuration/RobotDimensions.h"
+#include "Representations/BehaviorControl/TeamBehaviorStatus.h"
 #include "Representations/BehaviorControl/SupporterPositioning.h"
 
-CARD(ReadyCard,
+CARD(ReadyDefensiveCard,
 {,
   CALLS(Activity),
   CALLS(WalkToKickoffPose),
+  CALLS(Say),
+  REQUIRES(FieldDimensions),
+  REQUIRES(RobotDimensions),
+  REQUIRES(TeamBehaviorStatus),
+  REQUIRES(OwnTeamInfo),
   REQUIRES(GameInfo),
   REQUIRES(SupporterPositioning),
 });
 
-class ReadyCard : public ReadyCardBase
+class ReadyDefensiveCard : public ReadyDefensiveCardBase
 {
   bool preconditions() const override
   {
-    return theGameInfo.state == STATE_READY;
+    return true;
   }
 
   bool postconditions() const override
   {
-    return theGameInfo.state != STATE_READY;;
+    return true;
   }
 
   void execute() override
   {
-    theActivitySkill(BehaviorStatus::ready);
+    theActivitySkill(BehaviorStatus::positionForKickOff);
     Pose2f targetAbsolute = theSupporterPositioning.basePose;
     theWalkToKickoffPoseSkill(targetAbsolute);
   }
 };
 
-MAKE_CARD(ReadyCard);
+MAKE_CARD(ReadyDefensiveCard);

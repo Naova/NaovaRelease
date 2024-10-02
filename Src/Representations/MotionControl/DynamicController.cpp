@@ -38,6 +38,7 @@ void DynamicController::update(DynamicTesting& representation) {
     DECLARE_PLOT("module:DynamicController:lAnkleRollAfter");
 
 
+
     DECLARE_PLOT("module:DynamicController:rHipYawPitchBefore");
     DECLARE_PLOT("module:DynamicController:rHipYawPitchAfter");
 
@@ -260,14 +261,38 @@ Angle DynamicController::calcTorque(Angle ddQd, Angle dQWithError, Angle QWithEr
        return M * (ddQd - QWithError - (beta1+(1/(2*theta0))*D*D) * dQWithError- beta2*(sigma) - K * calcD(dQWithError, QWithError)*saturation(sigma));
 }
 
-void DynamicController::calcTDE(Angle& currentTorque, Angle previousTorque, Angle previousAcceleration) {
-    // Calculate the intermediate torque based on the previous time step's data
-    Angle intermediateTorque = previousTorque - M * previousAcceleration;
-
-    // Update the current torque with the intermediate torque
-    currentTorque += intermediateTorque;
+void DynamicController::calcTDE(Angle& torque, Angle torqueT1, Angle ddQ1){// equation 5 pareil dans le nouveau controlleur NE PAS CHANGER
+    Angle torque1 = torqueT1 - M * ddQ1; // torque1 = torque(t-1) -A * ddQ(t-1)
+    torque = torque + torque1;
 }
 
+Angle DynamicController::calcTorqueToPosition(Angle Q, Angle dQ, Angle dQd, Angle torque){//eq 24
+
+    return Q + (1/Kp) * (Kd*(dQ-dQd) - torque);
+}
+
+Angle DynamicController::calcAngle(Vector3a desiredAngle0, Vector3a desiredAngle1, Vector2a angle0, Vector2a angle1,  Vector2a angle2, Angle* testtorque) {
+    Angle Qd = desiredAngle0[0];
+    Angle dQd = desiredAngle0[1];
+    Angle Q = angle0[0];
+    Angle dQ = angle0[1];
+    Angle ddQ1 = calcAcceleration(angle1[1],angle2[1], delta);
+
+    Angle QWithError = calcErrorPosition(Q, Qd);
+    Angle dQWithError = calcErrorVelocity(dQ, dQd);
+
+    Angle sigma = calcSlidingSurface(dQWithError, QWithError);
+
+    Angle ddQd = calcAcceleration(dQd,desiredAngle1[1], delta); // dQd(t) - dQd(t-1) / delta
+
+    desiredAngle0[2] = calcTorque(ddQd,dQWithError, QWithError, sigma);
+    *testtorque=desiredAngle0[2];
+    calcTDE(desiredAngle0[2],desiredAngle1[2], ddQ1); // torque(t) = desiredAngle0[2] , torque(t-1) = desiredAngle1[2]
+    Angle test = Angle(calcTorqueToPosition(Q, dQ,dQd, desiredAngle0[2]));
+    // OUTPUT_TEXT("Angle desiré avant : " << desiredAngle0[0] << " Angle desiré apres : " << test);
+   // PLOT("module:DynamicController:calctorque",desiredAngle0[2]);
+    return test;
+}
 
 Angle DynamicController::calcD(Angle dQWithError, Angle QWithError) {
 
@@ -291,7 +316,7 @@ Angle DynamicController::calcS(Angle epsilonPoint, Angle epsilonLatino)//eq 14
 }
 
 
-Angle DynamicController::calcGammaEqM(Angle ddQd, Angle H_hat)//eq 17 a corriger et modifier
+Angle DynamicController::calcGammaEqM(Angle ddQd, Angle H_hat)//eq 17
 {
     return M*(ddQd - H_hat);
 }
@@ -313,6 +338,30 @@ Angle DynamicController::calcThetaCmd(Angle theta, Angle thetaPoint, Angle gamma
     return theta + 1/Kp*(Kd*thetaPoint-gammaM);
 }
 
+
+/*Fonction non-utilises*/
+
+Angle DynamicController::calcTMax(Angle v1, Angle v2)//eq 9
+{
+   return (1.0f / (c * (1.0f - v1))) * logf((c / a) + 1) - (1.0f / (c * (1.0f - v2))) * logf((c / b) + 1);
+}
+
+Angle DynamicController::calcFi(Angle f0, Angle fInf, double l)//eq 11
+{
+    return (float)(f0 - fInf) * expf(-(float)(l)) + (float)(fInf);
+
+}
+
+Angle DynamicController::calcGi(Angle epsilonTilde)//eq 12
+{
+    return (float)(exp(2*epsilonTilde)-1) / (float)(exp(2*epsilonTilde)+1);
+}
+
+Angle DynamicController::sig(float exponent, Angle argument)
+{
+    return powf(fabsf((float)(argument)),(float)(exponent)) * sign((float)(argument));
+}
+
 Angle DynamicController::calcEpsilonTilde(Angle fi, Angle epsilon)// peut ressembler a calcErrorPosition(), changer les valeurs entrees de la fonction. Eq 13 du nouveau paper
 {
     return 0.5f * logf((fi + (float)(epsilon)) / (fi - (float)(epsilon)));
@@ -323,65 +372,51 @@ Angle DynamicController :: calcDEpsilonTilde(Angle epsilonTilde)//eq 15
     return -lambda_1*epsilonTilde-lambda_2*sig(alpha1,epsilonTilde)-lambda_3*sig(alpha1,epsilonTilde);
 }
 
-Angle DynamicController::sig(float exponent, Angle argument)
+Angle DynamicController::calcTMax_2(void)// equation 16 a corriger
 {
-    return powf(fabsf((float)(argument)),(float)(exponent)) * sign((float)(argument));
+	return (1.0f / (lambda_1 * (1.0f - alpha1))) * logf((lambda_1 / lambda_2) + 1) - (1.0f / (lambda_1 * (1.0f - alpha1))) * logf((lambda_1 / lambda_3) + 1);
 }
 
+/*Fonction prncipale*/
+Angle DynamicController::calcAngleNew(Vector3a desiredAngle0, Vector3a desiredAngle1, Vector2a angle0, Vector2a angle1,  Vector2a angle2, Angle* testtorque)
+ {
+    Angle Qd = desiredAngle0[0];
+    Angle dQd = desiredAngle0[1];
+    Angle Q = angle0[0];
+    Angle dQ = angle0[1];
 
-/*Fonction non-utilises*/
+    Angle ddQ1 = calcAcceleration(angle1[1],angle2[1], delta);
 
-Angle DynamicController::calcFi(Angle f0, Angle fInf, double l)//eq 11 conditions t
-{
-    return (float)(f0 - fInf) * expf(-(float)(l)) + (float)(fInf);
+    Angle QWithError = calcErrorPosition(Q, Qd);//epsilon
 
-}
-/*Fonction principale*/
-Angle DynamicController::calcAngleNew(Vector3a desiredAngle0, Vector3a desiredAngle1, Vector2a angle0, Vector2a angle1, Vector2a angle2, Angle* testTorque) {
-    // Extract desired angles and their derivatives
-    Angle Qd = desiredAngle0[0]; // Desired position
-    Angle dQd = desiredAngle0[1]; // Desired velocity
-    Angle Q = angle0[0]; // Current position
-    Angle dQ = angle0[1]; // Current velocity
-
-    // Calculate acceleration at the previous time step
-    Angle ddQ1 = calcAcceleration(angle1[1], angle2[1], delta); //Related to Equation 5
-
-    // Calculate position error
-    Angle QWithError = calcErrorPosition(Q, Qd); //Related to Equation 14
     verifMaxError(QWithError);
 
-    // Calculate velocity error
-    Angle dQWithError = calcErrorVelocity(dQ, dQd); // Related to Equation 14
+    Angle dQWithError = calcErrorVelocity(dQ, dQd);
 
-    // Calculate sliding surface
-    Angle sigma = calcSlidingSurface(dQWithError, QWithError); // Related to Equation 14
+    Angle sigma = calcSlidingSurface(dQWithError, QWithError);//celui du ancien code
 
-    // Calculate desired acceleration
-    Angle ddQd = calcAcceleration(dQd, desiredAngle1[1], delta); //Related to Equation 5
+    Angle ddQd = calcAcceleration(dQd,desiredAngle1[1], delta); // dQd(t) - dQd(t-1) / delta
 
-    // Calculate and store initial torque in desired angle vector
-    desiredAngle0[2] = calcTorque(ddQd, dQWithError, QWithError, sigma); // Related to Equation 17
-    *testTorque = desiredAngle0[2];
+    desiredAngle0[2] = calcTorque(ddQd,dQWithError, QWithError, sigma);//celui du ancien code derivee seconde de desiredAngle0
+    *testtorque=desiredAngle0[2];
+    calcTDE(desiredAngle0[2],desiredAngle1[2], ddQ1); // torque(t) = desiredAngle0[2] , torque(t-1) = desiredAngle1[2]
 
-    // Apply Time-Delay Estimation (TDE) to the current torque
-    calcTDE(desiredAngle0[2], desiredAngle1[2], ddQ1); // Related to Equation 5
 
-    // Further calculations for control
-    Angle epsilon_dot = calcDEpsilonTilde(QWithError); // related to Equation 14
-    Angle s = calcS(epsilon_dot, QWithError); //Equation 14
+    //Equation 14
+    Angle epsilon_dot = calcDEpsilonTilde(QWithError);
+    Angle s = calcS(epsilon_dot,QWithError);
 
-    // Calculate equivalent control component
-    Angle gamma_eq_m = calcGammaEqM(ddQd, desiredAngle0[2]); // Related to Equation 17
+    //Equation 17
+    Angle gamma_eq_m = calcGammaEqM( ddQd, desiredAngle0[2]);
 
-    // Calculate fixed-time control component
-    Angle gamma_ft_m = calcGammaFtM(s); // Related to Equation 19
+    //Equation 19
+    Angle gamma_ft_m  = calcGammaFtM(s);
 
-    // Calculate total control
-    Angle gamma_m = gamma_eq_m + gamma_ft_m; // Related to Equation 20
+    //Equation 20
+    Angle gamma_m = gamma_eq_m + gamma_ft_m;
 
-    // Calculate final command for the angle
-    Angle finalCommand = calcThetaCmd(Q, dQ, gamma_m); // Related to Equation 21
+    //Equation 21
+    Angle test = Angle(calcThetaCmd(Q,dQ,gamma_m));
 
-    return finalCommand-offset;
+    return test;
 }

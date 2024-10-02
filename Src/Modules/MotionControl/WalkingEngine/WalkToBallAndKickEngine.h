@@ -11,6 +11,7 @@
 #include "Representations/Configuration/BallSpecification.h"
 #include "Representations/Configuration/KickInfo.h"
 #include "Representations/Configuration/RobotDimensions.h"
+#include "Representations/Communication/RobotInfo.h"
 #include "Representations/Modeling/ObstacleModel.h"
 #include "Representations/MotionControl/KickGenerator.h"
 #include "Representations/MotionControl/MotionInfo.h"
@@ -23,6 +24,9 @@
 #include "Representations/MotionControl/WalkToBallGenerator.h"
 #include "Representations/Sensing/RobotModel.h"
 #include "Representations/Sensing/TorsoMatrix.h"
+#include "Representations/Infrastructure/FrameInfo.h"
+#include "Representations/Communication/GameInfo.h"
+#include "Representations/Communication/TeamInfo.h"
 #include "Tools/Module/Module.h"
 
 MODULE(WalkToBallAndKickEngine,
@@ -45,6 +49,10 @@ MODULE(WalkToBallAndKickEngine,
   REQUIRES(WalkKickGenerator),
   REQUIRES(WalkingEngineOutput),
   REQUIRES(WalkToBallGenerator),
+  REQUIRES(GameInfo),
+  REQUIRES(OwnTeamInfo),
+  REQUIRES(FrameInfo),
+  REQUIRES(RobotInfo),
   PROVIDES(WalkToBallAndKickGenerator),
   DEFINES_PARAMETERS(
   {,
@@ -67,6 +75,7 @@ class WalkToBallAndKickEngine : public WalkToBallAndKickEngineBase
   float overrideKickPower = -1.f;
   bool lastPhaseWasKick = false;
   bool lastPhaseWasKickPossible = false;
+  bool ignoreBallTimestamp = false;
   Vector2f lastStableBall = Vector2f(0.f, 0.f);
   /**
    * Creates the kick phase for the given request.

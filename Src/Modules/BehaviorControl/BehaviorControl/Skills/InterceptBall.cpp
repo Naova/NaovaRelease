@@ -49,6 +49,7 @@ class InterceptBallImpl : public InterceptBallImplBase
       {
         ASSERT(p.interceptionMethods != 0);
         const float positionIntersectionYAxis = theFieldBall.intersectionPositionWithOwnYAxis.y();
+        OUTPUT_TEXT("Y: "<< positionIntersectionYAxis);
         unsigned interceptionMethods = p.interceptionMethods;
 
         left = positionIntersectionYAxis > 0.f;
