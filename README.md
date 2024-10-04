@@ -3,3 +3,5 @@
 _**Website :**_ https://clubnaova.ca
 
 _**Localization :**_ Montreal, Canada
+
+_**School :**_ École de Technologie Supérieure
