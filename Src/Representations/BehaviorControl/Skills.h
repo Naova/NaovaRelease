@@ -390,4 +390,10 @@ namespace Skills
    * This skill can be used to request a reload of the jointCalibration.cfg.
    */
   SKILL_INTERFACE(ReloadJointCalibration);
+
+  /**
+   * This skill can be used to look at the referee and detect when they make the 
+   * ready signal while in the standby game state.
+   */
+  SKILL_INTERFACE(LookAtReferee);
 }

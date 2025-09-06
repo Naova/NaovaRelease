@@ -94,6 +94,7 @@ ENUM(MessageID,
   idWalkingEngineOutput,
   idWalkLearner,
   idWhistle,
+  idRefereeReadySignal,
   numOfDataMessageIDs, /**< everything below this does not belong into log files */
 
   // infrastructure

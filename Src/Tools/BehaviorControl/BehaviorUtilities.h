@@ -15,20 +15,26 @@
 
 class BehaviorUtilities
 {
-    /** 
-     * Computes the best score between a list of given targets and the robot position
-     *
-     * @param initialPosition The first point
-     * @param target List of the possible targets.
-     * @param obstacles List of known obstacles
-     */
   public:
+
+    // Definir l'espace pour passer a un coequipier
+    static void triangularZone(std::array<Vector2f, 3>& triangle, const Vector2f& initialPosition, const Vector2f& target, const double triangleHalfAngle);
+
     static double score(const Vector2f& initialPosition, const Vector2f& target, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
 
+    /*
+      Utilisé pour calculer la meilleure position où le robot peut exécuter une passe ou un tir
+    */
     static Vector2f bestScorePosition(const Vector2f& initialPosition, const std::vector<Vector2f>& targets, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
+    
+    /*
+      Utilisé pour calculer la meilleure position que le robot peut avoir afin de recevoir une passe et tirer le ballon
+    */
     static Vector2f bestScorePosition(std::vector<Vector2f> potentialPositions, Vector2f target, Vector2f ballPosition, 
                                       std::vector<Obstacle> obstacles, Pose2f robotPose);
 
     static Vector2f bestScorePositionInGoal(const Vector2f& initialPosition, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose);
 
 };
+
+

@@ -55,6 +55,7 @@ ConsoleRoboCupCtrl::ConsoleRoboCupCtrl(SimRobot::Application& application) :
   representationToFile["representation:JointCalibration"] = "jointCalibration.cfg";
   representationToFile["representation:JointLimits"] = "jointLimits.cfg";
   representationToFile["representation:KickInfo"] = "kickInfo.cfg";
+  representationToFile["representation:LinePerceptorSettings"] = "linePerceptorSettings.cfg";
   representationToFile["representation:MassCalibration"] = "massCalibration.cfg";
   representationToFile["representation:RobotDimensions"] = "robotDimensions.cfg";
 }

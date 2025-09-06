@@ -18,7 +18,6 @@ CARD(PenaltyKeeperCard,
   CALLS(Activity),
   CALLS(GoToBallAndKick),
   CALLS(Stand),
-  CALLS(LookAtBall),
   CALLS(InterceptBall),
   REQUIRES(OwnTeamInfo),
   REQUIRES(GameInfo),
@@ -40,8 +39,7 @@ class PenaltyKeeperCard : public PenaltyKeeperCardBase
   void execute() override
   {
     theActivitySkill(BehaviorStatus::interceptBall);
-    theInterceptBallSkill(bit(Interception::genuflectStand) | bit(Interception::walk) | bit(Interception::jumpLeft) | bit(Interception::jumpRight) | bit(Interception::stand), true, true);
-    theLookAtBallSkill();
+    theInterceptBallSkill(bit(Interception::walk) | bit(Interception::jumpLeft) | bit(Interception::jumpRight) | bit(Interception::stand), true, true);
   }
 };
 

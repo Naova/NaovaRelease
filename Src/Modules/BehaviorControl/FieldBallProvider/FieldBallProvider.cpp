@@ -57,6 +57,7 @@ void FieldBallProvider::checkIfBallIsRollingTowardsAGoal(FieldBall& fieldBall)
   // Check, if ball is rolling TOWARDS (this is why we multiply the velocity) the expanded opponent goal:
   fieldBall.isRollingTowardsOpponentGoal = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 2000.f, leftOppPost, rightOppPost);
   fieldBall.isRollingTowardsOwnGoal      = Geometry::checkIntersectionOfLines(bPosField, bPosField + bVelField * 2000.f, leftOwnPost, rightOwnPost);
+  ORIGIN("module:fieldBallProvider:keeper", 0, 0, 0);
   LINE("module:fieldBallProvider:keeper", bPosField.x(), bPosField.y(), (bPosField + bVelField * 2000.f).x(), (bPosField + bVelField * 2000.f).y(), 100, Drawings::solidPen, fieldBall.isRollingTowardsOwnGoal ? ColorRGBA::magenta : ColorRGBA::brown);
   LINE("module:fieldBallProvider:keeper", leftOwnPost.x(), leftOwnPost.y(), rightOwnPost.x(), rightOwnPost.y(), 100, Drawings::solidPen, ColorRGBA::green);
   
@@ -76,8 +77,7 @@ void FieldBallProvider::checkIfBallIsPassingOwnYAxis(FieldBall& fieldBall)
                                       Geometry::Line(Vector2f(0.f, 0.f), Vector2f(0.f, 1.f)), intersection))
   {
     const float distanceToIntersection = (intersection - ballPosRel).norm();
-    Vector2f ballEndPosition = BallPhysics::getEndPosition(ballPosRel, ballVelRel, theBallSpecification.friction);
-    const float distanceToEndPosition = (ballEndPosition - ballPosRel).norm();
+    const float distanceToEndPosition = (fieldBall.endPositionRelative - ballPosRel).norm();
     // Is the ball fast enough to reach the intersection point?
     if(distanceToIntersection < distanceToEndPosition)
     {

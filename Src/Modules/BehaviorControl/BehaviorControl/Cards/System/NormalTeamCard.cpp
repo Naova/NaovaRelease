@@ -35,6 +35,8 @@ TEAM_CARD(NormalTeamCard,
     (int)(5000) ballNotSeenTimeout,
     (int)(4) nbOfSupporters,
     (int)(2) timeToReachBallPenalty,
+    (int)(1) notBallPlayerTimePenalty,
+    (float)(3.5f) significantTimeDeltaThreashold,
   }),
 });
 
@@ -56,7 +58,7 @@ class NormalTeamCard : public NormalTeamCardBase
 
     if (theFieldBall.teamBallWasSeen(ballNotSeenTimeout))
     {
-      theTimeToReachBallSkill(TimeToReachBall(getTimeToReachBall(theRobotPose.translation.x(), theFieldBall.teamPositionRelative)));
+      theTimeToReachBallSkill(TimeToReachBall(static_cast<int>(getTimeToReachBall(theRobotPose.translation.x(), theFieldBall.teamPositionRelative))));
     }
     else
     {
@@ -102,25 +104,28 @@ class NormalTeamCard : public NormalTeamCardBase
 
   bool isBallPlayer() const
   {
+    float playerTimeToReachBall = getTimeToReachBall(theRobotPose.translation.x(), theRobotPose.inversePose*theFieldBall.teamPositionOnField);
     for(auto const& teammate : theTeamData.teammates)
     {
-      if(teammate.status != Teammate::PENALIZED)
+      float teammateTimeToReachBall = getTimeToReachBall(teammate.theRobotPose.translation.x(), teammate.theRobotPose.inversePose*theFieldBall.teamPositionOnField);
+      float delta = teammateTimeToReachBall - playerTimeToReachBall;
+
+      // If there's a significant difference between the player and the teammate
+      if(abs(delta) > significantTimeDeltaThreashold)
       {
-        unsigned int teammateTimeToReachBall = getTimeToReachBall(teammate.theRobotPose.translation.x(), teammate.theRobotPose.inversePose*theFieldBall.teamPositionOnField);
-        
-        if(teammateTimeToReachBall < theTeamBehaviorStatus.timeToReachBall.timeWhenReachBall)
-        {
+        if(teammateTimeToReachBall < playerTimeToReachBall)
+        { 
+          // A teammate is faster than the player, so this player is not ball player
           return false;
         }
-        else if (teammateTimeToReachBall == theTeamBehaviorStatus.timeToReachBall.timeWhenReachBall)
-        {
-          if (!isRobotCloserToBall(teammate))
-          {
-            return false;
-          }
-        }
       }
-    }
+      else if (theRobotInfo.number < teammate.number)
+      {
+        // The robots are about the same time from the ball,
+        // if another robot has a higher number this player is not ball player```
+        return false;
+      }
+    }    
     return true;
   }
 
@@ -185,19 +190,24 @@ class NormalTeamCard : public NormalTeamCardBase
     return true;
   }
 
-  unsigned int getTimeToReachBall(float robotPoseX, Vector2f vectorToReachBall) const
+  float getTimeToReachBall(float robotPoseX, Vector2f vectorToReachBall) const
   {
-    float timeToReachBall = std::max(1.f, std::max(std::abs(vectorToReachBall.x()) / theWalkingEngineOutput.maxSpeed.translation.x(),
-          std::abs(vectorToReachBall.y()) / theWalkingEngineOutput.maxSpeed.translation.y()));
+    int totalTimePenalty = 0;
+
+    float timeToReachBall = std::max(std::abs(vectorToReachBall.x()) / theWalkingEngineOutput.maxSpeed.translation.x(),
+          std::abs(vectorToReachBall.y()) / theWalkingEngineOutput.maxSpeed.translation.y());
+    
+    if (!(theTeamBehaviorStatus.role.playsTheBall()))
+    {
+      totalTimePenalty += notBallPlayerTimePenalty;
+    }
     
     if (robotPoseX > theFieldBall.teamPositionOnField.x())  //Robot is ahead of the desired ball direction
     {
-      return static_cast<unsigned int>(timeToReachBall) + timeToReachBallPenalty;  //Time penalty for Robot on the opposite side of the ball
+      totalTimePenalty += timeToReachBallPenalty;  //Time penalty for Robot on the opposite side of the ball
     }
-    else  //Robot is towards the desired ball direction
-    {
-      return static_cast<unsigned int>(timeToReachBall);
-    }
+
+    return timeToReachBall + static_cast<float>(totalTimePenalty);
   }
 };
 

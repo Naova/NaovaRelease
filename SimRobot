@@ -5,7 +5,7 @@ if [ $OSTYPE == 'darwin'* ]; then
   Build/macOS/SimRobot/Develop/SimRobot.app/Contents/MacOS/SimRobot
 
 else
-  Make/Linux/compile SimRobot
+  Make/Linux/compile SimRobot || exit 1
   if [ $# -ge 1 ]; then
     Build/Linux/SimRobot/Develop/SimRobot Config/Scenes/$1.ros2
   else

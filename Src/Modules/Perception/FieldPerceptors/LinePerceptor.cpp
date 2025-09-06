@@ -1,10 +1,10 @@
 /**
  * @file LinePerceptor.cpp
  *
- * Implements a module which detects lines and the center circle based on ColorScanLineRegions.
+ * Declares a module which detects lines and the center circle.
  *
- * @author Felix Thielke
- * @author Lukas Monnerjahn
+ * @author Olivier St-Pierre
+ * @author Marc-Olivier Bisson
  */
 
 #include "LinePerceptor.h"
@@ -19,15 +19,32 @@ MAKE_MODULE(LinePerceptor, perception);
 
 void LinePerceptor::update(LinesPercept& linesPercept)
 {
-  DECLARE_DEBUG_DRAWING("module:LinePerceptor:spots", "drawingOnImage");
-  DECLARE_DEBUG_DRAWING("module:LinePerceptor:visited", "drawingOnImage");
-  DECLARE_DEBUG_DRAWING("module:LinePerceptor:upLow", "drawingOnImage");
-  DECLARE_DEBUG_DRAWING("module:LinePerceptor:isWhite", "drawingOnImage");
-  linesPercept.lines.clear();
-  circleCandidates.clear();
-  scanHorizontalScanLines(linesPercept);
-  scanVerticalScanLines(linesPercept);
-  extendLines(linesPercept);
+    frameCounter++;
+    settings = theLinePerceptorSettings[theCameraInfo.camera];
+    drawSpots(linesPercept);
+    if (frameCounter % settings.frameSkipModulo == 0)
+    {
+      DECLARE_DEBUG_DRAWING("module:LinePerceptor:spots", "drawingOnImage");
+      DECLARE_DEBUG_DRAWING("module:LinePerceptor:visited", "drawingOnImage");
+      DECLARE_DEBUG_DRAWING("module:LinePerceptor:upLow", "drawingOnImage");
+      DECLARE_DEBUG_DRAWING("module:LinePerceptor:isWhite", "drawingOnImage");
+      linesPercept.lines.clear();
+      circleCandidates.clear();
+      STOPWATCH("LinesPercept(detectLine)") { linesPercept.lines = detectLine(); }
+      draw();
+      frameCounter = 0;
+    }
+}
+
+void LinePerceptor::drawSpots(LinesPercept& linesPercept)
+{
+  for(const LinesPercept::Line& line : linesPercept.lines)
+  {
+    for(const Vector2i& spot : line.spotsInImg)
+    {
+      CROSS("module:LinePerceptor:spots", spot.x(), spot.y(), 5, 3, Drawings::PenStyle::solidPen, ColorRGBA::red);
+    }
+  }
 }
 
 void LinePerceptor::update(CirclePercept& circlePercept)
@@ -36,6 +53,7 @@ void LinePerceptor::update(CirclePercept& circlePercept)
   DECLARE_DEBUG_DRAWING("module:LinePerceptor:circleCheckPoint", "drawingOnImage");
   DECLARE_DEBUG_DRAWING("module:LinePerceptor:circlePointField", "drawingOnField");
   DECLARE_DEBUG_DRAWING("module:LinePerceptor:circleCheckPointField", "drawingOnField");
+  DECLARE_DEBUG_DRAWING("module:LinePerceptor:clustersCenter", "drawingOnField");
   DECLARE_DEBUG_RESPONSE("module:LinePerceptor:circleErrorStats");
 
   circlePercept.wasSeen = false;
@@ -99,13 +117,20 @@ void LinePerceptor::update(CirclePercept& circlePercept)
   clusters.clear();
   for(const LinesPercept::Line& line : theLinesPercept.lines)
   {
-    for(auto it = line.spotsInField.cbegin(); it < line.spotsInField.cend() - 2; it++)
-    {
+    if (line.spotsInField.size() >= 2){
+      for(auto it = line.spotsInField.cbegin(); it < line.spotsInField.cend() -1; it++)
+      {
       const Vector2f& a = *it;
       const Vector2f& b = *(++it);
-      const Vector2f& c = *(++it);
-
-      clusterCircleCenter(b + (((a + c) / 2) - b).normalized() * theFieldDimensions.centerCircleRadius);
+      const Vector2f lineDirection = a-b;
+      const Vector2f v_perp1(-lineDirection.y(), lineDirection.x());
+      const Vector2f v_perp2(lineDirection.y(), -lineDirection.x());
+      const Vector2f centerOfLine = (a+b)/2;
+      const Vector2f centerA = (v_perp1.normalized() * theFieldDimensions.centerCircleRadius)+ centerOfLine;
+      const Vector2f centerB = (v_perp2.normalized() * theFieldDimensions.centerCircleRadius) + centerOfLine;
+      clusterCircleCenter(centerA);
+      clusterCircleCenter(centerB);
+      }
     }
   }
 
@@ -124,9 +149,9 @@ void LinePerceptor::update(CirclePercept& circlePercept)
         biggestCluster = it;
       }
     }
-
+    
     // Abort if the minimum size is not reached
-    if(maxSize < minCircleClusterSize)
+    if(maxSize < settings.minCircleClusterSize)
       break;
 
     // Check if the cluster is valid
@@ -135,606 +160,494 @@ void LinePerceptor::update(CirclePercept& circlePercept)
       circlePercept.pos = biggestCluster->center;
       circlePercept.wasSeen = true;
       markLinesOnCircle(biggestCluster->center);
-
       break;
     }
-
     // Remove the cluster
     biggestCluster->centers.clear();
   }
 }
 
-void LinePerceptor::clusterCircleCenter(const Vector2f& center)
+std::vector<LinesPercept::Line> LinePerceptor::detectLine()
 {
-  for(CircleCluster& cluster : clusters)
+  GrayscaledImage grayscaledImage;
+  STOPWATCH("LinesPercept(getGrayscaled)")
   {
-    if((cluster.center - center).squaredNorm() <= sqrCircleClusterRadius)
-    {
-      cluster.centers.emplace_back(center);
-      Vector2f newCenter(0, 0);
-      for(const Vector2f& c : cluster.centers)
-      {
-        newCenter += c;
-      }
-      cluster.center = newCenter / static_cast<float>(cluster.centers.size());
-      return;
-    }
+    grayscaledImage = theECImage.grayscaled;
+    grayscaled = grayscaledImage;
   }
-  clusters.emplace_back(center);
+
+  cv::Mat image;
+  STOPWATCH("LinesPercept(convertToMat)")
+  {
+    image = convertToMat(grayscaledImage);
+  }
+
+  STOPWATCH("LinesPercept(resize)")
+  {
+    scaleX = static_cast<double>(image.cols) / settings.resizeWidth;
+    scaleY = static_cast<double>(image.rows) / settings.resizeHeight;
+    cv::resize(image, image, cv::Size(settings.resizeWidth, settings.resizeHeight));
+  }
+
+  STOPWATCH("LinesPercept(GaussianBlur)")
+  {
+    cv::GaussianBlur(image, image, cv::Size(15, 15), 0);
+  }
+
+  STOPWATCH("LinesPercept(convertToImage)")
+  {
+    grayscaledBlur = convertToImage(image);
+  }
+  
+  STOPWATCH("LinesPercept(adaptiveThreshold)")
+  {
+    cv::adaptiveThreshold(image, image, settings.maxValue, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, settings.blockSize, settings.subtractedC);
+  }
+
+  STOPWATCH("LinesPercept(excludeBackground)")
+  {
+    image = excludeBackground(image);
+  }
+
+  STOPWATCH("LinesPercept(filterBlobs)")
+  {
+    image = filterBlobs(image, settings.areaToSelect);
+    grayscaledAdaptiveThreshold = convertToImage(image);
+  }
+
+  cv::Mat skel;
+  STOPWATCH("LinesPercept(skeletonize)")
+  {
+    skel = skeletonize(image);
+    grayscaledSkel = convertToImage(skel);
+  }
+
+  std::vector<cv::Vec4i> lines;
+  double theta = CV_PI / settings.thetaDivision;
+
+  STOPWATCH("LinesPercept(HoughLinesP)")
+  {
+    cv::HoughLinesP(skel, lines, settings.rho, theta, settings.threshold, settings.minLineLength, settings.maxLineGap);
+  }
+
+
+  std::vector<std::vector<cv::Vec4i>> groupedLines;
+  STOPWATCH("LinesPercept(groupLines)")
+  {
+    groupedLines = groupLines(lines, settings.angleThreshold, settings.distanceThresholdMin, settings.distanceThresholdMax, settings.distanceThresholdContainedMin, settings.distanceThresholdContainedMax, settings.resizeHeight);
+  }
+
+  STOPWATCH("LinesPercept(combineLines)")
+  {
+    lines = combineLines(groupedLines);
+  }
+  
+  std::vector<LinesPercept::Line> linesPercept;
+  STOPWATCH("LinesPercept(combineLines)")
+  {
+    linesPercept = createLines(lines);
+  }
+  
+  return linesPercept;
 }
 
-void LinePerceptor::markLinesOnCircle(const Vector2f& center)
+cv::Mat LinePerceptor::convertToMat(Image<PixelTypes::GrayscaledPixel> image)
 {
-  for(const LinesPercept::Line& line : theLinesPercept.lines)
+  cv::Mat mat(image.height, image.width, CV_8UC1);
+  for(unsigned int y = 0; y < image.height; y++)
   {
-    for(const Vector2f& spot : line.spotsInField)
+    for(unsigned int x = 0; x < image.width; x++)
     {
-      if(getAbsoluteDeviation((center - spot).norm(), theFieldDimensions.centerCircleRadius) > maxCircleFittingError)
-        goto lineNotOnCircle;
-    }
-    const_cast<LinesPercept::Line&>(line).belongsToCircle = true;
-  lineNotOnCircle :
-    ;
-  }
-}
-void LinePerceptor::scanHorizontalScanLines(LinesPercept& linesPercept)
-{
-  spotsH.resize(theColorScanLineRegionsHorizontal.scanLines.size());
-  candidates.clear();
-
-  if(!theFieldBoundary.isValid)
-    return;
-
-  unsigned int scanLineId = 0;
-  for(const ColorScanLineRegionsHorizontal::ScanLine& scanLine : theColorScanLineRegionsHorizontal.scanLines)
-  {
-    spotsH[scanLineId].clear();
-    spotsH[scanLineId].reserve(scanLine.regions.size() / 2);
-    if(scanLine.regions.size() > 2)
-    {
-      for(auto region = scanLine.regions.cbegin() + 1; region != scanLine.regions.cend() - 1; ++region)
-      {
-        if(region->color == PixelTypes::Color::white)
-        {
-          auto before = region - 1;
-          auto after = region + 1;
-          for(int i = 0; i < maxSkipNumber
-                         && before->range.right - before->range.left <= maxSkipWidth
-                         && before != scanLine.regions.cbegin(); ++i, --before);
-          for(int i = 0; i < maxSkipNumber
-                         && after->range.right - after->range.left <= maxSkipWidth
-                         && after + 1 != scanLine.regions.cend(); ++i, ++after);
-          if(before->color == PixelTypes::Color::field &&
-             after->color == PixelTypes::Color::field &&
-             !isSpotInsideObstacle(region->range.left, region->range.right, scanLine.y, scanLine.y))
-          {
-            if(theFieldBoundary.getBoundaryY((region->range.left + region->range.right) / 2) > static_cast<int>(scanLine.y))
-            {
-              goto hEndScan;
-            }
-            spotsH[scanLineId].emplace_back(static_cast<float>((region->range.left + region->range.right)) / 2.f, scanLine.y);
-            Spot& thisSpot = spotsH[scanLineId].back();
-            Vector2f corrected(theImageCoordinateSystem.toCorrected(thisSpot.image));
-            Vector2f otherImage;
-            if(Transformation::imageToRobot(corrected, theCameraMatrix, theCameraInfo, thisSpot.field) &&
-               Transformation::robotToImage(Vector2f(thisSpot.field + thisSpot.field.normalized(theFieldDimensions.fieldLinesWidth).rotateLeft()), theCameraMatrix, theCameraInfo, otherImage))
-            {
-              float expectedWidth = (otherImage - corrected).norm();
-              if(getAbsoluteDeviation(static_cast<int>(expectedWidth), region->range.right - region->range.left) <= maxLineWidthDeviationPx &&
-                  (before->range.right - before->range.left >= static_cast<int>(expectedWidth * GREEN_AROUND_LINE_RATIO) ||
-                      (relaxedGreenCheckAtImageBorder && before->range.left == 0)) &&
-                  (after->range.right - after->range.left >= static_cast<int>(expectedWidth * GREEN_AROUND_LINE_RATIO) ||
-                      (relaxedGreenCheckAtImageBorder && after->range.right == theCameraInfo.width)))
-                goto keepHSpot;
-            }
-            spotsH[scanLineId].pop_back();
-            continue;
-
-          keepHSpot:
-            CROSS("module:LinePerceptor:spots", thisSpot.image.x(), thisSpot.image.y(), 5, 3, Drawings::PenStyle::solidPen, ColorRGBA::red);
-
-            if(scanLineId > 0)
-            {
-              bool circleFitted = false, lineFitted = false;
-              for(CircleCandidate& candidate : circleCandidates)
-              {
-                if(candidate.getDistance(thisSpot.field) <= maxCircleFittingError)
-                {
-                  candidate.addSpot(thisSpot.field);
-                  circleFitted = true;
-                  break;
-                }
-              }
-              for(Candidate& candidate : candidates)
-              {
-                if(candidate.spots.size() > 1 &&
-                   candidate.getDistance(thisSpot.field) <= maxLineFittingError &&
-                      isSegmentValid(thisSpot, *candidate.spots.back(), candidate))
-                {
-                  if(!circleFitted)
-                  {
-                    circleCandidates.emplace_back(candidate, thisSpot.field);
-                    if(circleCandidates.back().calculateError() > maxCircleFittingError)
-                      circleCandidates.pop_back();
-                    else
-                    {
-                      if(lineFitted)
-                        goto hEndAdjacentSearch;
-                      circleFitted = true;
-                    }
-                  }
-                  if(!lineFitted)
-                  {
-                    thisSpot.candidate = candidate.spots.front()->candidate;
-                    candidate.spots.emplace_back(&thisSpot);
-                    candidate.fitLine();
-                    if(circleFitted)
-                      goto hEndAdjacentSearch;
-                    lineFitted = true;
-                  }
-                }
-              }
-              if(lineFitted)
-                goto hEndAdjacentSearch;
-              for(const Spot& spot : spotsH[scanLineId - 1])
-              {
-                Candidate& candidate = candidates[spot.candidate];
-                if(candidate.spots.size() == 1 &&
-                   getAbsoluteDeviation(spot.image.x(), thisSpot.image.x()) < getAbsoluteDeviation(spot.image.y(), thisSpot.image.y()) &&
-                    isSegmentValid(thisSpot, spot, candidate))
-                {
-                  thisSpot.candidate = candidate.spots.front()->candidate;
-                  candidate.spots.emplace_back(&thisSpot);
-                  candidate.fitLine();
-                  goto hEndAdjacentSearch;
-                }
-              }
-            }
-            thisSpot.candidate = static_cast<unsigned int>(candidates.size());
-            candidates.emplace_back(&thisSpot);
-          hEndAdjacentSearch:
-            ;
-          }
-        }
-      }
-    }
-    scanLineId++;
-  }
-hEndScan:
-  ;
-
-  Vector2f lastNearPoint;
-  if(!Transformation::imageToRobot(Vector2f(theCameraInfo.width / 2, theCameraInfo.height * 4 / 5), theCameraMatrix, theCameraInfo, lastNearPoint))
-    return;
-  const float maxNearDistance = std::max(1000.f, lastNearPoint.x());
-
-  for(const Candidate& candidate : candidates)
-  {
-    const float squaredLineLength = (candidate.spots.back()->field - candidate.spots.front()->field).squaredNorm();
-    if(candidate.spots.size() >= std::max<unsigned int>(2, MIN_SPOTS_PER_LINE) &&
-       squaredLineLength >= minSquaredLineLength &&
-       (candidate.spots.front()->field.x() <= maxNearDistance || squaredLineLength <= maxDistantHorizontalLength))
-    {
-      const Spot* from, *to;
-      const bool flipped = candidate.spots.front()->image.x() > candidate.spots.back()->image.x();
-      if(flipped)
-      {
-        from = candidate.spots.front();
-        to = candidate.spots.back();
-      }
-      else
-      {
-        from = candidate.spots.back();
-        to = candidate.spots.front();
-      }
-      linesPercept.lines.emplace_back();
-      LinesPercept::Line& line = linesPercept.lines.back();
-      line.firstField = from->field;
-      line.lastField = to->field;
-      line.line.base = line.firstField;
-      line.line.direction = line.lastField - line.firstField;
-      line.firstImg = static_cast<Vector2i>(from->image.cast<int>());
-      line.lastImg = static_cast<Vector2i>(to->image.cast<int>());
-
-      if(flipped)
-      {
-        for(auto it = candidate.spots.crbegin(); it != candidate.spots.crend(); it++)
-        {
-          line.spotsInField.emplace_back((*it)->field);
-          line.spotsInImg.emplace_back(static_cast<Vector2i>((*it)->image.cast<int>()));
-        }
-      }
-      else
-      {
-        for(const Spot* spot : candidate.spots)
-        {
-          line.spotsInField.emplace_back(spot->field);
-          line.spotsInImg.emplace_back(static_cast<Vector2i>(spot->image.cast<int>()));
-        }
-      }
+      mat.at<uchar>(y, x) = image[y][x];
     }
   }
+  return mat;
 }
 
-void LinePerceptor::scanVerticalScanLines(LinesPercept& linesPercept)
+Image<PixelTypes::GrayscaledPixel> LinePerceptor::convertToImage(cv::Mat image)
 {
-  spotsV.resize(theColorScanLineRegionsVerticalClipped.scanLines.size());
-  candidates.clear();
-
-  unsigned int scanLineId = 0;
-  unsigned int startIndex = highResolutionScan ? 0 : theColorScanLineRegionsVerticalClipped.lowResStart;
-  unsigned int stepSize = highResolutionScan ? 1 : theColorScanLineRegionsVerticalClipped.lowResStep;
-  for(unsigned scanLineIndex = startIndex; scanLineIndex < theColorScanLineRegionsVerticalClipped.scanLines.size(); scanLineIndex += stepSize)
+  Image<PixelTypes::GrayscaledPixel> img(image.cols, image.rows);
+  for(int y = 0; y < image.rows; y++)
   {
-    spotsV[scanLineId].clear();
-    const std::vector<ScanLineRegion>& regions = theColorScanLineRegionsVerticalClipped.scanLines[scanLineIndex].regions;
-    spotsV[scanLineId].reserve(regions.size() / 2);
-    if(regions.size() > 2)
+    for(int x = 0; x < image.cols; x++)
     {
-      for(auto region = regions.cbegin() + 1; region != regions.cend() - 1; ++region)
-      {
-        if(region->color == PixelTypes::Color::white)
-        {
-          auto before = region - 1;
-          auto after = region + 1;
-          for(int i = 0; i < maxSkipNumber
-                         && before->range.lower - before->range.upper <= maxSkipWidth
-                         && before != regions.cbegin(); ++i, --before);
-          for(int i = 0; i < maxSkipNumber
-                         && after->range.lower - after->range.upper <= maxSkipWidth
-                         && after + 1 != regions.cend(); ++i, ++after);
-          if(before->color == PixelTypes::Color::field &&
-             after->color == PixelTypes::Color::field &&
-             !isSpotInsideObstacle(theColorScanLineRegionsVerticalClipped.scanLines[scanLineIndex].x, theColorScanLineRegionsVerticalClipped.scanLines[scanLineIndex].x, region->range.upper, region->range.lower))
-          {
-            spotsV[scanLineId].emplace_back(theColorScanLineRegionsVerticalClipped.scanLines[scanLineIndex].x, static_cast<float>(region->range.upper + region->range.lower) / 2.f);
-            Spot& thisSpot = spotsV[scanLineId].back();
-            Vector2f corrected = theImageCoordinateSystem.toCorrected(thisSpot.image);
-            Vector2f otherImage;
-            if(Transformation::imageToRobot(corrected, theCameraMatrix, theCameraInfo, thisSpot.field) &&
-               Transformation::robotToImage(Vector2f(thisSpot.field + thisSpot.field.normalized(theFieldDimensions.fieldLinesWidth)), theCameraMatrix, theCameraInfo, otherImage))
-            {
-              float expectedHeight = (corrected - otherImage).norm();
-              if((before->range.lower - before->range.upper >= static_cast<int>(expectedHeight * GREEN_AROUND_LINE_RATIO) ||
-                      (relaxedGreenCheckAtImageBorder && before->range.lower == theCameraInfo.height)) &&
-                  (after->range.lower - after->range.upper >= static_cast<int>(expectedHeight * GREEN_AROUND_LINE_RATIO) ||
-                      (relaxedGreenCheckAtImageBorder && theCameraInfo.camera == CameraInfo::lower && after->range.upper == 0)))
-                goto keepVSpot;
-            }
-            spotsV[scanLineId].pop_back();
-            continue;
-
-          keepVSpot:
-            CROSS("module:LinePerceptor:spots", thisSpot.image.x(), thisSpot.image.y(), 5, 3, Drawings::PenStyle::solidPen, ColorRGBA::blue);
-
-            if(scanLineId > 0)
-            {
-              bool circleFitted = false, lineFitted = false;
-              for(CircleCandidate& candidate : circleCandidates)
-              {
-                if(candidate.getDistance(thisSpot.field) <= maxCircleFittingError)
-                {
-                  candidate.addSpot(thisSpot.field);
-                  circleFitted = true;
-                  break;
-                }
-              }
-              for(Candidate& candidate : candidates)
-              {
-                if(candidate.spots.size() > 1 &&
-                   candidate.getDistance(thisSpot.field) <= maxLineFittingError &&
-                    isSegmentValid(thisSpot, *candidate.spots.back(), candidate))
-                {
-                  if(!circleFitted)
-                  {
-                    circleCandidates.emplace_back(candidate, thisSpot.field);
-                    if(circleCandidates.back().calculateError() > maxCircleFittingError)
-                      circleCandidates.pop_back();
-                    else
-                    {
-                      if(lineFitted)
-                        goto vEndAdjacentSearch;
-                      circleFitted = true;
-                    }
-                  }
-                  if(!lineFitted)
-                  {
-                    thisSpot.candidate = candidate.spots.front()->candidate;
-                    candidate.spots.emplace_back(&thisSpot);
-                    candidate.fitLine();
-                    if(circleFitted)
-                      goto vEndAdjacentSearch;
-                    lineFitted = true;
-                  }
-                }
-              }
-              if(lineFitted)
-                goto vEndAdjacentSearch;
-              for(const Spot& spot : spotsV[previousVerticalScanLine(thisSpot, static_cast<int>(scanLineId))])
-              {
-                Candidate& candidate = candidates[spot.candidate];
-                if(candidate.spots.size() == 1 &&
-                   getAbsoluteDeviation(spot.image.x(), thisSpot.image.x()) > getAbsoluteDeviation(spot.image.y(), thisSpot.image.y()) &&
-                    isSegmentValid(thisSpot, spot, candidate))
-                {
-                  thisSpot.candidate = candidate.spots.front()->candidate;
-                    candidate.spots.emplace_back(&thisSpot);
-                    candidate.fitLine();
-                    goto vEndAdjacentSearch;
-                }
-              }
-            }
-            thisSpot.candidate = static_cast<unsigned int>(candidates.size());
-            candidates.emplace_back(&thisSpot);
-          vEndAdjacentSearch:
-            ;
-          }
-        }
-      }
-    }
-    scanLineId++;
-  }
-
-  for(const Candidate& candidate : candidates)
-  {
-    if(candidate.spots.size() >= std::max<unsigned int>(2, MIN_SPOTS_PER_LINE))
-    {
-      for(LinesPercept::Line& line : linesPercept.lines)
-      {
-        if(candidate.getDistance(line.firstField) <= maxLineFittingError && candidate.getDistance(line.lastField) <= maxLineFittingError &&
-           isWhite(*candidate.spots.front(), Spot(line.lastImg.cast<float>(), line.lastField), candidate.n0))
-        {
-          if(candidate.spots.front()->image.x() < static_cast<float>(line.firstImg.x()))
-          {
-            line.firstField = candidate.spots.front()->field;
-            line.firstImg = static_cast<Vector2i>(candidate.spots.front()->image.cast<int>());
-          }
-          if(candidate.spots.back()->image.x() > static_cast<float>(line.lastImg.x()))
-          {
-            line.lastField = candidate.spots.back()->field;
-            line.lastImg = static_cast<Vector2i>(candidate.spots.back()->image.cast<int>());
-          }
-          line.line.base = line.firstField;
-          line.line.direction = line.lastField - line.firstField;
-          for(const Spot* spot : candidate.spots)
-          {
-            line.spotsInField.emplace_back(spot->field);
-            line.spotsInImg.emplace_back(static_cast<Vector2i>(spot->image.cast<int>()));
-          }
-          goto lineMerged;
-        }
-      }
-      if((candidate.spots.back()->field - candidate.spots.front()->field).squaredNorm() >= minSquaredLineLength)
-      {
-        linesPercept.lines.emplace_back();
-        LinesPercept::Line& line = linesPercept.lines.back();
-        line.firstField = candidate.spots.front()->field;
-        line.lastField = candidate.spots.back()->field;
-        line.line.base = line.firstField;
-        line.line.direction = line.lastField - line.firstField;
-        line.firstImg = static_cast<Vector2i>(candidate.spots.front()->image.cast<int>());
-        line.lastImg = static_cast<Vector2i>(candidate.spots.back()->image.cast<int>());
-        for(const Spot* spot : candidate.spots)
-        {
-          linesPercept.lines.back().spotsInField.emplace_back(spot->field);
-          linesPercept.lines.back().spotsInImg.emplace_back(static_cast<Vector2i>(spot->image.cast<int>()));
-        }
-      }
-    lineMerged:
-      ;
+      img[y][x] = image.at<uchar>(y, x);
     }
   }
+  return img;
 }
 
-void LinePerceptor::extendLines(LinesPercept& linesPercept) const
+cv::Mat LinePerceptor::excludeBackground(cv::Mat image)
 {
-  for(auto line = linesPercept.lines.begin(); line != linesPercept.lines.end();)
+  if (theFieldBoundary.boundaryInImage.empty())
   {
-    const Vector2f step(static_cast<Vector2f>((line->firstImg - line->lastImg).cast<float>().normalized() * 2.f));
-    // Extend left
-    Vector2f n0 (-step.y(), step.x()); // rotates 90 degrees
+    return image;
+  }
 
-    Vector2f pos(line->firstImg.cast<float>() + step);
-    bool changed = false;
-    for(; pos.x() >= 0 && pos.y() >= 0 && pos.x() < static_cast<float>(theECImage.grayscaled.width) &&
-          pos.y() < static_cast<float>(theECImage.grayscaled.height); pos += step, changed = true)
+  int height = image.rows;
+  int width = image.cols;
+
+  // Create a copy of fieldBoundaries and sort it by x-coordinate
+  std::vector<cv::Point> polygonPoints;
+  for (const auto& point : theFieldBoundary.boundaryInImage)
+  {
+    polygonPoints.push_back(cv::Point(static_cast<int>(point.x() / scaleX), static_cast<int>(point.y() / scaleY)));
+  }
+
+  std::sort(polygonPoints.begin(), polygonPoints.end(), [](const cv::Point& a, const cv::Point& b) {
+    return a.x < b.x;
+  });
+
+  // Add bottom-right and bottom-left corners
+  polygonPoints.push_back(cv::Point(width - 1, height - 1));
+  polygonPoints.push_back(cv::Point(0, height - 1));
+
+  // Create a mask with the same size as the image, initialized to zero
+  cv::Mat mask = cv::Mat::zeros(image.size(), CV_8UC1);
+
+  // Fill the polygon on the mask with white color (255)
+  cv::fillPoly(mask, std::vector<std::vector<cv::Point>>{polygonPoints}, cv::Scalar(255));
+
+  // Apply the mask to the image
+  cv::Mat result;
+  cv::bitwise_and(image, mask, result);
+
+  return result;
+}
+
+cv::Mat LinePerceptor::filterBlobs(cv::Mat image, int areaToSelect)
+{
+  cv::Mat labels, stats, centroids;
+  int numComponents = cv::connectedComponentsWithStats(image, labels, stats, centroids);
+
+  // Extract the areas of the components, skipping the background (index 0)
+  std::vector<int> areas;
+  for (int i = 1; i < numComponents; ++i)
+  {
+    areas.push_back(stats.at<int>(i, cv::CC_STAT_AREA));
+  }
+
+  // Sort the areas in descending order and get the indices
+  std::vector<int> sortedIndices(areas.size());
+  std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+  std::sort(sortedIndices.begin(), sortedIndices.end(), [&areas](int a, int b) {
+    return areas[a] > areas[b];
+  });
+
+  // Select the top N largest areas
+  int topN = std::min(areaToSelect, static_cast<int>(sortedIndices.size()));
+  std::vector<int> largestIndices(sortedIndices.begin(), sortedIndices.begin() + topN);
+
+  // Create a mask for the largest components
+  cv::Mat filteredImage = cv::Mat::zeros(image.size(), CV_8UC1);
+  for (int i : largestIndices)
+  {
+    int componentLabel = i + 1; // Labels start from 1 (0 is background)
+    filteredImage.setTo(255, labels == componentLabel);
+  }
+
+  return filteredImage;
+}
+
+cv::Mat LinePerceptor::skeletonize(cv::Mat& img)
+{
+  unsigned long size = img.total() * img.channels();
+  cv::Mat skel = cv::Mat::zeros(img.size(), CV_8UC1);
+
+  cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
+  bool done = false;
+
+  while (!done)
+  {
+    cv::Mat eroded;
+    cv::erode(img, eroded, element);
+    cv::Mat dilated;
+    cv::dilate(eroded, dilated, element);
+    cv::Mat temp;
+    cv::subtract(img, dilated, temp);
+    cv::bitwise_or(skel, temp, skel);
+    eroded.copyTo(img);
+
+    unsigned long zeros = size - cv::countNonZero(img);
+
+    if (zeros == size)
+      done = true;
+  }
+  return skel;
+}
+
+std::vector<std::vector<cv::Vec4i>> LinePerceptor::groupLines(std::vector<cv::Vec4i> lines, int angleThreshold, int distanceThresholdMin, int distanceThresholdMax, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight)
+{
+  std::vector<std::vector<cv::Vec4i>> groupedLines;
+  for (const auto& lineToGroup : lines)
+  {
+    bool assigned = false;
+    for (auto& group : groupedLines)
     {
-      Vector2f pointOnField;
-      if(!Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, pointOnField) ||
-         !isPointWhite(pointOnField, pos.cast<int>(), n0))
+      assigned = isPartOfGroup(group, lineToGroup, angleThreshold, distanceThresholdMin, distanceThresholdMax, distanceThresholdContainedMin, distanceThresholdContainedMax, imageHeight);
+      if (assigned)
         break;
     }
-    if(changed)
+    
+    if (!assigned)
     {
-      pos -= step;
-      Vector2f field;
-      if(Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, field))
-      {
-        line->firstImg = static_cast<Vector2i>(pos.cast<int>());
-        line->firstField = field;
-        line->spotsInImg.emplace_back(line->firstImg);
-        line->spotsInField.emplace_back(line->firstField);
-      }
+      groupedLines.push_back({lineToGroup});
     }
-    // Extend right
-    pos = line->lastImg.cast<float>() - step;
-    changed = false;
-    for(; pos.x() >= 0 && pos.y() >= 0 && pos.x() < static_cast<float>(theECImage.grayscaled.width) &&
-          pos.y() < static_cast<float>(theECImage.grayscaled.height); pos -= step, changed = true)
-    {
-      Vector2f pointOnField;
-      if(!Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, pointOnField) ||
-         !isPointWhite(pointOnField, pos.cast<int>(), n0))
-        break;
-    }
-    if(changed)
-    {
-      pos += step;
-      Vector2f field;
-      if(Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, field))
-      {
-        line->lastImg = static_cast<Vector2i>(pos.cast<int>());
-        line->lastField = field;
-        line->spotsInImg.emplace_back(line->lastImg);
-        line->spotsInField.emplace_back(line->lastField);
-      }
-    }
-    if(TRIM_LINES)
-      trimLine(*line);
+  }
+  return groupedLines;
+}
 
-    // Recompute line
-    line->line.base = line->firstField;
-    line->line.direction = line->lastField - line->firstField;
+bool LinePerceptor::isPartOfGroup(std::vector<cv::Vec4i> group, cv::Vec4i line, int angleThreshold, int distanceThresholdMin, int distanceThresholdMax, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight)
+{
+  for (const auto& groupedLine : group)
+  {
+    double angleDiff = angleBetweenLines(line, groupedLine);
 
-    if(line->spotsInImg.size() < MIN_SPOTS_PER_LINE || line->line.direction.squaredNorm() < minSquaredLineLength)
-      line = linesPercept.lines.erase(line);
+    if (angleDiff > angleThreshold)
+      continue;
+
+    if (linesRespectDistanceThreshold(line, groupedLine, distanceThresholdMin, distanceThresholdMax, imageHeight))
+    {
+      group.push_back(line);
+      return true;
+    }
     else
-      ++line;
+    {
+      bool isContained1 = isLineContained(groupedLine, line, distanceThresholdContainedMin, distanceThresholdContainedMax, imageHeight);
+      bool isContained2 = isLineContained(line, groupedLine, distanceThresholdContainedMin, distanceThresholdContainedMax, imageHeight);
+
+      if (isContained1 || isContained2)
+      {
+        group.push_back(line);
+        return true;
+      }
+    }
+
   }
+  return false;
 }
 
-void LinePerceptor::trimLine(LinesPercept::Line& line) const
+double LinePerceptor::angleBetweenLines(cv::Vec4i line1, cv::Vec4i line2)
 {
-  Vector2i start = line.firstImg;
-  Vector2i end = line.lastImg;
-  if(start == end)
-    return;
+  int x1_1 = line1[0];
+  int y1_1 = line1[1];
+  int x1_2 = line1[2];
+  int y1_2 = line1[3];
 
-  for(int i = 0; i < 2; ++i)
+  int x2_1 = line2[0];
+  int y2_1 = line2[1];
+  int x2_2 = line2[2];
+  int y2_2 = line2[3];
+
+  int dx1 = x1_2 - x1_1;
+  int dy1 = y1_2 - y1_1;
+  int  dx2 = x2_2 - x2_1;
+  int dy2 = y2_2 - y2_1;
+
+  int dot_product = dx1 * dx2 + dy1 * dy2;
+  double magnitude1 = std::sqrt(std::pow(dx1,2) + std::pow(dy1,2));
+  double magnitude2 = std::sqrt(std::pow(dx2,2) + std::pow(dy2,2));
+
+  double cosTheta = dot_product / (magnitude1 * magnitude2);
+
+  cosTheta = std::max(-1.0, std::min(1.0, cosTheta));
+
+  double angleRadians = acos(cosTheta);
+  double angleDegrees = angleRadians * (180.0 / M_PI);
+
+  if(angleDegrees > 90)
   {
-    int foundConsecutiveLineSpots = 0;
+    angleDegrees = 180 - angleDegrees;
+  }
 
-    Vector2f pos = i == 0 ? start.cast<float>() : end.cast<float>();
-    Vector2f step = (i == 0 ? end - start : start - end).cast<float>().normalized() * 2.f;
+  return angleDegrees;
+}
 
-    int left = line.firstImg.x() < line.lastImg.x() ? line.firstImg.x() : line.lastImg.x();
-    int right = line.firstImg.x() < line.lastImg.x() ? line.lastImg.x() : line.firstImg.x();
+bool LinePerceptor::linesRespectDistanceThreshold(cv::Vec4i line, cv::Vec4i lineToGroup, int distanceThresholdMin, int distanceThresholdMax, int imageHeight)
+{
+  int lineX1 = line[0], lineY1 = line[1], lineX2 = line[2], lineY2 = line[3];
+  int lineToGroupX1 = lineToGroup[0], lineToGroupY1 = lineToGroup[1], lineToGroupX2 = lineToGroup[2], lineToGroupY2 = lineToGroup[3];
 
-    bool trimmed = false;
-    for(; pos.y() >= 0 && pos.y() < static_cast<float>(theECImage.grayscaled.height) && pos.x() >= static_cast<float>(left) && pos.x() <= static_cast<float>(right); pos += step)
+  std::vector<std::tuple<int, int, int, int>> pointCombinations = {
+        {lineX1, lineY1, lineToGroupX1, lineToGroupY1},
+        {lineX2, lineY2, lineToGroupX1, lineToGroupY1},
+        {lineX1, lineY1, lineToGroupX2, lineToGroupY2},
+        {lineX2, lineY2, lineToGroupX2, lineToGroupY2}
+    };
+
+    // Iterate over combinations and check the threshold condition
+    for (const auto& combination : pointCombinations) {
+        int x1 = std::get<0>(combination);
+        int y1 = std::get<1>(combination);
+        int x2 = std::get<2>(combination);
+        int y2 = std::get<3>(combination);
+
+        // Calculate yMean
+        double yMean = (y1 + y2) / 2.0;
+
+        // Calculate threshold scaling
+        double thresholdScaling = distanceThresholdMax - distanceThresholdMin;
+
+        // Calculate dynamic threshold
+        double threshold = distanceThresholdMin + (thresholdScaling * yMean) / imageHeight;
+
+        // Calculate distance
+        double distance = std::sqrt(std::pow(x1 - x2, 2) + std::pow(y1 - y2, 2));
+
+        // Check if distance is below threshold
+        if (distance < threshold) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool LinePerceptor::isLineContained(cv::Vec4i smallLine, cv::Vec4i largeLine, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight)
+{
+  cv::Point smallLineP1(smallLine[0], smallLine[1]);
+  cv::Point smallLineP2(smallLine[2], smallLine[3]);
+  double dist1 = pointToLineDistance(smallLineP1, largeLine);
+  double dist2 = pointToLineDistance(smallLineP2, largeLine);
+
+  double scaling_threshold = distanceThresholdContainedMax - distanceThresholdContainedMin;
+
+  double threshold1 = distanceThresholdContainedMin + scaling_threshold * smallLineP1.y / imageHeight;
+  double threshold2 = distanceThresholdContainedMin + scaling_threshold * smallLineP2.y / imageHeight;
+  if (dist1 == -1)
+      dist1 = threshold1+1;
+
+
+  if (dist2 == -1)
+      dist2 = threshold2+1;
+
+
+  return dist1 <= threshold1 or dist2 <= threshold2;
+}
+
+double LinePerceptor::pointToLineDistance(cv::Point point, cv::Vec4i line)
+{
+  cv::Vec2i lineVector = cv::Vec2i(line[2] - line[0], line[3] - line[1]);
+  cv::Vec2i pointVector = cv::Vec2i(point.x - line[0], point.y - line[1]);
+  double linePenSquared = lineVector.dot(lineVector);
+
+  // Cas spécial : si la ligne est un point (x1, y1 == x2, y2)
+  if (linePenSquared == 0)
+  {
+    // Retourne la distance entre le point et l'extrémité
+    return std::sqrt(std::pow(pointVector[0], 2) + std::pow(pointVector[1], 2));
+  }
+
+  // Projection scalaire du vecteur point sur le vecteur ligne
+  double t = static_cast<double>(pointVector.dot(lineVector)) / linePenSquared;
+
+  if (t > 1 || t < 0)
+    return -1.f;
+
+  double xProj = line[0] + t * lineVector[0];
+  double yProj = line[1] + t * lineVector[1];
+
+  return std::sqrt(std::pow(point.x - xProj, 2) + std::pow(point.y - yProj, 2));
+}
+
+std::vector<cv::Vec4i> LinePerceptor::combineLines(std::vector<std::vector<cv::Vec4i>> groupedLines)
+{
+  std::vector<cv::Vec4i> combinedLines;
+
+  if (!groupedLines.empty())
+  {
+    for (const auto& group : groupedLines)
     {
-      Vector2f dir = step / 2.f;
-      dir.rotateLeft();
-      Vector2f lower = pos - dir, upper = pos + dir;
-      unsigned char luminanceReference = theECImage.grayscaled[static_cast<Vector2i>(pos.cast<int>())];
-      unsigned char saturationReference = theECImage.saturated[static_cast<Vector2i>(pos.cast<int>())];
-      int loopCount = 0;
-      for(Vector2i p(lower.cast<int>());
-          p.x() >= 0 && p.y() >= 0 && p.x() < static_cast<int>(theECImage.grayscaled.width) && p.y() < static_cast<int>(theECImage.grayscaled.height);
-          lower -= dir, p = static_cast<Vector2i>(lower.cast<int>()), ++loopCount)
-      {
-        if(loopCount > maxWidthImage ||
-            theRelativeFieldColors.isFieldNearWhite(theECImage.grayscaled[p], theECImage.saturated[p],
-                                                   luminanceReference, saturationReference))
-          break;
-      }
-      lower += dir;
-      for(Vector2i p(upper.cast<int>());
-          p.x() >= 0 && p.y() >= 0 && p.x() < static_cast<int>(theECImage.grayscaled.width) && p.y() < static_cast<int>(theECImage.grayscaled.height);
-          upper += dir, p = static_cast<Vector2i>(upper.cast<int>()), ++loopCount)
-      {
-        if(loopCount > maxWidthImage ||
-            theRelativeFieldColors.isFieldNearWhite(theECImage.grayscaled[p], theECImage.saturated[p],
-                                                   luminanceReference, saturationReference))
-          break;
-      }
-      upper -= dir;
+      // Initialize variables to keep track of the most distant endpoints
+      double maxDistance = 0;
+      std::pair<cv::Point, cv::Point> farthestPoints;
 
-      if((upper - lower).squaredNorm() > maxWidthImageSquared)
+      // Iterate through all endpoints in the group and calculate distances
+      std::vector<cv::Point> endpoints;
+      for (const auto& line : group)
       {
-        Vector2f lowerField, upperField;
-        if(!Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(lower), theCameraMatrix, theCameraInfo, lowerField) ||
-           !Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(upper), theCameraMatrix, theCameraInfo, upperField) ||
-           (upperField - lowerField).norm() > theFieldDimensions.fieldLinesWidth * mFactor)
-        {
-          CROSS("module:LinePerceptor:upLow", lower.x(), lower.y(), 1, 1, Drawings::solidPen, ColorRGBA::yellow);
-          CROSS("module:LinePerceptor:upLow", upper.x(), upper.y(), 1, 1, Drawings::solidPen, ColorRGBA::blue);
-          LINE("module:LinePerceptor:upLow", lower.x(), lower.y(), upper.x(), upper.y(), 1, Drawings::solidPen, ColorRGBA::gray);
-          foundConsecutiveLineSpots = 0;
-          trimmed = true;
-          continue;
-        }
-        else
-        {
-          CROSS("module:LinePerceptor:visited", pos.x(), pos.y(), 1, 1, Drawings::solidPen, ColorRGBA::black);
-          ++foundConsecutiveLineSpots;
-        }
-      }
-      else
-      {
-        CROSS("module:LinePerceptor:visited", pos.x(), pos.y(), 1, 1, Drawings::solidPen, ColorRGBA::black);
-        ++foundConsecutiveLineSpots;
+        endpoints.emplace_back(line[0], line[1]);
+        endpoints.emplace_back(line[2], line[3]);
       }
 
-      if(foundConsecutiveLineSpots == minConsecutiveSpots)
+      // Compare all pairs of endpoints across all lines in the group
+      for (size_t i = 0; i < endpoints.size(); ++i)
       {
-        if(trimmed && pos.cast<int>() != start && pos.cast<int>() != end)
+        for (size_t j = i + 1; j < endpoints.size(); ++j)
         {
-          Vector2f field;
-          if(Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, field))
+          cv::Point p1 = endpoints[i];
+          cv::Point p2 = endpoints[j];
+          double dist = distance(p1, p2);
+          if (dist > maxDistance)
           {
-            line.spotsInImg.emplace_back(pos.cast<int>());
-            line.spotsInField.emplace_back(field);
-            pos -= (minConsecutiveSpots - 1) * step;
-            if(Transformation::imageToRobot(theImageCoordinateSystem.toCorrected(pos), theCameraMatrix, theCameraInfo, field))
-            {
-              if(i == 0)
-              {
-                line.firstImg = pos.cast<int>();
-                line.firstField = field;
-              }
-              else
-              {
-                line.lastImg = pos.cast<int>();
-                line.lastField = field;
-              }
-              line.spotsInImg.emplace_back(pos.cast<int>());
-              line.spotsInField.emplace_back(field);
-            }
+            maxDistance = dist;
+            farthestPoints = {p1, p2};
           }
         }
-        break;
+      }
+
+      if (maxDistance > 0)
+      {
+        combinedLines.emplace_back(cv::Vec4i(farthestPoints.first.x, farthestPoints.first.y, farthestPoints.second.x, farthestPoints.second.y));
       }
     }
   }
 
-  if(start != line.firstImg || end != line.lastImg)
-  {
-    std::vector<Vector2i> spotsInImgTrimmed;
-    spotsInImgTrimmed.reserve(line.spotsInImg.size());
-    std::vector<Vector2f> spotsInFieldTrimmed;
-    spotsInFieldTrimmed.reserve(line.spotsInField.size());
-    for(unsigned int i = 0; i < line.spotsInImg.size(); ++i)
-    {
-      Vector2i spotInImage = line.spotsInImg.at(i);
-      if(spotInImage.x() >= line.firstImg.x() && spotInImage.x() <= line.lastImg.x())
-      {
-        spotsInImgTrimmed.emplace_back(spotInImage);
-        spotsInFieldTrimmed.emplace_back(line.spotsInField.at(i));
-      }
-    }
-    line.spotsInImg = spotsInImgTrimmed;
-    line.spotsInField = spotsInFieldTrimmed;
-  }
+  return combinedLines;
 }
 
-bool LinePerceptor::isSegmentValid(const Spot& a, const Spot& b, const Candidate& candidate)
+double LinePerceptor::distance(cv::Point p1, cv::Point p2)
 {
-  Vector2f n0 = (b.field - a.field);
-  n0.rotateLeft();
-  n0.normalize();
-  if(candidate.spots.size() > 2)
+  return std::sqrt(std::pow(p1.x - p2.x, 2) + std::pow(p1.y - p2.y, 2));
+}
+
+std::vector<LinesPercept::Line> LinePerceptor::createLines(std::vector<cv::Vec4i> lines)
+{
+  std::vector<LinesPercept::Line> perceptLines;
+
+  for(const auto& l : lines)
   {
-    float angleDiff = n0.angleTo(candidate.n0);
-    angleDiff = angleDiff <= pi_2 ? angleDiff : pi - angleDiff;
-    if(angleDiff > maxNormalAngleDiff)
+    LinesPercept::Line perceptLine;
+    cv::Point p1(static_cast<int>(l[0] * scaleX), static_cast<int>(l[1] * scaleY));
+    cv::Point p2(static_cast<int>(l[2] * scaleX), static_cast<int>(l[3] * scaleY));
+
+    perceptLine.firstImg = Vector2i(p1.x, p1.y);
+    perceptLine.spotsInImg.push_back(perceptLine.firstImg);
+    perceptLine.lastImg = Vector2i(p2.x, p2.y);
+    perceptLine.spotsInImg.push_back(perceptLine.lastImg);
+
+    if (theFieldBoundary.isValid &&
+        p1.y >= ((theFieldBoundary.getBoundaryY(p1.x))+ theLinePerceptorSettings[theCameraInfo.camera].fieldBoundaryOffSet) &&
+        p2.y >= ((theFieldBoundary.getBoundaryY(p2.x))+ theLinePerceptorSettings[theCameraInfo.camera].fieldBoundaryOffSet) &&
+        !isSpotInsideObstacle(perceptLine.firstImg.x(), perceptLine.firstImg.y(), perceptLine.lastImg.x(), perceptLine.lastImg.y()))
     {
-      LINE("module:LinePerceptor:isWhite", a.image.x(), a.image.y(), b.image.x(), b.image.y(), 1, Drawings::solidPen, ColorRGBA::red);
-      return false;
+      for(Vector2i& spotInImg : perceptLine.spotsInImg)
+      {
+        Vector2f spotInField;
+        if(Transformation::imageToRobot(spotInImg, theCameraMatrix, theCameraInfo, spotInField))
+          perceptLine.spotsInField.push_back(spotInField);
+        else
+          break;
+      }
+
+      if(perceptLine.spotsInField.size() < 2){
+        continue;
+      }
+      perceptLine.firstField = perceptLine.spotsInField.front();
+      perceptLine.lastField = perceptLine.spotsInField.back();
+
+      Vector2f n0 = (perceptLine.lastField - perceptLine.firstField);
+      n0.rotateLeft();
+      n0.normalize();
+
+      if (!settings.isWhiteEnable || isWhite(Spot(perceptLine.firstImg.cast<float>(), perceptLine.firstField), Spot(perceptLine.lastImg.cast<float>(), perceptLine.lastField), n0))
+      {
+        perceptLine.line = Geometry::Line(perceptLine.firstField, perceptLine.lastField - perceptLine.firstField);
+        perceptLines.push_back(perceptLine);
+      }
     }
-    n0 = candidate.n0;
   }
-  return isWhite(a, b, n0);
+  return perceptLines;
 }
 
 bool LinePerceptor::isWhite(const Spot& a, const Spot& b, const Vector2f& n0Field)
@@ -826,6 +739,56 @@ bool LinePerceptor::isWhite(const Spot& a, const Spot& b, const Vector2f& n0Fiel
       LINE("module:LinePerceptor:isWhite", a.image.x(), a.image.y(), b.image.x(), b.image.y(), 1, Drawings::solidPen, ColorRGBA::blue);
     }
     return true;
+  }
+}
+
+float LinePerceptor::calcWhiteCheckDistanceInImage(const Vector2f& pointOnField) const
+{
+  // sorry for these magic numbers and formulas. I can't explain them, but they kind of work
+  if(theCameraInfo.camera == CameraInfo::lower)
+  {
+    return 15.f + 32.f * (1.f - (pointOnField.x() + 0.5f * std::abs(pointOnField.y())) / 1500.f);
+  }
+  else
+  {
+    // avoid computing a root. accurate enough for this purpose
+    float yFactor = pointOnField.x() <= 0 ? 1.f : pointOnField.x() <= 350.f ? 0.25f + 0.75f * (1.f - pointOnField.x() / 350.f) : 0.25f;
+    float estimatedDistance = pointOnField.x() + yFactor * std::abs(pointOnField.y());
+    return 35000.f / estimatedDistance;
+  }
+}
+
+void LinePerceptor::clusterCircleCenter(const Vector2f& center)
+{
+  for(CircleCluster& cluster : clusters)
+  {
+    if((cluster.center - center).squaredNorm() <= sqrCircleClusterRadius)
+    {
+      cluster.centers.emplace_back(center);
+      Vector2f newCenter(0, 0);
+      for(const Vector2f& c : cluster.centers)
+      {
+        newCenter += c;
+      }
+      cluster.center = newCenter / static_cast<float>(cluster.centers.size());
+      return;
+    }
+  }
+  clusters.emplace_back(center);
+}
+
+void LinePerceptor::markLinesOnCircle(const Vector2f& center)
+{
+  for(const LinesPercept::Line& line : theLinesPercept.lines)
+  {
+    for(const Vector2f& spot : line.spotsInField)
+    {
+      if(getAbsoluteDeviation((center - spot).norm(), theFieldDimensions.centerCircleRadius) > maxCircleFittingError)
+        goto lineNotOnCircle;
+    }
+    const_cast<LinesPercept::Line&>(line).belongsToCircle = true;
+  lineNotOnCircle :
+    ;
   }
 }
 
@@ -982,7 +945,6 @@ bool LinePerceptor::isCircleWhite(const Vector2f& center, const float radius) co
       }
     }
   }
-
   return count > 0 && static_cast<float>(whiteCount) / static_cast<float>(count) >= minCircleWhiteRatio;
 }
 
@@ -1091,43 +1053,12 @@ float LinePerceptor::calcWhiteCheckDistance(const Vector2f& pointOnField) const
     return whiteCheckDistance;
 }
 
-float LinePerceptor::calcWhiteCheckDistanceInImage(const Vector2f& pointOnField) const
-{
-  // sorry for these magic numbers and formulas. I can't explain them, but they kind of work
-  if(theCameraInfo.camera == CameraInfo::lower)
-  {
-    return 15.f + 32.f * (1.f - (pointOnField.x() + 0.5f * std::abs(pointOnField.y())) / 1500.f);
-  }
-  else
-  {
-    // avoid computing a root. accurate enough for this purpose
-    float yFactor = pointOnField.x() <= 0 ? 1.f : pointOnField.x() <= 350.f ? 0.25f + 0.75f * (1.f - pointOnField.x() / 350.f) : 0.25f;
-    float estimatedDistance = pointOnField.x() + yFactor * std::abs(pointOnField.y());
-    return 35000.f / estimatedDistance;
-  }
-}
-
-int LinePerceptor::previousVerticalScanLine(const Spot& spot, int scanLineId) const
-{
-  ASSERT(scanLineId >= 1);
-  int previousScanLine = scanLineId - 1;
-  if(highResolutionScan)
-    for(int i = 1; i <= 4 && scanLineId - i >= 0; ++i)
-    {
-      auto regions = theColorScanLineRegionsVerticalClipped.scanLines[scanLineId - i].regions;
-      if(regions.empty())
-        continue;
-      if(static_cast<float>(regions[0].range.lower) >= spot.image.y())
-        return scanLineId - i;
-    }
-  return previousScanLine;
-}
-
-bool LinePerceptor::isSpotInsideObstacle(const int fromX, const int toX, const int fromY, const int toY) const
+bool LinePerceptor::isSpotInsideObstacle(const int firstImgX, const int firstImgY, const int lastImgX, const int lastImgY) const
 {
   auto predicate = [&](const ObstaclesImagePercept::Obstacle& obstacle)
   {
-    if(toX >= obstacle.left && fromX <= obstacle.right && toY >= obstacle.top && fromY <= obstacle.bottom)
+    if(((firstImgX >= obstacle.left && firstImgX <= obstacle.right) || (lastImgX >= obstacle.left && lastImgX <= obstacle.right))
+      && ((firstImgY >= obstacle.top && firstImgY <= obstacle.bottom) || (lastImgY >= obstacle.top && lastImgY <= obstacle.bottom)))
       return true;
     else
       return false;

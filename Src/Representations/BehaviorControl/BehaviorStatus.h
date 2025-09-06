@@ -26,6 +26,7 @@ STREAMABLE(BehaviorStatus, COMMA public BHumanCompressedMessageParticle<Behavior
     fallen,
     finished,
     initial,
+    standby,
     lookAroundAfterPenalty,
     set,
     kickOffWait,
@@ -42,6 +43,7 @@ STREAMABLE(BehaviorStatus, COMMA public BHumanCompressedMessageParticle<Behavior
     alignToBall,
     wall,
     stand,
+    clear,
   });
 
   /**

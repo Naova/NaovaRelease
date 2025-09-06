@@ -1,21 +1,20 @@
 /**
  * @file LinePerceptor.h
  *
- * Declares a module which detects lines and the center circle based on ColorScanLineRegions.
+ * Declares a module which detects lines and the center circle.
  *
- * @author Felix Thielke
- * @author Lukas Monnerjahn
+ * @author Olivier St-Pierre
+ * @author Marc-Olivier Bisson
  */
 
 #pragma once
 
-#include "Representations/Communication/RobotInfo.h"
 #include "Representations/Configuration/FieldDimensions.h"
+#include "Representations/Configuration/LinePerceptorSettings.h"
 #include "Representations/Infrastructure/CameraInfo.h"
 #include "Representations/Perception/FieldPercepts/CirclePercept.h"
 #include "Representations/Perception/FieldPercepts/LinesPercept.h"
 #include "Representations/Perception/ImagePreprocessing/CameraMatrix.h"
-#include "Representations/Perception/ImagePreprocessing/ColorScanLineRegions.h"
 #include "Representations/Perception/ImagePreprocessing/ECImage.h"
 #include "Representations/Perception/ImagePreprocessing/FieldBoundary.h"
 #include "Representations/Perception/ImagePreprocessing/ImageCoordinateSystem.h"
@@ -24,41 +23,35 @@
 #include "Tools/Math/Eigen.h"
 #include "Tools/Math/LeastSquares.h"
 #include "Tools/Module/Module.h"
+#include "Tools/Debugging/DebugImages.h"
+#include "Tools/ImageProcessing/Image.h"
+#include "Tools/ImageProcessing/PixelTypes.h"
 
-#include <limits>
-#include <vector>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/core.hpp>
+
 
 MODULE(LinePerceptor,
 {,
+  REQUIRES(CameraImage),
   REQUIRES(CameraInfo),
   REQUIRES(CameraMatrix),
   REQUIRES(ECImage),
   REQUIRES(FieldBoundary),
   REQUIRES(FieldDimensions),
-  REQUIRES(ColorScanLineRegionsVerticalClipped),
-  REQUIRES(ColorScanLineRegionsHorizontal),
   REQUIRES(ImageCoordinateSystem),
   REQUIRES(ObstaclesImagePercept),
   REQUIRES(RelativeFieldColors),
-  REQUIRES(RobotInfo),
+  REQUIRES(LinePerceptorSettings),
   PROVIDES(LinesPercept),
   REQUIRES(LinesPercept),
   PROVIDES(CirclePercept),
   LOADS_PARAMETERS(
   {,
-    (int) maxLineWidthDeviationPx,          /**< maximum deviation of line width in the image to the expected width at that position in px */
-    (float) maxLineWidthDeviationMm,      /**< maximum deviation of line width to the expected width in mm */
-    (int) maxSkipWidth,                      /**< regions with a size of up to this many pixels can be skipped next to lines. */
-    (int) maxSkipNumber,                     /**< The maximum number of neighboring regions to skip. */
-    (float) greenAroundLineRatio,          /**< minimum green next to the line required as factor of line width. */
-    (float) greenAroundLineRatioCalibration,
-    (float) maxDistantHorizontalLength,    /**< maximum length of distant horizontal lines in mm */
-    (float) maxLineFittingError,          /**< maximum error of fitted lines through spots on the field in mm */
-    (unsigned int) minSpotsPerLine,          /**< minimum number of spots per line */
-    (unsigned int) minSpotsPerLineCalibration,
     (unsigned int) whiteCheckStepSize,      /**< step size in px when checking if lines are white */
     (float) minWhiteRatio,               /**< minimum ratio of white pixels in lines */
-    (float) minSquaredLineLength,     /**< minimum squared length of found lines in mm */
     (float) maxCircleFittingError,        /**< maximum error of fitted circles through spots on the field in mm */
     (float) maxCircleRadiusDeviation,    /**< maximum deviation in mm of the perceived center circle radius to the expected radius */
     (unsigned int) minSpotsOnCircle,        /**< minimum number of spots on the center circle */
@@ -66,20 +59,8 @@ MODULE(LinePerceptor,
     (Angle) circleAngleBetweenSpots,    /**< angular distance around the circle center that should be spanned by a circle candidates spots */
     (float) minCircleWhiteRatio,         /**< minimum ratio of white pixels in the center circle */
     (float) sqrCircleClusterRadius, /**< squared radius for clustering center circle candidates */
-    (unsigned int) minCircleClusterSize,     /**< minimum size of a cluster to be considered a valid circle candidate */
-    (float) maxWidthCheckDistance,      /**< maximum distance of line spots in mm to be checked for the correct line width on forming candidates */
-    (bool) trimLines,                     /**< whether lines extended by robots shall be trimmed */
-    (bool) trimLinesCalibration,
-    (int) maxWidthImage,                    /**< maximum width of a line in the image at a spot up to which the spot is considered a valid line spot without further checks*/
-    (float) maxWidthImageSquared, /**< maximum squared width of a line in the image at a spot up to which the spot is considered a valid line spot without further checks */
-    (float) mFactor,                       /**< the calculated width of a line at a spot in mm must be below the expected width multiplied by this factor to consider the spot a valid line spot */
-    (int) minConsecutiveSpots,               /**< number of consecutive valid line spots found at which trimming shall be stopped */
-
     (float) squaredWhiteCheckNearField, /**< squared distance in mm from which on the whiteCheckDistance becomes increased due to possibly blurry images */
-    (float) maxNormalAngleDiff,          /**< maximum angle difference between two normal vectors for two line segments possibly belong to the same line */
-    (bool) relaxedGreenCheckAtImageBorder, /**< accept line spots with too small neighboring green regions if they reach to the image border */
     (bool) perspectivelyCorrectWhiteCheck, /**< true: transform image to field, compute test points on field, project back; false: compute test points in image */
-    (bool) highResolutionScan,           /**< use all the vertical scan lines or only the low resolution subset */
   }),
 });
 
@@ -100,43 +81,6 @@ private:
   };
 
   /**
-   * Structure for a line candidate.
-   */
-  struct Candidate
-  {
-    Vector2f n0;
-    float d;
-    std::vector<const Spot*> spots;
-
-    inline Candidate(const Spot* anchor) : spots()
-    {
-      spots.emplace_back(anchor);
-    }
-
-    /**
-     * Calculates the distance of the given point to this line candidate.
-     *
-     * @param point point to calculate the distance to
-     */
-    inline float getDistance(const Vector2f& point) const
-    {
-      return std::abs(n0.dot(point) - d);
-    }
-
-    /**
-     * Recalculates n0 and d.
-     */
-    inline void fitLine()
-    {
-      LeastSquares::LineFitter fitter;
-      for(const Spot* spot : spots)
-        fitter.add(spot->field);
-
-      VERIFY(fitter.fit(n0, d));
-    }
-  };
-
-  /**
    * Structure for a center circle candidate.
    */
   struct CircleCandidate
@@ -145,16 +89,6 @@ private:
     float radius;
     std::vector<Vector2f> fieldSpots;
     LeastSquares::CircleFitter fitter;
-
-    inline CircleCandidate(const Candidate& line, const Vector2f& spot)
-    {
-      for(const Spot* const lineSpot : line.spots)
-        fieldSpots.emplace_back(lineSpot->field);
-      fieldSpots.emplace_back(spot);
-      fitter.add(fieldSpots);
-      if(!fitter.fit(center, radius))
-        radius = std::numeric_limits<float>::max();
-    }
 
     /**
      * Adds the given field spot to the candidate and refits the circle.
@@ -231,9 +165,6 @@ private:
     inline CircleCluster(const Vector2f& center) : center(center) { centers.emplace_back(center); }
   };
 
-  std::vector<std::vector<Spot>> spotsH;
-  std::vector<std::vector<Spot>> spotsV;
-  std::vector<Candidate> candidates;
   std::vector<CircleCandidate, Eigen::aligned_allocator<CircleCandidate>> circleCandidates;
   std::vector<CircleCluster> clusters;
 
@@ -255,63 +186,6 @@ private:
    * @param circlePercept the CirclePercept to update
    */
   void update(CirclePercept& circlePercept) override;
-
-  /**
-   * Scans the ColorScanLineRegionsHorizontal for line candidates.
-   *
-   * @param linesPercept representation in which the found lines are stored
-   */
-  void scanHorizontalScanLines(LinesPercept& linesPercept);
-
-  /**
-   * Scans the ColorScanLineRegionsVerticalClipped for line candidates.
-   *
-   * @param linesPercept representation in which the found lines are stored
-   */
-  void scanVerticalScanLines(LinesPercept& linesPercept);
-
-  /**
-   * Extends all found lines by tracing white lines in the image starting at
-   * the line ends.
-   *
-   * @param linesPercept representation in which the lines to extend are stored
-   */
-  void extendLines(LinesPercept& linesPercept) const;
-
-  /**
-   * Checks whether the given line is extended by robots.
-   * If this is the case, the line is trimmed accordingly.
-   *
-   * @param line the line to trim
-   */
-  void trimLine(LinesPercept::Line& line) const;
-
-  /**
-   * Checks whether a given segment can be added to a line candidate
-   * @param a line spot of the segments first point
-   * @param b line spot of the segments last point
-   * @param candidate the line candidate
-   */
-  bool isSegmentValid(const Spot& a, const Spot& b, const Candidate& candidate);
-
-  /**
-   * Checks whether the given points are connected by a white line.
-   *
-   * @param a line spot of the first point
-   * @param b line spot of the second point
-   * @param n0Field normal on field of the line segment or the candidate it shall be added to
-   */
-  bool isWhite(const Spot& a, const Spot& b, const Vector2f& n0Field) /*const*/;
-
-  /**
-   * Determines the width of a line in the image with normal n0 at the given
-   * spot in field coordinates.
-   *
-   * @param spot the spot to check
-   * @param n0 normal of the line in field coordinates
-   * @return the line width in field coordinates
-   */
-  float getLineWidthAtSpot(const Spot& spot, const Vector2f& n0) const;
 
   /**
    * Corrects the given center circle candidate by projecting spots on the
@@ -337,6 +211,22 @@ private:
    * @param center center of the detected circle
    */
   void markLinesOnCircle(const Vector2f& center);
+
+  /**
+   * Checks whether the given points are connected by a white line.
+   *
+   * @param a line spot of the first point
+   * @param b line spot of the second point
+   * @param n0Field normal on field of the line segment or the candidate it shall be added to
+   */
+  bool isWhite(const Spot& a, const Spot& b, const Vector2f& n0Field) /*const*/;
+
+  /**
+   * Calculates the pixel distance a reference point for a white check shoud have to a given point.
+   * @param pointOnField the Point in field coordinates. Used to estimate its distance
+   * @return the points white check distance in pixels
+   */
+  float calcWhiteCheckDistanceInImage(const Vector2f& pointOnField) const;
 
   /**
    * Checks whether the given center circle candidate is white when projected
@@ -375,43 +265,60 @@ private:
   float calcWhiteCheckDistance(const Vector2f& pointOnField) const;
 
   /**
-   * Calculates the pixel distance a reference point for a white check shoud have to a given point.
-   * @param pointOnField the Point in field coordinates. Used to estimate its distance
-   * @return the points white check distance in pixels
-   */
-  float calcWhiteCheckDistanceInImage(const Vector2f& pointOnField) const;
-
-  /**
-   * Finds the vertical scan line straight left of the given spot.
-   * This handles the possibly differing vertical scan line lengths
-   * @param spot A spot on a vertical scan line
-   * @param scanLineId id of the scanline the spot lies on
-   * @return id of the scan line left of the spot
-   */
-  int previousVerticalScanLine(const Spot& spot, int scanLineId) const;
-
-  /**
-   * Checks whether the given region lies within an obstacle in the ObstaclesPercept.
+   * Checks whether the given line has a point inside the obstacle in the ObstaclesPercept.
    *
-   * @param fromX left coordinate of the region
-   * @param toX right coordinate of the region
-   * @param fromY upper coordinate of the region
-   * @param toY lower coordinate of the region
+   * @param firstImgX the x coordinate of the first point of the line
+   * @param firstImgY the y coordinate of the first point of the line
+   * @param lastImgX the x coordinate of the last point of the line
+   * @param lastImgY the y coordinate of the last point of the line
    */
-  bool isSpotInsideObstacle(const int fromX, const int toX, const int fromY, const int toY) const;
+  bool isSpotInsideObstacle(const int firstImgX, const int firstImgY, const int lastImgX, const int lastImgY) const;
 
   bool debugIsPointWhite = false;
 
-#define GREEN_AROUND_LINE_RATIO (theRobotInfo.mode == RobotInfo::Mode::calibration ? greenAroundLineRatioCalibration : greenAroundLineRatio)
-#define MIN_SPOTS_PER_LINE (theRobotInfo.mode == RobotInfo::Mode::calibration ? minSpotsPerLineCalibration : minSpotsPerLine)
-#define TRIM_LINES (theRobotInfo.mode == RobotInfo::Mode::calibration ? trimLinesCalibration : trimLines)
+  std::vector<LinesPercept::Line> detectLine();
+  cv::Mat convertToMat(Image<PixelTypes::GrayscaledPixel> image);
+  Image<PixelTypes::GrayscaledPixel> convertToImage(cv::Mat image);
+  cv::Mat excludeBackground(cv::Mat image);
+  cv::Mat filterBlobs(cv::Mat image, int areaToSelect);
+  cv::Mat skeletonize(cv::Mat& img);
+  std::vector<LinesPercept::Line> createLines(std::vector<cv::Vec4i> lines);
+  std::vector<Vector2i> createSpotsInLine(Vector2i firstSpot, Vector2i lastSpot);
+  void drawSpots(LinesPercept& linesPercept);
+
+
+  std::vector<std::vector<cv::Vec4i>> groupLines(std::vector<cv::Vec4i> lines, int angleThreshold, int distanceThresholdMin, int distanceThresholdMax, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight);
+  bool isPartOfGroup(std::vector<cv::Vec4i> group, cv::Vec4i line, int angleThreshold, int distanceThresholdMin, int distanceThresholdMax, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight);
+  double angleBetweenLines(cv::Vec4i line1, cv::Vec4i line2);
+  bool linesRespectDistanceThreshold(cv::Vec4i line, cv::Vec4i lineToGroup, int distanceThresholdMin, int distanceThresholdMax, int imageHeight);
+  bool isLineContained(cv::Vec4i smallLine, cv::Vec4i largeLine, int distanceThresholdContainedMin, int distanceThresholdContainedMax, int imageHeight);
+  double pointToLineDistance(cv::Point point, cv::Vec4i line);
+
+  std::vector<cv::Vec4i> combineLines(std::vector<std::vector<cv::Vec4i>> groupedLines);
+  double distance(cv::Point p1, cv::Point p2);
+
+  LinePerceptorSettings::Settings settings;
+  double scaleX;
+  double scaleY;
+  int frameCounter = 0;
+
+
+  void draw() const
+  {
+    SEND_DEBUG_IMAGE("GrayscaledImage", grayscaled);
+    SEND_DEBUG_IMAGE("GrayscaledImageBlur", grayscaledBlur);
+    SEND_DEBUG_IMAGE("GrayscaledImageAdaptiveThreshold", grayscaledAdaptiveThreshold);
+    SEND_DEBUG_IMAGE("GrayscaledImageSkel", grayscaledSkel);
+  }
+
+  Image<PixelTypes::GrayscaledPixel> grayscaled;
+  Image<PixelTypes::GrayscaledPixel> grayscaledBlur;
+  Image<PixelTypes::GrayscaledPixel> grayscaledAdaptiveThreshold;
+  Image<PixelTypes::GrayscaledPixel> grayscaledSkel;
 
 public:
   LinePerceptor()
   {
-    spotsH.reserve(20);
-    spotsV.reserve(20);
-    candidates.reserve(50);
     circleCandidates.reserve(50);
     clusters.reserve(20);
   }

@@ -11,6 +11,8 @@ dr debugDrawing3d:representation:TeamInfo
 robot all
 
 # Select modules for simulator
+mr LinePerceptorSettings LogDataProvider Lower
+mr LinePerceptorSettings LogDataProvider Upper
 mr CameraImage LogDataProvider Lower
 mr CameraImage LogDataProvider Upper
 mr CameraInfo LogDataProvider Lower
@@ -29,3 +31,6 @@ mr JPEGImage off
 
 call Includes/GameStates
 call Includes/DebugResponses
+
+# robot info for all robots
+dr debugDrawing3d:module:BallPlayerStrategyProvider:strategy

@@ -19,6 +19,7 @@ CARD(PassCard,
   CALLS(WalkAtRelativeSpeed),
   REQUIRES(FieldBall),
   REQUIRES(BallPlayerStrategy),
+  REQUIRES(RobotPose),
   DEFINES_PARAMETERS(
   {,
     (float)(0.8f) walkSpeed,
@@ -45,7 +46,7 @@ class PassCard : public PassCardBase
 
   Angle calcAngleToTarget() const
   {
-    return theBallPlayerStrategy.targetForPass.angle();
+    return ( theRobotPose.inversePose * theBallPlayerStrategy.targetForPass).angle();
   }
 };
 

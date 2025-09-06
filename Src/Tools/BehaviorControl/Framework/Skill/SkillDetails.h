@@ -251,7 +251,7 @@ class SkillImplementationCreatorBase
 public:
   struct Info
   {
-    std::vector<const char*> requires; /**< The names of representations required by this skill implementation. */
+    std::vector<const char*> requiredRepresentations;/**< The names of representations required by this skill implementation. */
     std::vector<SkillInterfaceCreator> implements; /**< Info about skills implemented by this skill implementation. */
     std::vector<const char*> calls; /**< The names of skills called by this skill implementation. */
   };
@@ -372,7 +372,7 @@ private:
 
 #define _SKILL_IMPLEMENTATION_INFO(x) _MODULE_JOIN(_SKILL_IMPLEMENTATION_INFO_, x)
 #define _SKILL_IMPLEMENTATION_INFO_IMPLEMENTS(type) _info.implements.emplace_back(#type, _SKILLS_NAMESPACE::type##Skill::createNew);
-#define _SKILL_IMPLEMENTATION_INFO_REQUIRES(type) _info.requires.push_back(#type);
+#define _SKILL_IMPLEMENTATION_INFO_REQUIRES(type) _info.requiredRepresentations.push_back(#type);
 #define _SKILL_IMPLEMENTATION_INFO_USES(type)
 #define _SKILL_IMPLEMENTATION_INFO_MODIFIES(type)
 #define _SKILL_IMPLEMENTATION_INFO_CALLS(type) _info.calls.push_back(#type);

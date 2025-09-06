@@ -14,6 +14,7 @@
 #include "Representations/Communication/GameInfo.h"
 #include "Representations/Communication/RobotInfo.h"
 #include "Representations/Communication/TeamInfo.h"
+#include "Representations/Communication/RobotHadBallContact.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/RobotHealth.h"
 #include "Representations/Infrastructure/TeamTalk.h"
@@ -33,9 +34,25 @@
 #include "Tools/Communication/BNTP.h"
 #include "Tools/Communication/CompressedTeamCommunicationStreams.h"
 #include "Tools/Communication/RobotStatus.h"
+#include "Tools/Streams/Enum.h"
 #include <map>
 #include "Representations/Perception/BallPercepts/BallPercept.h"
 #include "Representations/Infrastructure/ExtendedGameInfo.h"
+
+// BNTP, FieldCoverage, RobotHealth and FieldFeatureOverview cannot be part of this for technical reasons.
+#define FOREACH_TEAM_MESSAGE_REPRESENTATION(_) \
+  _(BallModel); \
+  _(ObstacleModel); \
+  _(Whistle); \
+  _(BehaviorStatus); \
+  _(TeamBehaviorStatus); \
+  _(RobotPose); \
+  _(RobotStatus); \
+  _(RobotHadBallContact); \
+  _(RefereeReadySignal);
+
+#define NUMBER_OF_REPRESENTATIONS 9
+#define EMPTY_MESSAGE_SIZE 10
 
 MODULE(TeamMessageHandler,
 {,
@@ -47,6 +64,7 @@ MODULE(TeamMessageHandler,
   USES(MotionRequest),
   USES(RawGameInfo),
   USES(TeamData),
+  USES(GameInfo),
 
   // extract data to send
   REQUIRES(FallDownState),
@@ -65,6 +83,8 @@ MODULE(TeamMessageHandler,
   USES(TeamBehaviorStatus),
   USES(TeamTalk),
   USES(Whistle),
+  USES(RobotHadBallContact),
+  USES(RefereeReadySignal),
 
   PROVIDES(NaovaMessageOutputGenerator),
   PROVIDES(TeamData),
@@ -97,6 +117,7 @@ MODULE(TeamMessageHandler,
     (int) scoreFloor,
     (int) defaultMinScore,
     (int) totalSecsGame,
+    (int) minDistanceToSendPose,
   }),
 });
 
@@ -122,9 +143,10 @@ private:
   mutable unsigned int nbSentMessages = 0;
   mutable unsigned int nbReceivedMessages = 0;
   mutable int minScore = defaultMinScore;
+  bool refereeDetectedLastState = false;
 
   void update(NaovaMessageOutputGenerator& outputGenerator) override;
-  void generateMessage(NaovaMessageOutputGenerator& outputGenerator) const;
+  void generateMessage(NaovaMessageOutputGenerator& outputGenerator);
   void writeMessage(NaovaMessageOutputGenerator& outputGenerator, RoboCup::SPLStandardMessage* const m) const;
   void log(std::map<std::string, std::string> values, std::string reasonForLogging);
   void log(std::string value, std::string reasonForLogging);
@@ -173,6 +195,9 @@ private:
   int getScoreUnpenalized();
   int getScoreWhistle();
   int getScoreWhistleSET();
+  int getScoreRobotBallContact();
+  int getScoreRefereeReadySignal();
+  int getScoreKickoff();
   void adjustScore();
 
   // struct represente data state before sent
@@ -186,4 +211,30 @@ private:
     Vector2f lastBallPosition;
     int lastTimeBallDetectedMessage;
   } snap;
+
+  // Message type
+  ENUM(messageRepresentation, //Represente l'ordre de priorite des representations
+  {,
+    robotStatusIndex,
+    robotPoseIndex,
+    refereeReadySignalIndex,
+    ballModelIndex,
+    robotHadBallContactIndex,
+    obstacleModelIndex,
+    whistleIndex,
+    behaviorStatusIndex,
+    teamBehaviorStatusIndex,
+  });
+
+  mutable uint8_t lastFrameState;
+  mutable uint16_t currentMessageType = 0;
+  mutable uint8_t maxObstacles;
+  mutable uint8_t messageCount;
+  std::string representationOptions[NUMBER_OF_REPRESENTATIONS] = {"  theRobotStatus: RobotStatus\n", "  theRobotPose: RobotPose\n", "  theRefereeReadySignal: RefereeReadySignal\n", "  theBallModel: BallModel\n", " theRobotHadBallContact: RobotHadBallContact\n", "  theObstacleModel: ObstacleModel\n", "  theWhistle: Whistle\n", "  theBehaviorStatus: BehaviorStatus\n", "  theTeamBehaviorStatus: TeamBehaviorStatus\n"}; 
+  int representationSizes[NUMBER_OF_REPRESENTATIONS] = {3,30,1,33,1,18,3,5,8}; //Taille en bit
+
+  void changeMessageType();
+  bool getBitValue(uint16_t compressed_header, int index);
+  void setBitValue(uint16_t& compressed_header, int index, bool value);
+  void addToMessage(int& messageSize, int representationIndex);
 };

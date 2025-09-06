@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Representations/BehaviorControl/TeamBehaviorStatus.h"
+#include "Representations/BehaviorControl/BallPlayerStrategy.h"
 #include "Representations/Communication/GameInfo.h"
 #include "Representations/Communication/RobotInfo.h"
 #include "Representations/Communication/TeamData.h"
@@ -19,6 +20,7 @@
 #include "Representations/Sensing/GroundContactState.h"
 #include "Tools/Module/Module.h"
 #include "Representations/Infrastructure/RobotHealth.h"
+#include "Representations/Communication/RobotHadBallContact.h"
 
 MODULE(LEDHandler,
 {,
@@ -34,6 +36,8 @@ MODULE(LEDHandler,
   REQUIRES(SystemSensorData),
   REQUIRES(TeamBehaviorStatus),
   REQUIRES(TeamData),
+  REQUIRES(RobotHadBallContact),
+  REQUIRES(BallPlayerStrategy),
   PROVIDES(LEDRequest),
   DEFINES_PARAMETERS(
   {,

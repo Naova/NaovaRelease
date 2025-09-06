@@ -1,6 +1,13 @@
 # connect to a robot
 call Includes/connectDialog Includes/connect
 
+vi GrayscaledImage Upper
+vi GrayscaledImage Lower
+vi GrayscaledImageAdaptiveThreshold Upper
+vi GrayscaledImageAdaptiveThreshold Lower
+vi GrayscaledImageSkel Upper
+vi GrayscaledImageSkel Lower
+
 # all views are defined in other scripts
 call Includes/JPEGImageViews
 call Includes/FieldViews1
@@ -16,3 +23,5 @@ jc press 3 call Includes/Joystick
 jc press 4 call Includes/Joystick
 
 echo mr JPEGImage off
+
+

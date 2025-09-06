@@ -40,8 +40,11 @@ target_include_directories(SimulatedNao PRIVATE $<$<PLATFORM_ID:Windows>:${BHUMA
 target_link_libraries(SimulatedNao PRIVATE Eigen::Eigen)
 target_link_libraries(SimulatedNao PRIVATE FFTW::FFTW FFTW::FFTWF)
 target_link_libraries(SimulatedNao PRIVATE libjpeg::libjpeg)
+target_link_libraries(SimulatedNao PRIVATE opencv2::core opencv2::imgproc)
 target_link_libraries(SimulatedNao PRIVATE snappy::snappy)
 target_link_libraries(SimulatedNao PRIVATE voronoi::voronoi)
+target_link_libraries(SimulatedNao PRIVATE ONNXRuntime::ONNXRuntime)
+target_link_libraries(SimulatedNao PRIVATE CompiledNN::ONNX)
 target_link_libraries(SimulatedNao PRIVATE $<$<PLATFORM_ID:Linux>:flite::flite_cmu_us_slt> $<$<PLATFORM_ID:Linux>:flite::flite_usenglish>
     $<$<PLATFORM_ID:Linux>:flite::flite_cmulex> $<$<PLATFORM_ID:Linux>:flite::flite>)
 target_link_libraries(SimulatedNao PRIVATE $<$<PLATFORM_ID:Linux>:ALSA::ALSA>)

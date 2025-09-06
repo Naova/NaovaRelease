@@ -272,7 +272,7 @@ void SideInformationProvider::computeBasicOwnSideInformation(SideInformation& si
 {
   if(theGameInfo.gamePhase != GAME_PHASE_PENALTYSHOOT)
   {
-    if(theExtendedGameInfo.gameStateLastFrame == STATE_INITIAL && theGameInfo.state == STATE_READY)
+    if(IS_PREGAME_STATE(theExtendedGameInfo.gameStateLastFrame) && theGameInfo.state == STATE_READY)
     {
       distanceWalkedAtKnownPosition = theOdometer.distanceWalked;
       largestXPossibleAtKnownPosition = theSetupPoses.getPoseOfRobot(theOwnTeamInfo.getSubstitutedPlayerNumber(theRobotInfo.number)).position.x();

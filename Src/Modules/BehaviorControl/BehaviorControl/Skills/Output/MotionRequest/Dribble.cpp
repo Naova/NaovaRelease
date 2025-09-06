@@ -10,6 +10,7 @@
 #include "Representations/BehaviorControl/Skills.h"
 #include "Representations/MotionControl/MotionInfo.h"
 #include "Representations/MotionControl/MotionRequest.h"
+#include "Tools/Range.h"
 
 SKILL_IMPLEMENTATION(DribbleImpl,
 {,
@@ -26,7 +27,7 @@ class DribbleImpl : public DribbleImplBase
     theMotionRequest.motion = MotionRequest::dribble;
     theMotionRequest.walkSpeed = p.speed;
     theMotionRequest.obstacleAvoidance = p.obstacleAvoidance;
-    theMotionRequest.targetDirection = p.targetDirection;
+    theMotionRequest.targetDirection = Rangef::PiRange().clamped(p.targetDirection);
     theMotionRequest.directionPrecision = p.directionPrecision;
     theMotionRequest.alignPrecisely = p.alignPrecisely;
     theMotionRequest.kickPower = p.kickPower;

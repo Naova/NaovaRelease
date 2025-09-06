@@ -16,28 +16,15 @@
 
 MAKE_MODULE(TeamMessageHandler, communication);
 
-// BNTP, RobotStatus, RobotPose, FieldCoverage, RobotHealth and FieldFeatureOverview cannot be part of this for technical reasons.
-#define FOREACH_TEAM_MESSAGE_REPRESENTATION(_) \
-  _(FrameInfo); \
-  _(BallModel); \
-  _(ObstacleModel); \
-  _(Whistle); \
-  _(BehaviorStatus); \
-  _(TeamBehaviorStatus); \
-  _(TeamTalk);
-
 struct TeamMessage
 {};
 
+#define REGISTER_TEAM_MESSAGE_REPRESENTATION(x) TypeRegistry::addAttribute(name, typeid(x).name(), "the" #x)
 void TeamMessageHandler::regTeamMessage()
 {
   PUBLISH(regTeamMessage);
   const char* name = typeid(TeamMessage).name();
   TypeRegistry::addClass(name, nullptr);
-#define REGISTER_TEAM_MESSAGE_REPRESENTATION(x) TypeRegistry::addAttribute(name, typeid(x).name(), "the" #x)
-
-  REGISTER_TEAM_MESSAGE_REPRESENTATION(RobotStatus);
-  REGISTER_TEAM_MESSAGE_REPRESENTATION(RobotPose);
   FOREACH_TEAM_MESSAGE_REPRESENTATION(REGISTER_TEAM_MESSAGE_REPRESENTATION);
 }
 
@@ -49,8 +36,39 @@ TeamMessageHandler::TeamMessageHandler() :
   std::string source(f.getSize(), 0);
   f.read(source.data(), source.length());
   teamCommunicationTypeRegistry.addTypes(source);
+  messageCount = 0;
+}
+
+void TeamMessageHandler::changeMessageType(){
+  std::string usedRepresentations = "";
+  for (int i = 0; i < NUMBER_OF_REPRESENTATIONS; i++){
+    if (getBitValue(currentMessageType, i) == 1){
+        usedRepresentations += representationOptions[i];
+    }
+  }
+  teamCommunicationTypeRegistry.addTypes("\nObstacleModel\n{\nobstacles: Obstacle[:" + std::to_string(maxObstacles) + "]\n}\n");
+  teamCommunicationTypeRegistry.addTypes("\nTeamMessage\n{\n"+ usedRepresentations + "}\n");
   teamCommunicationTypeRegistry.compile();
-  teamMessageType = teamCommunicationTypeRegistry.getTypeByName("TeamMessage");
+  teamMessageType = teamCommunicationTypeRegistry.getTypeByName("TeamMessage"); 
+}
+
+bool TeamMessageHandler::getBitValue(uint16_t compressed_header, int index){
+  return (compressed_header >> index) & 1;
+}
+
+void TeamMessageHandler::setBitValue(uint16_t& compressed_header, int index, bool value){
+  if (value){
+    compressed_header |= 1 << index;
+  } else {
+    compressed_header &= ~(1 << index);
+  }
+}
+
+void TeamMessageHandler::addToMessage(int& messageSize, int representationIndex){
+  if (representationSizes[representationIndex] + messageSize <= SPL_STANDARD_MESSAGE_DATA_SIZE){
+    setBitValue(currentMessageType, representationIndex, true);
+    messageSize += representationSizes[representationIndex] ;
+  }
 }
 
 void TeamMessageHandler::update(NaovaMessageOutputGenerator& outputGenerator)
@@ -73,10 +91,39 @@ void TeamMessageHandler::update(NaovaMessageOutputGenerator& outputGenerator)
     theRobotStatus.timeOfLastGroundContact = theFrameInfo.time;
   if(theRobotStatus.isUpright)
     theRobotStatus.timeWhenLastUpright = theFrameInfo.time;
+  int messageSize = EMPTY_MESSAGE_SIZE;
+  currentMessageType = 0;
+  maxObstacles = 1;
+  int counter = 0;
 
+  while (messageSize < SPL_STANDARD_MESSAGE_DATA_SIZE && counter < NUMBER_OF_REPRESENTATIONS)
+  {
+    if (counter == ballModelIndex){
+      if (getScoreBallMoved() > 0 || (lastFrameState == STATE_SET && theGameInfo.state == STATE_PLAYING)){
+        addToMessage(messageSize, counter);
+      }
+    }
+    else if (counter == robotPoseIndex){
+      if (((theRobotPose.translation - snap.lastPose)).norm() > minDistanceToSendPose)
+        addToMessage(messageSize, counter);
+    }
+    else
+      addToMessage(messageSize, counter);
+    counter++;
+  }
+  //Pour nombre d'obstacles variables
+  if (messageSize <= SPL_STANDARD_MESSAGE_DATA_SIZE)
+  {
+    maxObstacles += (int) floor((SPL_STANDARD_MESSAGE_DATA_SIZE - messageSize) / representationSizes[obstacleModelIndex]);
+    messageSize += (maxObstacles-1) * representationSizes[obstacleModelIndex];
+  }
+
+  lastFrameState = theGameInfo.state;
   outputGenerator.generate = [this, &outputGenerator](RoboCup::SPLStandardMessage* const m)
   {
     generateMessage(outputGenerator);
+    if (outputGenerator.theNaovaStandardMessage.sizeOfNaovaMessage() > SPL_STANDARD_MESSAGE_DATA_SIZE)
+      return;
     writeMessage(outputGenerator, m);
 
     // snap current data before sent
@@ -87,37 +134,51 @@ void TeamMessageHandler::update(NaovaMessageOutputGenerator& outputGenerator)
   };
 }
 
-void TeamMessageHandler::generateMessage(NaovaMessageOutputGenerator& outputGenerator) const
+#define SEND_PARTICLE(particle) the##particle >> outputGenerator
+void TeamMessageHandler::generateMessage(NaovaMessageOutputGenerator& outputGenerator)
 {
-#define SEND_PARTICLE(particle) \
-  the##particle >> outputGenerator
-
   outputGenerator.theNaovaStandardMessage.number = static_cast<uint8_t>(theRobotInfo.number);
   outputGenerator.theNaovaStandardMessage.magicNumber = Global::getSettings().magicNumber;
 
   outputGenerator.theNaovaStandardMessage.timestamp = Time::getCurrentSystemTime();
 
+  outputGenerator.theNaovaStandardMessage.header = currentMessageType;
+  changeMessageType();
   theRobotStatus.isPenalized = theRobotInfo.penalty != PENALTY_NONE;
-
+  
   outputGenerator.theNaovaStandardMessage.compressedContainer.reserve(SPL_STANDARD_MESSAGE_DATA_SIZE);
   CompressedTeamCommunicationOut stream(outputGenerator.theNaovaStandardMessage.compressedContainer, outputGenerator.theNaovaStandardMessage.timestamp,
                                         teamMessageType, !outputGenerator.sentMessages);
   outputGenerator.theNaovaStandardMessage.out = &stream;
 
-  SEND_PARTICLE(RobotStatus);
+  //Garde en cas de besoins futurs
+  // if(sendMirroredRobotPose)
+  // {
+  //   RobotPose theMirroredRobotPose = theRobotPose;
+  //   theMirroredRobotPose.translation *= -1.f;
+  //   theMirroredRobotPose.rotation = Angle::normalize(theMirroredRobotPose.rotation + pi);
+  // }  //   SEND_PARTICLE(MirroredRobotPose);
 
-  if(sendMirroredRobotPose)
-  {
-    RobotPose theMirroredRobotPose = theRobotPose;
-    theMirroredRobotPose.translation *= -1.f;
-    theMirroredRobotPose.rotation = Angle::normalize(theMirroredRobotPose.rotation + pi);
-    SEND_PARTICLE(MirroredRobotPose);
-  }
-  else
+  if (getBitValue(currentMessageType, robotStatusIndex) == true)
+    SEND_PARTICLE(RobotStatus);
+  if (getBitValue(currentMessageType, robotPoseIndex) == true)
     SEND_PARTICLE(RobotPose);
-
-  FOREACH_TEAM_MESSAGE_REPRESENTATION(SEND_PARTICLE);
-
+  if (getBitValue(currentMessageType, refereeReadySignalIndex) == true)
+    SEND_PARTICLE(RefereeReadySignal);
+  if (getBitValue(currentMessageType, ballModelIndex) == true)
+    SEND_PARTICLE(BallModel);
+  if (getBitValue(currentMessageType, obstacleModelIndex) == true)
+    SEND_PARTICLE(ObstacleModel);
+  if (getBitValue(currentMessageType, whistleIndex) == true)
+    SEND_PARTICLE(Whistle);
+  if (getBitValue(currentMessageType, behaviorStatusIndex) == true)
+    SEND_PARTICLE(BehaviorStatus);
+  if (getBitValue(currentMessageType, teamBehaviorStatusIndex) == true)
+    SEND_PARTICLE(TeamBehaviorStatus);
+  if (getBitValue(currentMessageType, robotHadBallContactIndex) == true)
+    SEND_PARTICLE(RobotHadBallContact);
+  
+  messageCount++;
   outputGenerator.theNaovaStandardMessage.out = nullptr;
 }
 
@@ -126,7 +187,6 @@ void TeamMessageHandler::writeMessage(NaovaMessageOutputGenerator& outputGenerat
   ASSERT(outputGenerator.sendThisFrame);
 
   outputGenerator.theNaovaStandardMessage.write(reinterpret_cast<void*>(m->data));
-
   ASSERT(outputGenerator.theNaovaStandardMessage.sizeOfNaovaMessage() <= SPL_STANDARD_MESSAGE_DATA_SIZE);
 
   outputGenerator.sentMessages++;
@@ -172,9 +232,9 @@ void TeamMessageHandler::maintainBMateList(TeamData& teamData) const
     for(auto& teammate : teamData.teammates)
     {
       Teammate::Status newStatus = Teammate::PLAYING;
-      if(teammate.isPenalized || theOwnTeamInfo.players[teammate.number - 1].penalty != PENALTY_NONE)
+      if(teammate.theRobotStatus.isPenalized || theOwnTeamInfo.players[teammate.number - 1].penalty != PENALTY_NONE)
         newStatus = Teammate::PENALIZED;
-      else if(!teammate.isUpright || !teammate.hasGroundContact)
+      else if(!teammate.theRobotStatus.isUpright || !teammate.theRobotStatus.hasGroundContact)
         newStatus = Teammate::FALLEN;
 
       if(newStatus != teammate.status)
@@ -189,7 +249,7 @@ void TeamMessageHandler::maintainBMateList(TeamData& teamData) const
     auto teammate = teamData.teammates.begin();
     while(teammate != teamData.teammates.end())
     {
-      if(teammate->isPenalized)
+      if(teammate->theRobotStatus.isPenalized)
         teammate = teamData.teammates.erase(teammate);
       else
         ++teammate;
@@ -230,7 +290,7 @@ Teammate& TeamMessageHandler::getBMate(TeamData& teamData) const
   return teamData.teammates.back();
 }
 
-#define RECEIVE_PARTICLE(particle) currentTeammate.the##particle << receivedMessageContainer
+#define RECEIVE_PARTICLE(particle) currentTeammate.the##particle << receivedMessageContainer;
 void TeamMessageHandler::parseMessageIntoBMate(Teammate& currentTeammate)
 {
   currentTeammate.number = receivedMessageContainer.theNaovaStandardMessage.number;
@@ -240,25 +300,34 @@ void TeamMessageHandler::parseMessageIntoBMate(Teammate& currentTeammate)
   currentTeammate.timeWhenLastPacketSent = receivedMessageContainer.toLocalTimestamp(receivedMessageContainer.theNaovaStandardMessage.timestamp);
   currentTeammate.timeWhenLastPacketReceived = receivedMessageContainer.timestamp;
 
+  currentMessageType = receivedMessageContainer.theNaovaStandardMessage.header;
+  changeMessageType();
   CompressedTeamCommunicationIn stream(receivedMessageContainer.theNaovaStandardMessage.compressedContainer,
                                        receivedMessageContainer.theNaovaStandardMessage.timestamp, teamMessageType,
                                        [this](unsigned u) { return receivedMessageContainer.toLocalTimestamp(u); });
   receivedMessageContainer.theNaovaStandardMessage.in = &stream;
 
-  RobotStatus robotStatus;
-  robotStatus << receivedMessageContainer;
+  if (getBitValue(currentMessageType, robotStatusIndex) == true)
+    RECEIVE_PARTICLE(RobotStatus);
+  if (getBitValue(currentMessageType, robotPoseIndex) == true)
+    RECEIVE_PARTICLE(RobotPose);
+  if (getBitValue(currentMessageType, refereeReadySignalIndex) == true)
+    RECEIVE_PARTICLE(RefereeReadySignal);
+  if (getBitValue(currentMessageType, ballModelIndex) == true)
+    RECEIVE_PARTICLE(BallModel);
+  if (getBitValue(currentMessageType, obstacleModelIndex) == true)
+    RECEIVE_PARTICLE(ObstacleModel);
+  if (getBitValue(currentMessageType, whistleIndex) == true)
+    RECEIVE_PARTICLE(Whistle);
+  if (getBitValue(currentMessageType, behaviorStatusIndex) == true)
+    RECEIVE_PARTICLE(BehaviorStatus);
+  if (getBitValue(currentMessageType, teamBehaviorStatusIndex) == true)
+    RECEIVE_PARTICLE(TeamBehaviorStatus);
+  if (getBitValue(currentMessageType, robotHadBallContactIndex) == true)
+    RECEIVE_PARTICLE(RobotHadBallContact);
 
-  currentTeammate.isPenalized = robotStatus.isPenalized;
-  currentTeammate.isUpright = robotStatus.isUpright;
-  currentTeammate.hasGroundContact = robotStatus.hasGroundContact;
-  currentTeammate.timeWhenLastUpright = robotStatus.timeWhenLastUpright;
-  currentTeammate.timeOfLastGroundContact = robotStatus.timeOfLastGroundContact;
-
-  RECEIVE_PARTICLE(RobotPose);
-  FOREACH_TEAM_MESSAGE_REPRESENTATION(RECEIVE_PARTICLE);
-
+  messageCount++;
   receivedMessageContainer.theNaovaStandardMessage.in = nullptr;
-
 }
 
 //@author #iloveCatarina
@@ -289,7 +358,7 @@ bool TeamMessageHandler::sendMessage(){
       snap.firstMessage = true;
       break;
     case STATE_READY:
-      send = theExtendedGameInfo.gameStateBeforeCurrent != STATE_INITIAL ? getScoreRobotMoved() >= minScore : false;
+      send = !IS_PREGAME_STATE(theExtendedGameInfo.gameStateBeforeCurrent) ? getScoreRobotMoved() >= minScore : false;
       break;
     case STATE_SET: // Send message when a whistle is heard
       if (getScoreWhistleSET() >= minScore && (theFrameInfo.getTimeSince(snap.lastTimeSendMessage) >= sendInterval)) {
@@ -306,9 +375,11 @@ bool TeamMessageHandler::sendMessage(){
       int scoreWhistle = getScoreWhistle();
       int scorePenalized = getScorePenalized();
       int scoreUnpenalized = getScoreUnpenalized();
-      
+      int scoreRobotBallContact = getScoreRobotBallContact();
+      int scoreRefereeDetection = getScoreRefereeReadySignal();
+      int scoreKickoff = getScoreKickoff();
 
-      int scoreTotal = scoreFallen + scoreBallMoved + scoreBallDetected + scorePenalized + scoreUnpenalized + scoreRobotMoved;
+      int scoreTotal = scoreFallen + scoreBallMoved + scoreBallDetected + scorePenalized + scoreUnpenalized + scoreRobotMoved + scoreRobotBallContact + scoreRefereeDetection + scoreKickoff;
       send = scoreTotal >= minScore;
       break;
   }
@@ -351,7 +422,6 @@ void TeamMessageHandler::adjustScore(){
     minScore = minScoreTemp;
   }
 }
-
 
 int TeamMessageHandler::getScoreBallMoved(){
 
@@ -412,6 +482,29 @@ int TeamMessageHandler::getScoreWhistle(){
 
 int TeamMessageHandler::getScoreWhistleSET() {
   if (theFrameInfo.getTimeSince(theWhistle.lastTimeWhistleDetected) <= maxWhistleTime && theWhistle.confidenceOfLastWhistleDetection >= minWhistleConfidence) {
+    return minScore;
+  }
+  return 0;
+}
+
+int TeamMessageHandler::getScoreRobotBallContact() {
+  // if (theRobotHadBallContact.hadContact && theTeamData.someoneCantShoot()) {
+  //   return minScore;
+  // }
+  return 0;
+}
+
+int TeamMessageHandler::getScoreKickoff() {
+  if (lastFrameState == STATE_SET && theGameInfo.state == STATE_PLAYING) {
+    return minScore;
+  }
+  return 0;
+}
+
+int TeamMessageHandler::getScoreRefereeReadySignal() {
+  bool inRelevantState = theRawGameInfo.state == STATE_STANDBY || theRawGameInfo.state == STATE_READY;
+  if (inRelevantState && theRefereeReadySignal.isDetected && !refereeDetectedLastState) {
+    refereeDetectedLastState = theRefereeReadySignal.isDetected;
     return minScore;
   }
   return 0;

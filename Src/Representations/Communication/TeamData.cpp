@@ -29,6 +29,24 @@ Vector2f Teammate::getEstimatedPosition(unsigned time) const
   return theRobotPose.translation + std::min(distanceToTarget, timeSinceLastPacket * correctionFactor * theBehaviorStatus.speed) * walkDirection;
 };
 
+bool TeamData::firstContactMade(uint32_t lastReset) const
+{
+  for(const Teammate& teammate : teammates)
+    if(teammate.theRobotHadBallContact.hadContact && teammate.timeWhenLastPacketSent >= lastReset)
+      return true;
+  return false;
+}
+
+bool TeamData::someoneCantShoot() const
+{
+  int count = 0;
+  for(const Teammate& teammate : teammates)
+    if(teammate.theRobotHadBallContact.hadContact)
+      count++;
+  return count <= 1;
+}
+
+
 void TeamData::draw() const
 {
   DECLARE_DEBUG_DRAWING("representation:TeamData", "drawingOnField");

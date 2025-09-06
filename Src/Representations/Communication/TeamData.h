@@ -10,6 +10,7 @@
 #include "Representations/Modeling/BallModel.h"
 #include "Representations/BehaviorControl/BehaviorStatus.h"
 #include "Representations/BehaviorControl/TeamBehaviorStatus.h"
+#include "Representations/Communication/RobotHadBallContact.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/RobotHealth.h"
 #include "Representations/Infrastructure/TeamTalk.h"
@@ -17,6 +18,7 @@
 #include "Representations/Modeling/ObstacleModel.h"
 #include "Representations/Modeling/RobotPose.h"
 #include "Representations/Modeling/Whistle.h"
+#include "Representations/Perception/RefereePercept/RefereeReadySignal.h"
 
 #include "Tools/BehaviorControl/Strategy/Tactic.h"
 #include "Tools/Communication/SPLStandardMessageBuffer.h"
@@ -26,6 +28,7 @@
 #include "Tools/Streams/Enum.h"
 
 #include "Tools/Communication/BNTP.h"
+#include "Tools/Communication/RobotStatus.h"
 
 STREAMABLE(Teammate, COMMA public MessageHandler
 {
@@ -55,11 +58,6 @@ STREAMABLE(Teammate, COMMA public MessageHandler
 
   (int)(-1) number,
   (bool)(false) isGoalkeeper, /**< This is for a teammate what \c theRobotInfo.isGoalkeeper() is for the player itself. */
-  (bool)(true) isPenalized,
-  (bool)(true) isUpright,
-  (bool)(true) hasGroundContact,
-  (unsigned)(0) timeWhenLastUpright,
-  (unsigned)(0) timeOfLastGroundContact,
 
   (unsigned)(0) timeWhenLastPacketSent,
   (unsigned)(0) timeWhenLastPacketReceived,
@@ -68,7 +66,10 @@ STREAMABLE(Teammate, COMMA public MessageHandler
   (signed char)(0) sequenceNumber,
   (signed char)(0) returnSequenceNumber,
 
+  (RobotStatus) theRobotStatus,
   (RobotPose) theRobotPose,
+  (RobotHadBallContact) theRobotHadBallContact,
+  (RefereeReadySignal) theRefereeReadySignal,
   (BallModel) theBallModel,
   (FrameInfo) theFrameInfo,
   (ObstacleModel) theObstacleModel,
@@ -88,6 +89,8 @@ STREAMABLE(Teammate, COMMA public MessageHandler
 STREAMABLE(TeamData,
 {
   void draw() const;
+  bool firstContactMade(uint32_t lastReset) const;
+  bool someoneCantShoot() const;
   FUNCTION(void(const SPLStandardMessageBufferEntry* const)) generate,
 
   (std::vector<Teammate>) teammates, /**< An unordered(!) list of all teammates that are currently communicating with me */

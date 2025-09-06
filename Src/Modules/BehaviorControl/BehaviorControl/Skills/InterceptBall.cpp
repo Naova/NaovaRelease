@@ -13,6 +13,8 @@
 #include "Representations/MotionControl/MotionRequest.h"
 #include "Representations/Sensing/FallDownState.h"
 #include "Tools/BehaviorControl/Framework/Skill/CabslSkill.h"
+#include "Representations/Communication/GameInfo.h"
+
 
 SKILL_IMPLEMENTATION(InterceptBallImpl,
 {,
@@ -27,20 +29,29 @@ SKILL_IMPLEMENTATION(InterceptBallImpl,
   CALLS(Stand),
   CALLS(WalkToPoint),
   REQUIRES(FallDownState),
+  REQUIRES(GameInfo),
   REQUIRES(FieldBall),
   REQUIRES(MotionInfo),
+  REQUIRES(RobotInfo),
   USES(MotionRequest),
   DEFINES_PARAMETERS(
   {,
     /* Note: These thresholds also exist in the behavior parameters, but have a slightly other purpose there. */
     (float)(80.f) genuflectStandRadius, /**< The range that is covered with a genuflect. */
-    (float)(400.f) walkRadius, /**< The range that is covered by just walking. */
+    (float)(400.f) keeperWalkRadius, /**< The range that is covered by just walking for the keeper. */
     (float)(1000.f) jumpRadius, /**< The range that is covered with a keeper jump. */
+    (float)(2000.f) playerWalkRadius, /**< The range that is covered by just walking for non keepers. */
   }),
 });
 
 class InterceptBallImpl : public InterceptBallImplBase
 {
+  bool isWithinWalkRadius(float y)
+  {
+    float radius = theRobotInfo.isGoalkeeper() ? keeperWalkRadius : playerWalkRadius;
+    return between<float>(y, -radius, radius);
+  }
+
   option(InterceptBall)
   {
     initial_state(chooseAction)
@@ -53,8 +64,11 @@ class InterceptBallImpl : public InterceptBallImplBase
 
         left = positionIntersectionYAxis > 0.f;
 
-        if(positionIntersectionYAxis == 0)
+        if(positionIntersectionYAxis == 0 && theGameInfo.gamePhase != GAME_PHASE_PENALTYSHOOT)
           goto walkWithoutIntersect;
+        else if(positionIntersectionYAxis == 0 && theGameInfo.gamePhase == GAME_PHASE_PENALTYSHOOT){
+          goto penaltyStand; 
+        }
 
         if((interceptionMethods & bit(Interception::genuflectStand)) && (between<float>(positionIntersectionYAxis, -genuflectStandRadius, genuflectStandRadius) || interceptionMethods < (bit(Interception::genuflectStand) << 1)))
         {
@@ -64,7 +78,7 @@ class InterceptBallImpl : public InterceptBallImplBase
             goto audioGenuflect;
         }
 
-        if((interceptionMethods & bit(Interception::walk)) && (between<float>(positionIntersectionYAxis, -walkRadius, walkRadius) || interceptionMethods < (bit(Interception::walk) << 1)))
+        if((interceptionMethods & bit(Interception::walk)) && (isWithinWalkRadius(positionIntersectionYAxis) || interceptionMethods < (bit(Interception::walk) << 1)))
           goto walk;
         
         if((interceptionMethods & bit(Interception::jumpLeft)) && (positionIntersectionYAxis < jumpRadius || interceptionMethods < (bit(Interception::jumpLeft) << 1)))
@@ -112,7 +126,7 @@ class InterceptBallImpl : public InterceptBallImplBase
       {
         const float positionIntersectionYAxis = theFieldBall.intersectionPositionWithOwnYAxis.y();
         if(positionIntersectionYAxis != 0)
-        goto chooseAction;
+          goto chooseAction;
       }
       action
       {
@@ -122,12 +136,29 @@ class InterceptBallImpl : public InterceptBallImplBase
       }
     }
 
+    state(penaltyStand)
+    {
+      transition
+      {
+        const float positionIntersectionYAxis = theFieldBall.intersectionPositionWithOwnYAxis.y();
+        if(positionIntersectionYAxis != 0)
+          goto chooseAction;
+      }
+      action
+      {
+        theAnnotationSkill("No Intercept Ball Penalty Stand!");
+        theLookAtBallSkill();
+        theStandSkill();
+      }
+    }
+
     state(walk)
     {
       transition
       {
         const float positionIntersectionYAxis = theFieldBall.intersectionPositionWithOwnYAxis.y();
-        if(positionIntersectionYAxis > walkRadius + 50.f|| positionIntersectionYAxis < -walkRadius - 50.f)
+        if (theRobotInfo.isGoalkeeper() &&
+            (positionIntersectionYAxis > keeperWalkRadius + 50.f || positionIntersectionYAxis < -keeperWalkRadius - 50.f))
         {
           if(p.allowDive)
             goto keeperSitJump;

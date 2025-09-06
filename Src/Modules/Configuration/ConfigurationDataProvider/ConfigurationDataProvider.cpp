@@ -32,6 +32,7 @@ ConfigurationDataProvider::ConfigurationDataProvider()
   read(theJointLimits);
   read(theKeyframeMotionParameters);
   read(theKickInfo);
+  read(theLinePerceptorSettings);
   read(theMassCalibration);
   read(theRelativeFieldColorsParameters);
   read(theRobotDimensions);

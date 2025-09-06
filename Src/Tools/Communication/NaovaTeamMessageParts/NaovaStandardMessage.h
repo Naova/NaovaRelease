@@ -11,7 +11,7 @@
 #include <vector>
 #include "Tools/Streams/AutoStreamable.h"
 
-#define NAOVA_STANDARD_MESSAGE_STRUCT_HEADER "NAO"
+#define NAOVA_STANDARD_MESSAGE_STRUCT_HEADER "NAO" //Enlever?
 #define NAOVA_STANDARD_MESSAGE_STRUCT_VERSION 3
 #define NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS 6
 
@@ -52,7 +52,7 @@ STREAMABLE(NaovaStandardMessage,
   /** Constructor. */
   NaovaStandardMessage(),
 
-  (char[4]) header,         /**< NAOVA_STANDARD_MESSAGE_STRUCT_HEADER */
+  (uint16_t) header,         /**< Type of the message. */
   (uint8_t) version,        /**< NAOVA_STANDARD_MESSAGE_STRUCT_VERSION */
   (uint8_t) number,
   (uint8_t)(0) magicNumber, /**< The magic number. */

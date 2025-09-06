@@ -11,6 +11,8 @@
 #include "Tools/BehaviorControl/Framework/Card/Card.h"
 #include "Tools/BehaviorControl/Framework/Card/CabslCard.h"
 #include "Representations/Communication/RobotInfo.h"
+#include "Representations/BehaviorControl/TeamBehaviorStatus.h"
+#include "Representations/Infrastructure/ExtendedGameInfo.h"
 
 CARD(SearchForBallCard,
 {,
@@ -18,11 +20,14 @@ CARD(SearchForBallCard,
   CALLS(SearchBall),
   CALLS(LookActive),
   REQUIRES(FieldBall),
+  REQUIRES(TeamBehaviorStatus),
   REQUIRES(RobotInfo),
+  REQUIRES(ExtendedGameInfo),
   DEFINES_PARAMETERS(
   {,
     (float)(0.8f) walkSpeed,
     (int)(5000) ballNotSeenTimeout,
+    (int)(10000) lookAroundAfterKickoffDelay, /**< The time after a kickoff during which the robot will not look around. */
   }),
 });
 
@@ -30,7 +35,11 @@ class SearchForBallCard : public SearchForBallCardBase
 {
   bool preconditions() const override
   {
-    return !theFieldBall.teamBallWasSeen(ballNotSeenTimeout) && theRobotInfo.number != 1;
+    if (theExtendedGameInfo.timeSincePlayingStarted < lookAroundAfterKickoffDelay)
+    {
+      return false;
+    }
+    return !theFieldBall.teamBallWasSeen(ballNotSeenTimeout) && (theRobotInfo.number != 1 || theTeamBehaviorStatus.role.playsTheBall());
   }
 
   bool postconditions() const override

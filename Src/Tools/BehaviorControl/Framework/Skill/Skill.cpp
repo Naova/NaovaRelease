@@ -12,14 +12,15 @@
 thread_local SkillRegistry* SkillRegistry::theInstance = nullptr;
 
 SkillRegistry::SkillRegistry(const char* skillConfig, ActivationGraph& activationGraph, ArmMotionRequest& armMotionRequest,
-                             BehaviorStatus& behaviorStatus, CalibrationRequest& calibrationRequest, HeadMotionRequest& headMotionRequest, MotionRequest& motionRequest, TeamTalk& teamTalk) :
+                             BehaviorStatus& behaviorStatus, CalibrationRequest& calibrationRequest, HeadMotionRequest& headMotionRequest, MotionRequest& motionRequest, TeamTalk& teamTalk, OptionalImageRequest& optionalImageRequest) :
   SkillRegistryBase(activationGraph),
   theArmMotionRequest(armMotionRequest),
   theBehaviorStatus(behaviorStatus),
   theCalibrationRequest(calibrationRequest),
   theHeadMotionRequest(headMotionRequest),
   theMotionRequest(motionRequest),
-  theTeamTalk(teamTalk)
+  theTeamTalk(teamTalk),
+  theOptionalImageRequest(optionalImageRequest)
 {
   ASSERT(!theInstance);
   theInstance = this;

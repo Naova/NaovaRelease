@@ -50,14 +50,17 @@ if(APPLE)
     set(PLATFORM "macOS")
   endif()
   set(OS "macOS")
+  set(MACOS true)
 
   set(CMAKE_XCODE_ATTRIBUTE_SHARED_PRECOMPS_DIR "${OUTPUT_PREFIX}/Build/${OS}/PrecompiledHeaders")
   set(CMAKE_XCODE_ATTRIBUTE_ALWAYS_SEARCH_USER_PATHS "NO")
 elseif(WIN32)
+  set(WINDOWS true)
   add_definitions(-DWINDOWS)
   set(PLATFORM "Windows")
   set(OS "${PLATFORM}")
 elseif(UNIX)
+  set(LINUX true)
   add_definitions(-DLINUX)
   set(PLATFORM "Linux")
   set(OS "${PLATFORM}")
@@ -215,6 +218,48 @@ if(BUILD_DESKTOP)
   endif()
 endif()
 
+if(BUILD_NAO)
+  add_library(Nao::ONNXRuntime::ONNXRuntime SHARED IMPORTED)
+  set_target_properties(Nao::ONNXRuntime::ONNXRuntime PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/onnxruntime/include"
+      IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/onnxruntime/lib/Linux/libonnxruntime.so.1.10.0")
+  target_link_options(Nao::ONNXRuntime::ONNXRuntime INTERFACE -rpath /home/nao/Config)
+endif()
+
+if(BUILD_DESKTOP)
+  add_library(ONNXRuntime::ONNXRuntime SHARED IMPORTED)
+  set_target_properties(ONNXRuntime::ONNXRuntime PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/onnxruntime/include")
+  if(LINUX)
+    set_target_properties(ONNXRuntime::ONNXRuntime PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}${ARCH}/libonnxruntime.so.1.10.0")
+  elseif(WINDOWS)
+    set_target_properties(ONNXRuntime::ONNXRuntime PROPERTIES
+        IMPORTED_IMPLIB "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}/onnxruntime.lib"
+        IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}/onnxruntime.dll")
+    set(CONTROLLER_DYLIBS "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}/onnxruntime.dll")
+  elseif(MACOS)
+    set_target_properties(ONNXRuntime::ONNXRuntime PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}/libonnxruntime.1.11.1.dylib")
+    set(CONTROLLER_DYLIBS "${BHUMAN_PREFIX}/Util/onnxruntime/lib/${PLATFORM}/libonnxruntime.1.11.1.dylib")
+  endif()
+endif()
+
+if(BUILD_NAO)
+  add_library(CompiledNN::ONNXNao INTERFACE IMPORTED)
+  target_include_directories(CompiledNN::ONNXNao SYSTEM INTERFACE "${BHUMAN_PREFIX}/Util/CompiledNN2ONNX/include")
+  target_link_libraries(CompiledNN::ONNXNao INTERFACE Nao::ONNXRuntime::ONNXRuntime)
+endif()
+
+if(BUILD_DESKTOP)
+  add_library(CompiledNN::ONNX INTERFACE IMPORTED)
+  target_include_directories(CompiledNN::ONNX SYSTEM INTERFACE "${BHUMAN_PREFIX}/Util/CompiledNN2ONNX/include")
+  target_link_libraries(CompiledNN::ONNX INTERFACE ONNXRuntime::ONNXRuntime)
+  if(ARM)
+    target_include_directories(CompiledNN::ONNX SYSTEM INTERFACE "${BHUMAN_PREFIX}/Util/CompiledNN2ONNX/arm64/include")
+
+    add_library(asmjit INTERFACE)
+    target_include_directories(asmjit SYSTEM INTERFACE "${BHUMAN_PREFIX}/Util/CompiledNN2ONNX/arm64/include")
+  endif()
+endif()
+
 set(EIGEN_NAN_INITIALIZATION_CONDITION "$<NOT:$<CONFIG:Release>>")
 include("${SIMROBOT_PREFIX}/Make/Common/Eigen.cmake")
 
@@ -309,6 +354,39 @@ if(BUILD_DESKTOP)
   elseif(${PLATFORM} STREQUAL Windows)
     set_target_properties(HDF5::HDF5 PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/hdf5/lib/${PLATFORM}/hdf5.lib")
   endif()
+endif()
+
+if(BUILD_NAO)
+add_library(Nao::opencv2::core STATIC IMPORTED)
+set_target_properties(Nao::opencv2::core PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/OpenCV/include/")
+set_target_properties(Nao::opencv2::core PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libopencv_core.a")
+
+add_library(Nao::opencv2::imgproc STATIC IMPORTED)
+set_target_properties(Nao::opencv2::imgproc PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/OpenCV/include/")
+set_target_properties(Nao::opencv2::imgproc PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libopencv_imgproc.a")
+
+add_library(Nao::opencv2::zlib STATIC IMPORTED)
+set_target_properties(Nao::opencv2::zlib PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libz.a")
+
+add_library(Nao::opencv2::ipp STATIC IMPORTED)
+set_target_properties(Nao::opencv2::ipp PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libippiw.a")
+
+
+add_library(Nao::opencv2::ippcv STATIC IMPORTED)
+set_target_properties(Nao::opencv2::ippcv PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libippicv.a")
+
+add_library(Nao::opencv2::tbb SHARED IMPORTED)
+set_target_properties(Nao::opencv2::tbb  PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/V6/libtbb.so.2")
+endif()
+
+if(BUILD_DESKTOP)
+add_library(opencv2::core STATIC IMPORTED)
+set_target_properties(opencv2::core PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/OpenCV/include/")
+set_target_properties(opencv2::core PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/Linux/libopencv_core.a")
+
+add_library(opencv2::imgproc STATIC IMPORTED)
+set_target_properties(opencv2::imgproc PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${BHUMAN_PREFIX}/Util/OpenCV/include/")
+set_target_properties(opencv2::imgproc PROPERTIES IMPORTED_LOCATION "${BHUMAN_PREFIX}/Util/OpenCV/lib/Linux/libopencv_imgproc.a")
 endif()
 
 if(BUILD_NAO)

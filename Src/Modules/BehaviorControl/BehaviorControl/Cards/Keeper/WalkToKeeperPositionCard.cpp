@@ -19,6 +19,7 @@ CARD(WalkToKeeperPositionCard,
 {,
   CALLS(Activity),
   CALLS(WalkToPoint),
+  CALLS(LookActive),
   CALLS(LookAtGlobalBall),
   REQUIRES(FieldBall),
   REQUIRES(FieldDimensions),
@@ -59,7 +60,11 @@ class WalkToKeeperPositionCard : public WalkToKeeperPositionCardBase
 
       action
       {
-        theLookAtGlobalBallSkill();
+        if(theFieldBall.teamPositionOnField.x() > theFieldDimensions.xPosOwnGroundLine/2)
+          theLookActiveSkill(true);
+        else
+          theLookAtGlobalBallSkill();
+
         theWalkToPointSkill(getInitPos(), walkSpeed, /* rough: */ true, /* disableObstacleAvoidance: */ true, true);
       }
     }
@@ -75,8 +80,8 @@ class WalkToKeeperPositionCard : public WalkToKeeperPositionCardBase
       action
       {
         auto targetPos = getAlignVector();
-        theLookAtGlobalBallSkill();
-        theWalkToPointSkill(Pose2f(calcAngleToBall(), targetPos), walkSpeed, /* rough: */ true, /* disableObstacleAvoidance: */ true, true);
+        theLookActiveSkill(true);
+        theWalkToPointSkill(Pose2f(calcAngleToBall(), targetPos), walkSpeed, /* rough: */ true, /* disableObstacleAvoidance: */ true, /* disableAligning: */true);
       }
     }
   }

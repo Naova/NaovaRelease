@@ -7,6 +7,11 @@ RobotStatus
   timeOfLastGroundContact: Timestamp(bits=8, shift=6, reference=relativePast)
 }
 
+RobotHadBallContact
+{
+  hadContact: Boolean
+}
+
 RobotPose
 {
   rotation: Angle(bits=8)
@@ -14,6 +19,11 @@ RobotPose
   quality: Enum(type=RobotPose::LocalizationQuality)
   covariance: Matrix<Float>(m=3, n=3, symmetric)
   timestampLastJump: Timestamp(bits=8, shift=7, reference=relativePast, noclip)
+}
+
+RefereeReadySignal
+{
+  isDetected: Boolean
 }
 
 BallState
@@ -69,21 +79,7 @@ TeamBehaviorStatus
 {
   teamActivity: Enum(type=TeamBehaviorStatus::TeamActivity)
   timeToReachBall: TimeToReachBall
-  teammateRoles: TeammateRoles
   role: PlayerRole
-}
-
-Obstacle
-{
-  covariance: Matrix<Float>(m=2, n=2, symmetric)
-  center: Vector<Float(min=-32768, max=32767, bits=16)>(n=2)
-  lastSeen: Timestamp(bits=8, shift=6, reference=relativePast)
-  type: Enum(type=Obstacle::Type)
-}
-
-ObstacleModel
-{
-  obstacles: Obstacle[:1]
 }
 
 TeamTalk
@@ -97,13 +93,10 @@ FrameInfo
   time: Timestamp(bits=8, reference=relativePast)
 }
 
-TeamMessage
+Obstacle
 {
-  theRobotStatus: RobotStatus
-  theRobotPose: RobotPose
-  theBallModel: BallModel
-  theWhistle: Whistle
-  theBehaviorStatus: BehaviorStatus
-  theTeamBehaviorStatus: TeamBehaviorStatus
-  theObstacleModel: ObstacleModel
+  covariance: Matrix<Float>(m=2, n=2, symmetric)
+  center: Vector<Float(min=-32768, max=32767, bits=16)>(n=2)
+  lastSeen: Timestamp(bits=8, shift=6, reference=relativePast)
+  type: Enum(type=Obstacle::Type)
 }

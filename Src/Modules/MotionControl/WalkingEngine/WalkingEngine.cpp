@@ -931,9 +931,6 @@ void WalkPhase::calcJoints(const MotionRequest& motionRequest, JointRequest& joi
   checkGyroState(motionRequest.motion == MotionRequest::stand && motionRequest.standHigh);
   if(walkState != standing)
   {
-    //Naova controller 
-    engine.theDynamicTesting.init();
-    engine.theDynamicTesting.addBalance(jointRequest);
     // Walking
     if(walkKickStep.currentKick == WalkKicks::none)
     {
@@ -981,6 +978,7 @@ void WalkPhase::calcJoints(const MotionRequest& motionRequest, JointRequest& joi
     turnRL = turnRL0;
   }
 
+  /* POTENTIEL CONFLIT AVEC L935*/
   Pose3f leftFoot;
   Pose3f rightFoot;
   calcFeetPoses(forwardL, forwardR, sideL, sideR, footHL, footHR, turnRL, leftFoot, rightFoot); // current request

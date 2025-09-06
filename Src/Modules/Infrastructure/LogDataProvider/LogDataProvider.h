@@ -17,6 +17,7 @@
 #include "Representations/Configuration/FootSoleRotationCalibration.h"
 #include "Representations/Configuration/IMUCalibration.h"
 #include "Representations/Configuration/JointCalibration.h"
+#include "Representations/Configuration/LinePerceptorSettings.h"
 #include "Representations/Infrastructure/AudioData.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Infrastructure/GroundTruthWorldState.h"
@@ -123,6 +124,7 @@ MODULE(LogDataProvider,
   PROVIDES(JointSensorData),
   PROVIDES(KeyStates),
   PROVIDES(LabelImage),
+  PROVIDES(LinePerceptorSettings),
   PROVIDES(LinesPercept),
   PROVIDES(MotionInfo),
   PROVIDES(MotionRequest),
@@ -205,6 +207,7 @@ private:
   void update(JointSensorData&) override {}
   void update(KeyStates&) override {}
   void update(LabelImage&) override {}
+  void update(LinePerceptorSettings&) override {}
   void update(LinesPercept&) override {}
   void update(MotionInfo&) override {}
   void update(MotionRequest&) override {}

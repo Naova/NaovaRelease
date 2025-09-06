@@ -63,6 +63,12 @@ void WhistleHandler::update(GameInfo& theGameInfo)
     SystemCall::say("Back to playing");
   }
 
+  // Switch to ready once the referee signal is detected.
+  if(theGameInfo.state == STATE_STANDBY && theRefereeReadySignal.isConfirmed){
+    guessedGameState = STATE_READY;
+    timeOfLastStateChange = theFrameInfo.time;
+  }
+
   // Copy game state sent by GameController and override state if necessary.
   theGameInfo = theRawGameInfo;
   if(guessedGameState != STATE_INITIAL)
@@ -75,6 +81,8 @@ void WhistleHandler::update(GameInfo& theGameInfo)
   // Stop overriding when both game states match.
   if(theRawGameInfo.state == theGameInfo.state)
     guessedGameState = STATE_INITIAL;
+
+  theGameInfo.timeOfLastStateChange = timeOfLastStateChange;
 }
 
 bool WhistleHandler::checkForWhistle() const

@@ -73,7 +73,10 @@ std::vector<Vector2f> DynamicSupporterPositionningProvider::scanArea(float step,
         for (float y = minY; y <= maxY; y+= step)
          {
             Vector2f p = {x, y};
-            if (Geometry::isPointInsidePolygon(p, area) && Geometry::isPointInsidePolygon(p, theSupporterPositioning.baseArea) && !Geometry::isPointInsidePolygon(p, goalArea))
+
+            float distanceBetweenBallAndPotentialPosition = (p-theFieldBall.positionOnField).norm();
+
+            if (distanceBetweenBallAndPotentialPosition>1000 && distanceBetweenBallAndPotentialPosition < 3500 && Geometry::isPointInsidePolygon(p, area) && Geometry::isPointInsidePolygon(p, theSupporterPositioning.baseArea) && !Geometry::isPointInsidePolygon(p, goalArea))
             {
               pointsInside.push_back(p);
             }

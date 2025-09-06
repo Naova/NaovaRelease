@@ -366,6 +366,10 @@ cp -aL \
   "${naoImageDir}/usr/lib/libwebsockets.so.10" \
   "${naoImageDir}/usr/lib/libxml2.so.2" \
   "${rootDir}/opt/aldebaran/lib"
+cp -aL \
+  "../Util/OpenCV/lib/V6/libtbb.so.2" \
+  "../Util/onnxruntime/lib/Linux/libonnxruntime.so.1.10.0" \
+  "${rootDir}/usr/lib"
 cp \
   "${naoImageDir}/usr/share/firmware/CX3RDK_OV5640_USB2.img" \
   "${naoImageDir}/usr/share/firmware/CX3RDK_OV5640_USB3.img" \

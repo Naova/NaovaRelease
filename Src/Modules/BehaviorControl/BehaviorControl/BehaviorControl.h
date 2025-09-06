@@ -24,6 +24,7 @@
 #include "Representations/MotionControl/MotionRequest.h"
 #include "Representations/MotionControl/OdometryData.h"
 #include "Representations/Infrastructure/SensorData/JointSensorData.h"
+#include "Representations/Perception/RefereePercept/OptionalImageRequest.h"
 #include "Tools/Module/Module.h"
 #include "Tools/Streams/Enum.h"
 #include <string>
@@ -50,7 +51,7 @@ MODULE(BehaviorControl,
   PROVIDES(HeadMotionRequest),
   PROVIDES(MotionRequest),
   PROVIDES(TeamTalk),
-
+  PROVIDES(OptionalImageRequest),
   LOADS_PARAMETERS(
   {,
     (std::string) rootCard, /**< The card that is executed directly by this module. */
@@ -119,6 +120,12 @@ private:
    */
   void update(TeamTalk& teamTalk) override { teamTalk = theTeamTalk; }
 
+  /**
+   * Updates the optional image request.
+   * @param optionalImageRequest The provided optional image request.
+   */
+  void update(OptionalImageRequest& optionalImageRequest) override { optionalImageRequest = theOptionalImageRequest; }
+
   ENUM(State,
   {,
     inactive,
@@ -138,6 +145,7 @@ private:
   HeadMotionRequest theHeadMotionRequest; /**< The head motion request that is modified by the behavior. */
   MotionRequest theMotionRequest; /**< The motion request that is modified by the behavior. */
   TeamTalk theTeamTalk; /**< The team talk that is modified by the behavior. */
+  OptionalImageRequest theOptionalImageRequest; /**< The request that decides whether an optional image should be send or not */
 
   SkillRegistry theSkillRegistry; /**< The manager of all skills. */
   CardRegistry theCardRegistry; /**< The manager of all cards. */

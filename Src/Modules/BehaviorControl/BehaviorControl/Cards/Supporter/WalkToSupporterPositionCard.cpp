@@ -1,4 +1,3 @@
-
 /**
  * @file WalkToSupporterPositionCard.cpp
  *
@@ -19,7 +18,6 @@
 #include "Tools/BehaviorControl/Framework/Card/Dealer.h"
 #include "Representations/BehaviorControl/FieldBall.h"
 #include "Representations/Communication/GameInfo.h"
-#include "iostream"
 
 
 CARD(WalkToSupporterPositionCard,
@@ -30,8 +28,8 @@ CARD(WalkToSupporterPositionCard,
   REQUIRES(FieldBall),
   REQUIRES(GameInfo),
   CALLS(Activity),
-  CALLS(LookAtGlobalBall),
   CALLS(WalkToPoint),
+  CALLS(LookActive),
 });
 
 class WalkToSupporterPositionCard : public WalkToSupporterPositionCardBase
@@ -49,7 +47,7 @@ class WalkToSupporterPositionCard : public WalkToSupporterPositionCardBase
   void execute() override
   {
     theActivitySkill(BehaviorStatus::supporterPositioning);
-    theLookAtGlobalBallSkill();
+    theLookActiveSkill(true);
     Pose2f position;
     if (theGameInfo.setPlay == SET_PLAY_NONE && theSupporterPositioning.basePose.translation.x() > 0)
     {
@@ -62,7 +60,7 @@ class WalkToSupporterPositionCard : public WalkToSupporterPositionCardBase
     
     Pose2f relativeTarget = theRobotPose.inversePose * position;
     relativeTarget = Pose2f(theFieldBall.teamPositionRelative.angle(), relativeTarget.translation.x(), relativeTarget.translation.y());
-    theWalkToPointSkill(relativeTarget);
+    theWalkToPointSkill(relativeTarget, /* speed: */1.f, /* rough: */ true, /* disableObstacleAvoidance: */ false, /* disableAligning: */true);
   }
 };
 

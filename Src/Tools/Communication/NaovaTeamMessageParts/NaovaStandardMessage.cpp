@@ -19,9 +19,9 @@ inline T readVal(const void*& data)
 NaovaStandardMessage::NaovaStandardMessage() :
   version(NAOVA_STANDARD_MESSAGE_STRUCT_VERSION)
 {
-  const char* init = NAOVA_STANDARD_MESSAGE_STRUCT_HEADER;
-  for(unsigned int i = 0; i < sizeof(header); ++i)
-    header[i] = init[i];
+  // const char* init = NAOVA_STANDARD_MESSAGE_STRUCT_HEADER;    Enlever tout?
+  //for(unsigned int i = 0; i < sizeof(header); ++i)
+    //header[i] = init[i];
 }
 
 int NaovaStandardMessage::sizeOfNaovaMessage() const
@@ -33,7 +33,8 @@ int NaovaStandardMessage::sizeOfNaovaMessage() const
          + sizeof(timestamp)
          + sizeof(uint16_t) // size of compressedContainer (9 bits), requestsNTPMessage (1 bit), NTP reply bitset (6 bits)
          + static_cast<int>(ntpMessages.size()) * 5
-         + static_cast<int>(compressedContainer.size());
+         + static_cast<int>(compressedContainer.size())
+         + static_cast<int>(sizeof(header));
 }
 
 void NaovaStandardMessage::write(void* data) const
@@ -45,6 +46,7 @@ void NaovaStandardMessage::write(void* data) const
   writeVal<uint8_t>(data, number);
   writeVal<uint8_t>(data, magicNumber);
   writeVal<uint32_t>(data, timestamp);
+  writeVal<uint16_t>(data, header);
 
   static_assert(NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS == 6, "This code only works for exactly six robots per team.");
   std::sort(const_cast<std::vector<BNTPMessage>&>(ntpMessages).begin(), const_cast<std::vector<BNTPMessage>&>(ntpMessages).end(), [&](const BNTPMessage& a, const BNTPMessage& b) {return a.receiver < b.receiver; });
@@ -93,6 +95,8 @@ bool NaovaStandardMessage::read(const void* data)
   magicNumber = readVal<const uint8_t>(data);
 
   timestamp = readVal<const uint32_t>(data);
+
+  header = readVal<const uint16_t>(data);
 
   static_assert(NAOVA_STANDARD_MESSAGE_MAX_NUM_OF_PLAYERS == 6, "This code only works for exactly six robots per team (but can be easily adjusted).");
   const uint16_t ntpAndSizeContainer = readVal<const uint16_t>(data);

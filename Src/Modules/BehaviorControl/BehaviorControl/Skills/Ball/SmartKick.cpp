@@ -8,6 +8,7 @@
 
 #include "Representations/BehaviorControl/FieldBall.h"
 #include "Representations/BehaviorControl/Skills.h"
+#include "Representations/BehaviorControl/BallPlayerStrategy.h"
 #include "Representations/Modeling/RobotPose.h"
 #include "Tools/BehaviorControl/Framework/Skill/Skill.h"
 #include "Tools/BehaviorControl/Framework/Skill/CabslSkill.h"
@@ -21,9 +22,10 @@ SKILL_IMPLEMENTATION(SmartKickImpl,
   CALLS(WalkToBallAndKick),
   REQUIRES(FieldBall),
   REQUIRES(RobotPose),
+  REQUIRES(BallPlayerStrategy),
   DEFINES_PARAMETERS(
   {,
-    (float)(1500.f) walkingKickDistance,
+    (float)(6000.f) walkingKickDistance,
   }),
 });
 
@@ -95,10 +97,17 @@ class SmartKickImpl : public SmartKickImplBase
         KickInfo::KickType type;
         float distance = (kickTarget - theFieldBall.positionOnField).norm();
 
-        if (distance >= walkingKickDistance)
-            type = KickInfo::forwardFastRight;
+        if (distance >= walkingKickDistance){
+            
+            if(theBallPlayerStrategy.BPisBlockedInPenaltyArea){
+                type = KickInfo::walkForwardsRightLong;
+            }
+            else{
+                type = KickInfo::forwardFastRight;
+            }
+        }
         else
-            type = KickInfo::walkForwardsRight;
+            type = KickInfo::walkForwardsRightLong;
 
         return left ? static_cast<KickInfo::KickType>(static_cast<int>(type) + 1) : type;
     }

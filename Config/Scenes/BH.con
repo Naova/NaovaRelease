@@ -1,5 +1,13 @@
 call Includes/Normal
 
+vi GrayscaledImage Upper
+vi GrayscaledImage Lower
+vi GrayscaledImageAdaptiveThreshold Upper
+vi GrayscaledImageAdaptiveThreshold Lower
+vi GrayscaledImageSkel Upper
+vi GrayscaledImageSkel Lower
+vid all module:LinePerceptor:spots
+
 # all views are defined in another script
 call Includes/Views
 

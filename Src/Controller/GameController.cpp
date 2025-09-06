@@ -73,7 +73,7 @@ bool GameController::handleStateCommand(const std::string& command)
     if(gameInfo.state == STATE_READY)
       return true;
 
-    if(gameInfo.state == STATE_INITIAL)
+    if(gameInfo.state == STATE_STANDBY || gameInfo.state == STATE_INITIAL)
       resetPenaltyTimes();
     else if(gameInfo.state == STATE_PLAYING)
       addTimeInCurrentState();
@@ -131,6 +131,15 @@ bool GameController::handleStateCommand(const std::string& command)
     addTimeInCurrentState();
     timeWhenStateBegan = Time::getCurrentSystemTime();
     gameInfo.state = STATE_FINISHED;
+    gameInfo.setPlay = SET_PLAY_NONE;
+    return true;
+  }
+  else if (command == "standby")
+  {
+    if(gameInfo.state == STATE_STANDBY)
+      return true;
+
+    gameInfo.state = STATE_STANDBY;
     gameInfo.setPlay = SET_PLAY_NONE;
     return true;
   }
@@ -992,6 +1001,7 @@ void GameController::addCompletion(std::set<std::string>& completion) const
   static const char* commands[] =
   {
     "initial",
+    "standby",
     "ready",
     "set",
     "playing",

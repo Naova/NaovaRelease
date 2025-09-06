@@ -12,7 +12,7 @@ void CardCreatorBase::addToModuleInfo(CardCreatorBase* firstCreator, std::vector
 {
   for(CardCreatorBase* cardCreator = firstCreator; cardCreator != nullptr; cardCreator = cardCreator->next)
   {
-    auto requirements = cardCreator->getCardInfo().requires;
+    auto requirements = cardCreator->getCardInfo().requiredRepresentations;
     for(const char* requirement : requirements)
     {
       bool found = false;

@@ -68,7 +68,7 @@ void ExtendedGameInfoProvider::update(ExtendedGameInfo& extendedGameInfo)
     extendedGameInfo.startingCalibration = false;
 
   // DO NOT LET ROBOTS ENTER IN THE READY AFTER A TIMEOUT WHICH DID NOT ALREADY RECEIVE PACKETS DURING THE TIMEOUT!!!
-  extendedGameInfo.walkingInFromSidelines = theGameInfo.state == STATE_READY && gameStateBeforeCurrent == STATE_INITIAL &&
+  extendedGameInfo.walkingInFromSidelines = theGameInfo.state == STATE_READY && IS_PREGAME_STATE(gameStateBeforeCurrent) &&
                                             (static_cast<unsigned int>(std::max<int>(theGameInfo.secsRemaining * 1000, 0)) == fullHalfDuration ||
                                              gamePhaseBeforeCurrent == GAME_PHASE_TIMEOUT);
 

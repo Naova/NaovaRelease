@@ -147,18 +147,30 @@ void LEDHandler::setLeftEye(LEDRequest& ledRequest)
 
 void LEDHandler::setRightEye(LEDRequest& ledRequest)
 {
-  if(theTeamBehaviorStatus.role.playsTheBall())
-    setEyeColor(ledRequest, false, red, LEDRequest::on);
-  else if(theTeamBehaviorStatus.role.isGoalkeeper())
-    setEyeColor(ledRequest, false, blue, LEDRequest::on);
-  else if(theTeamBehaviorStatus.role.supporterIndex() == 0)
+  if(!theTeamBehaviorStatus.role.playsTheBall()){
     setEyeColor(ledRequest, false, white, LEDRequest::on);
-  else if(theTeamBehaviorStatus.role.supporterIndex() == 1)
-    setEyeColor(ledRequest, false, yellow, LEDRequest::on);
-  else if(theTeamBehaviorStatus.role.supporterIndex() == 2)
-    setEyeColor(ledRequest, false, green, LEDRequest::on);
-  else if(theTeamBehaviorStatus.role.supporterIndex() == 3)
-    setEyeColor(ledRequest, false, cyan, LEDRequest::on);
+  }else{
+    switch(theBallPlayerStrategy.currentStrategy){
+      case BallPlayerStrategy::clear:
+        setEyeColor(ledRequest, false, cyan, LEDRequest::on);
+        break;
+      case BallPlayerStrategy::kickAtGoal:
+        setEyeColor(ledRequest, false, red, LEDRequest::on);
+        break;
+      case BallPlayerStrategy::pass:
+        setEyeColor(ledRequest, false, magenta, LEDRequest::on);
+        break;
+      case BallPlayerStrategy::dribble:
+        setEyeColor(ledRequest, false, green, LEDRequest::on);
+        break;
+      case BallPlayerStrategy::duel:
+        setEyeColor(ledRequest, false, yellow, LEDRequest::on);
+        break;
+      default:
+      break;
+    }
+    
+  }
 }
 
 void LEDHandler::setHead(LEDRequest& ledRequest)
@@ -204,6 +216,10 @@ void LEDHandler::setChestButton(LEDRequest& ledRequest)
             ledRequest.ledStates[LEDRequest::chestRed] = LEDRequest::on;
             ledRequest.ledStates[LEDRequest::chestGreen] = LEDRequest::half;
             break;
+          case STATE_STANDBY:
+            ledRequest.ledStates[LEDRequest::chestBlue] = LEDRequest::on;
+            ledRequest.ledStates[LEDRequest::chestGreen] = LEDRequest::on;
+            break;
           case STATE_PLAYING:
             ledRequest.ledStates[LEDRequest::chestGreen] = LEDRequest::on;
             break;
@@ -239,6 +255,10 @@ void LEDHandler::setLeftFoot(LEDRequest& ledRequest)
       ledRequest.ledStates[LEDRequest::footLeftGreen] = LEDRequest::half;
       break;
   }
+  if (theTeamData.firstContactMade(theRobotHadBallContact.timeLastKickoff)){
+    ledRequest.ledStates[LEDRequest::footLeftRed] = LEDRequest::on;
+    ledRequest.ledStates[LEDRequest::footLeftBlue] = LEDRequest::on;
+  }
 }
 
 void LEDHandler::setRightFoot(LEDRequest& ledRequest)
@@ -261,6 +281,10 @@ void LEDHandler::setRightFoot(LEDRequest& ledRequest)
     ledRequest.ledStates[LEDRequest::footRightRed] = LEDRequest::on;
     ledRequest.ledStates[LEDRequest::footRightGreen] = LEDRequest::on;
     ledRequest.ledStates[LEDRequest::footRightBlue] = LEDRequest::on;
+  }
+  else if (theTeamData.firstContactMade(theRobotHadBallContact.timeLastKickoff)){
+    ledRequest.ledStates[LEDRequest::footLeftRed] = LEDRequest::on;
+    ledRequest.ledStates[LEDRequest::footLeftBlue] = LEDRequest::on;
   }
 }
 

@@ -10,6 +10,7 @@
 
 #include "Tools/Streams/AutoStreamable.h"
 #include "Tools/Math/Eigen.h"
+#include "Tools/Math/Constants.h"
 #include <algorithm>
 #include <limits>
 #include <type_traits>
@@ -46,6 +47,9 @@ STREAMABLE(Range,
 
   /** A range between -1 and 1. */
   static constexpr Range<T> OneRange();
+
+  /** A range between -pi and pi. */
+  static constexpr Range<T> PiRange();
 
   /**
    * The function enlarges the range so that a certain value will be part of it.
@@ -174,6 +178,12 @@ template<typename T>
 constexpr Range<T> Range<T>::OneRange()
 {
   return Range<T>(T(-1), T(1));
+}
+
+template<typename T>
+constexpr Range<T> Range<T>::PiRange()
+{
+  return Range<T>(T(-pi), T(pi));
 }
 
 template<typename T>

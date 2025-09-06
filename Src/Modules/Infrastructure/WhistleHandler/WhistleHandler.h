@@ -15,6 +15,7 @@
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/FrameInfo.h"
 #include "Representations/Modeling/Whistle.h"
+#include "Representations/Perception/RefereePercept/RefereeReadySignal.h"
 #include "Tools/Math/BHMath.h"
 #include "Tools/Module/Module.h"
 #include "Representations/Modeling/BallInGoal.h"
@@ -30,6 +31,7 @@ MODULE(WhistleHandler,
   REQUIRES(RawGameInfo),
   REQUIRES(TeamData),
   REQUIRES(Whistle),
+  REQUIRES(RefereeReadySignal),
   PROVIDES(GameInfo),
   LOADS_PARAMETERS(
   {,

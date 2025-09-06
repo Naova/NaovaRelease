@@ -110,3 +110,6 @@ mr Whistle default
 call Includes/GameStates
 call Includes/DebugResponses
 call Motors/PlotController
+
+# robot info for all robots
+dr debugDrawing3d:module:BallPlayerStrategyProvider:strategy

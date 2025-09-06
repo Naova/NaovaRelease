@@ -54,6 +54,8 @@ STREAMABLE(SimpleFieldDimensions,
   (float) crossBarRadius,
   (float) goalHeight,
   (float) penaltyMarkSize, //vertical (and horizontal) size of a penaltyMark
+  (float) xPosHalfwayLine,
+  (float) yPosLeftTouchline,
 });
 
 /**
@@ -224,6 +226,15 @@ public:
    * Draws the goal frame.
    */
   void drawGoalFrame() const;
+
+  /**
+   * Computes the position of the referee at the start of the game.
+   * @param leftHandTeam Whether the team defends the left goal from the GameController's PoV.
+   */
+  Vector2f refereeOnField(bool leftHandTeam) const
+  {
+    return Vector2f(xPosHalfwayLine, (yPosLeftTouchline + yPosLeftFieldBorder) / 2.f * (leftHandTeam ? 1 : -1));
+  }
 
 protected:
   /**

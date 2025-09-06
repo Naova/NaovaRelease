@@ -174,7 +174,7 @@ void TacticProvider::update(CurrentTactic& theCurrentTactic)
   auto checkTransitionConditions = [&](const Strategy::TacticState::Transition::Condition& condition)
   {
     // Count the number of field players. (need to see if we will use agents there like in BHuman code)
-    std::size_t numOfFieldPlayers = std::count_if(theTeamData.teammates.begin(), theTeamData.teammates.end(), [](auto& agent){return !agent.isGoalkeeper && !agent.isPenalized;});
+    std::size_t numOfFieldPlayers = std::count_if(theTeamData.teammates.begin(), theTeamData.teammates.end(), [](auto& agent){return !agent.isGoalkeeper && !agent.theRobotStatus.isPenalized;});
 		if (!theRobotInfo.isGoalkeeper()) numOfFieldPlayers++;
 		
     const int scoreDifference = theOwnTeamInfo.score - theOpponentTeamInfo.score;

@@ -10,6 +10,8 @@
 #include "Tools/Communication/RoboCupGameControlData.h"
 #include "Tools/Streams/AutoStreamable.h"
 
+#define IS_PREGAME_STATE(state) (state == STATE_INITIAL || state == STATE_STANDBY)
+
 struct GameInfo : public RoboCup::RoboCupGameControlData, public Streamable
 {
 private:
@@ -19,6 +21,8 @@ private:
 
 public:
   unsigned timeLastPacketReceived = 0;
+  unsigned timeOfLastStateChange = 0; /**< The time when the effective game state last changed. */
+  bool leftHandTeam; /**< Whether the own team defends the left goal from the GameController's PoV. */
 
   GameInfo();
 

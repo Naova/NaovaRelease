@@ -19,6 +19,7 @@
 #include "Representations/Configuration/JointCalibration.h"
 #include "Representations/Configuration/JointLimits.h"
 #include "Representations/Configuration/KickInfo.h"
+#include "Representations/Configuration/LinePerceptorSettings.h"
 #include "Representations/Configuration/MassCalibration.h"
 #include "Representations/Configuration/RelativeFieldColorsParameters.h"
 #include "Representations/Configuration/RobotDimensions.h"
@@ -50,6 +51,7 @@ MODULE(ConfigurationDataProvider,
   PROVIDES(JointLimits),
   PROVIDES(KeyframeMotionParameters),
   PROVIDES(KickInfo),
+  PROVIDES(LinePerceptorSettings),
   PROVIDES(MassCalibration),
   PROVIDES(RelativeFieldColorsParameters),
   PROVIDES(RobotDimensions),
@@ -78,6 +80,7 @@ private:
   std::unique_ptr<JointLimits> theJointLimits;
   std::unique_ptr<KeyframeMotionParameters> theKeyframeMotionParameters;
   std::unique_ptr<KickInfo> theKickInfo;
+  std::unique_ptr<LinePerceptorSettings> theLinePerceptorSettings;
   std::unique_ptr<MassCalibration> theMassCalibration;
   std::unique_ptr<RelativeFieldColorsParameters> theRelativeFieldColorsParameters;
   std::unique_ptr<RobotDimensions> theRobotDimensions;
@@ -100,6 +103,7 @@ private:
   void update(JointLimits& jointLimits) override;
   void update(KeyframeMotionParameters& KeyframeMotionParameters) override {update(KeyframeMotionParameters, theKeyframeMotionParameters);}
   void update(KickInfo& kickInfo) override;
+  void update(LinePerceptorSettings& linePerceptorSettings) override {update(linePerceptorSettings, theLinePerceptorSettings);}
   void update(MassCalibration& massCalibration) override {update(massCalibration, theMassCalibration);}
   void update(RelativeFieldColorsParameters& relativeFieldColorsParameters) override { update(relativeFieldColorsParameters, theRelativeFieldColorsParameters); }
   void update(RobotDimensions& robotDimensions) override;

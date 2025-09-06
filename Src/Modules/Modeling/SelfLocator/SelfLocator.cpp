@@ -569,7 +569,7 @@ void SelfLocator::handleGameStateChanges()
   // Normal game is about to start: We start on the sidelines looking at our goal: (this is for checking in TeamCom)
   else if((theExtendedGameInfo.gameStateLastFrame != STATE_INITIAL && theGameInfo.state == STATE_INITIAL) ||
           // Normal game really starts: We start on the sidelines looking at our goal: (this is for actual setup)
-          (theExtendedGameInfo.gameStateLastFrame == STATE_INITIAL && theGameInfo.state == STATE_READY))
+          (theExtendedGameInfo.gameStateLastFrame == STATE_INITIAL && theGameInfo.state == STATE_STANDBY))
   {
     for(int i = 0; i < samples->size(); ++i)
       samples->at(i).init(getNewPoseAtWalkInPosition(), walkInPoseDeviation, nextSampleNumber++, 0.5f);

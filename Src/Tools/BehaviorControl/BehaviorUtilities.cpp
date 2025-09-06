@@ -1,4 +1,3 @@
-
 /**
  * @file BehaviorUtilities.cpp
  *
@@ -15,48 +14,68 @@
 #include "Tools/BehaviorControl/Framework/Skill/Skill.h"
 #include "Representations/Communication/GameInfo.h"
 #include "iostream"
+#include <array>
+
+const double DISTANCE_PENALTY = 0.05;
+const double TRIANGLE_HALF_ANGLE = 20_deg;
+const double SCALING_FACTOR = 10000.0; // Utilisé pour avoir une plus grande différence entre les scores.
+
+void BehaviorUtilities::triangularZone(std::array<Vector2f, 3>& triangle, const Vector2f& initialPosition, const Vector2f& target, double triangleHalfAngle) {
+   
+    
+    Vector2f kickDirection = (target - initialPosition).normalized();
+    Vector2f kickPerpendicularDirection(kickDirection.y(), -kickDirection.x());
+
+    double triangleHalfBase = (target - initialPosition).norm() * std::tan(triangleHalfAngle);
+
+    triangle[0] = initialPosition;
+    triangle[1] = target + kickPerpendicularDirection * triangleHalfBase;
+    triangle[2] = target - kickPerpendicularDirection * triangleHalfBase;
+
+    
+}
 
 double BehaviorUtilities::score(const Vector2f& initialPosition, const Vector2f& target, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose)
 {
-    const double angle = 20_deg;
+    double score = 0;
+
+    std::array<Vector2f, 3> triangle;
+
+    triangularZone(triangle, initialPosition, target, TRIANGLE_HALF_ANGLE);
+    
+    
     Vector2f kickDirection = (target-initialPosition).normalized();
-    Vector2f perpDirection(kickDirection.y(),-kickDirection.x());
-
-    double score = 100.0;
-    double h = ((target - initialPosition).norm() * std::tan(angle));
-
-    Vector2f point1=target+perpDirection*h;
-    Vector2f point2=target-perpDirection*h;
-    Vector2f triangle[] = { initialPosition, point1, point2 };
-    Vector2f obstaclePos;
+    
+    Vector2f obstaclePosition;
 
     for (Obstacle obstacle : obstacles)
     {
-        obstaclePos = Vector2f((obstacle.center.x() * std::cos(robotPose.rotation) - obstacle.center.y() * std::sin(robotPose.rotation)) + robotPose.translation.x(),
-                         (obstacle.center.x() * std::sin(robotPose.rotation) + obstacle.center.y() * std::cos(robotPose.rotation)) + robotPose.translation.y());
+        obstaclePosition = robotPose * obstacle.center;
         
-        if (Geometry::isPointInsideConvexPolygon(triangle, 3, obstaclePos))
-        {           
-            Vector2f projectionpoint = Geometry::getOrthogonalProjectionOfPointOnLine(initialPosition,kickDirection,obstaclePos);
-            score -= (3000.0 / (projectionpoint - obstaclePos).norm());
+        Vector2f triangleZone[3] = {triangle[0], triangle[1], triangle[2]};
+        if (Geometry::isPointInsideConvexPolygon(triangleZone, 3, obstaclePosition))
+        {   
+            
+            Vector2f projectionpoint = Geometry::getOrthogonalProjectionOfPointOnLine(initialPosition,kickDirection,obstaclePosition);
+            score += (SCALING_FACTOR / (projectionpoint - obstaclePosition).norm());
         }
     }
 
-    score -= (initialPosition-target).norm() * 0.01f;
-    
+    score += (initialPosition-target).norm() * DISTANCE_PENALTY;
+
     return score;
 }
 
 Vector2f BehaviorUtilities::bestScorePosition(const Vector2f& initialPosition, const std::vector<Vector2f>& targets, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose)
 {   
-    double score = std::numeric_limits<double>::lowest();
+    double score = std::numeric_limits<double>::max();
     Vector2f bestTarget;
     
     for(Vector2f target : targets)
     {
-        double computedScore = BehaviorUtilities::score(initialPosition,target,obstacles, robotPose);
+        double computedScore = BehaviorUtilities::score(initialPosition,target, obstacles, robotPose);
         
-        if(computedScore > score)
+        if(computedScore < score)
         {
             score = computedScore;
             bestTarget = target;
@@ -65,10 +84,9 @@ Vector2f BehaviorUtilities::bestScorePosition(const Vector2f& initialPosition, c
     return bestTarget;
 }
 
-Vector2f BehaviorUtilities::bestScorePosition(std::vector<Vector2f> potentialPositions, Vector2f target, Vector2f ballPosition, 
-std::vector<Obstacle> obstacles, Pose2f robotPose)
+Vector2f BehaviorUtilities::bestScorePosition(std::vector<Vector2f> potentialPositions, Vector2f target, Vector2f ballPosition, std::vector<Obstacle> obstacles, Pose2f robotPose)
 {   
-    double score = std::numeric_limits<double>::lowest();
+    double score = std::numeric_limits<double>::max();
     Vector2f bestInitialPosition(0,0);
     
     for(Vector2f position : potentialPositions)
@@ -76,35 +94,37 @@ std::vector<Obstacle> obstacles, Pose2f robotPose)
         double targetScore=BehaviorUtilities::score(position, target, obstacles, robotPose);
         double passerScore=BehaviorUtilities::score(ballPosition, position, obstacles, robotPose);
         
-        //moyenne pour ne pas que les scores deviennent trop élevés. On peut facilement changer le poids des variables
+    
+
+        // Moyenne pour que les scores ne deviennent pas trop élevés. On peut facilement changer le poids des variables
         double computedScore = (targetScore + passerScore)/2;
         
-        if(computedScore > score)
+        if(computedScore < score)
         {
             score = computedScore;
             bestInitialPosition = position;
         }
     }
-
+    
     return bestInitialPosition;
 }
-Vector2f BehaviorUtilities::bestScorePositionInGoal(const Vector2f& initialPosition, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose){
+Vector2f BehaviorUtilities::bestScorePositionInGoal(const Vector2f& initialBallPosition, const std::vector<Obstacle>& obstacles, const Pose2f& robotPose){
     std::vector<Vector2f> targets;
 
     if(Blackboard::getInstance().exists("FieldDimensions"))
     {
       const FieldDimensions& theFieldDimensions = static_cast<const FieldDimensions&>(Blackboard::getInstance()["FieldDimensions"]);
-      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosCenterGoal));
-      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosLeftGoal*0.75));
-      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine, theFieldDimensions.yPosRightGoal*0.75));
+      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine + 200, theFieldDimensions.yPosCenterGoal));
+      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine + 200, theFieldDimensions.yPosLeftGoal*0.75));
+      targets.push_back(Vector2f(theFieldDimensions.xPosOpponentGroundLine + 200, theFieldDimensions.yPosRightGoal*0.75));
     }
 
     ASSERT(targets.size() > 0);
-    double bestScore = -1.0;
+    double bestScore = std::numeric_limits<double>::max();
     Vector2f bestTarget;
     for(Vector2f target : targets){
-        double scoreI = score(initialPosition, target, obstacles, robotPose);
-        if(scoreI > bestScore){
+        double scoreI = score(initialBallPosition, target, obstacles, robotPose);
+        if(scoreI < bestScore){
             bestScore = scoreI;
             bestTarget = target;
         } 
@@ -112,3 +132,5 @@ Vector2f BehaviorUtilities::bestScorePositionInGoal(const Vector2f& initialPosit
 
     return bestTarget;
 }
+
+

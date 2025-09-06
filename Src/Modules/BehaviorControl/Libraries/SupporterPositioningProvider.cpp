@@ -52,7 +52,7 @@ void SupporterPositioningProvider::update(SupporterPositioning& theSupporterPosi
       }
   }
 
-  if (theGameInfo.state == STATE_READY && theExtendedGameInfo.gameStateBeforeCurrent == STATE_INITIAL) {
+  if (theGameInfo.state == STATE_READY && IS_PREGAME_STATE(theExtendedGameInfo.gameStateBeforeCurrent)) {
     Tactic::Position position = firstReadyAssignPosition(positions);
 
     theSupporterPositioning.position = position.type;
@@ -64,7 +64,7 @@ void SupporterPositioningProvider::update(SupporterPositioning& theSupporterPosi
   // Initialize a set of pointers to the agents that haven't been assigned a position yet.
   std::vector<Agent> remainingAgents;
   for(const Teammate& teammate : theTeamData.teammates){
-    if(teammate.isPenalized || teammate.isGoalkeeper || teammate.theTeamBehaviorStatus.role.role == PlayerRole::none){
+    if(teammate.theRobotStatus.isPenalized || teammate.isGoalkeeper || teammate.theTeamBehaviorStatus.role.role == PlayerRole::none){
       continue;
     }
     Agent agent;

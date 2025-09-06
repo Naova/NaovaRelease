@@ -170,6 +170,7 @@ void ArmContactModelProvider::update(ArmContactModel& model)
   DECLARE_DEBUG_DRAWING("module:ArmContactModelProvider:leanedArmContact", "drawingOnField");
 
   if(theGameInfo.state == STATE_INITIAL ||
+     theGameInfo.state == STATE_STANDBY ||
      theGameInfo.state == STATE_FINISHED ||
      theFallDownState.state == FallDownState::falling ||
      theFallDownState.state == FallDownState::fallen ||

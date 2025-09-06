@@ -46,7 +46,7 @@ class PenaltyStrikerCard : public PenaltyStrikerCardBase
   void execute() override
   {
     theActivitySkill(BehaviorStatus::kickAtGoal);
-    Vector2f target = BehaviorUtilities::bestScorePositionInGoal(theFieldBall.positionOnField, theObstacleModel.obstacles, theRobotPose.inversePose);
+    Vector2f target = BehaviorUtilities::bestScorePositionInGoal(theFieldBall.positionOnField, theObstacleModel.obstacles, theRobotPose);
     Pose2f kickPose = Pose2f((theRobotPose.inversePose*target).angle(), theFieldBall.endPositionRelative);
     thePenaltyStrikerGoToBallAndKickSkill(kickPose, KickInfo::KickType::forwardFastRight, 0.5);
   }

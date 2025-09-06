@@ -30,19 +30,39 @@ class InterceptBallCard : public InterceptBallCardBase
 {
   bool preconditions() const override
   {
-    return theRobotInfo.number == 1 && theFieldDimensions.isInOwnPenaltyArea(theRobotPose.translation) && 
-      theFieldBall.isRollingTowardsOwnGoal;
+    if(theRobotInfo.isGoalkeeper()) // Keeper
+    {
+      return theFieldBall.isRollingTowardsOwnGoal;
+    }
+    else // Any other player
+    {
+      // Is the ball going to pass the robot?
+      bool intersectsYAxis = theFieldBall.intersectionPositionWithOwnYAxis != Vector2f::Zero();
+
+      // We shouldn't block a kick that might go into the opponent's goal
+      bool shouldLetPass = theFieldBall.positionOnField.x() > 0 && theFieldBall.isRollingTowardsOpponentGoal;
+
+      return intersectsYAxis && !shouldLetPass;
+    }
   }
 
   bool postconditions() const override
   {
-    return !theFieldBall.isRollingTowardsOwnGoal;
+    return !preconditions();
   }
 
   void execute() override
   {
     theActivitySkill(BehaviorStatus::interceptBall);
-    theInterceptBallSkill(bit(Interception::genuflectStand) | bit(Interception::walk) | bit(Interception::jumpLeft) | bit(Interception::jumpRight) | bit(Interception::stand), true, true);
+
+    if (theRobotInfo.isGoalkeeper()) // Keeper
+    {
+      theInterceptBallSkill(bit(Interception::genuflectStand) | bit(Interception::walk) | bit(Interception::jumpLeft) | bit(Interception::jumpRight) | bit(Interception::stand), true, true);
+    }
+    else // Any other player
+    {
+      theInterceptBallSkill(bit(Interception::walk) | bit(Interception::stand), true, false);
+    }
   }
 };
 

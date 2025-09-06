@@ -103,6 +103,9 @@ void GameDataProvider::update(RawGameInfo& theRawGameInfo)
 {
   std::memcpy(static_cast<RoboCup::RoboCupGameControlData*>(&theRawGameInfo), &gameCtrlData, sizeof(gameCtrlData));
   theRawGameInfo.timeLastPacketReceived = whenGameCtrlDataWasSet;
+
+  const std::size_t ownTeamIndex = gameCtrlData.teams[0].teamNumber == Global::getSettings().teamNumber ? 0 : 1;
+  theRawGameInfo.leftHandTeam = ownTeamIndex == 0;
 }
 
 void GameDataProvider::receive(bool setGameCtrlData)

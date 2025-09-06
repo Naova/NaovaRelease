@@ -22,9 +22,6 @@ public:
 
   static constexpr unsigned int maxResolutionWidth = 1280;
   static constexpr unsigned int maxResolutionHeight = 960;
-  
-  CameraImage() = default;
-  CameraImage(const unsigned int width, const unsigned int height) : Image(width, height, 0) {}
 
   bool isReference() const
   {
@@ -77,25 +74,6 @@ public:
         src++;
       }
     return ret;
-  }
-
-  /**
-   * Returns the image as a tri-dimensional array to fit Yolo input shape.
-   * We assume that the present image shape is equal to the Yolo input shape.
-   * The correct shape is : [maxYoloResolutionWidth][maxYoloResolutionHeight][3]
-   * @return the image array
-   */
-  void convertToYoloFormat(float *image_array) const
-  {
-    for(unsigned int i = 0; i < height; ++i) 
-    {
-      for(unsigned int j = 0; j < width; ++j) 
-      {
-        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS] = (*this).getY(j, i)/255.f;
-        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 1] = (*this).getYUV(j, i).u/255.f;
-        image_array[i * width * YOLO_BALL_INPUT_CHANNELS + j * YOLO_BALL_INPUT_CHANNELS + 2] = (*this).getYUV(j, i).v/255.f;
-      }
-    }
   }
 
   void convertToFPNGformat(uint8_t *image_array) const

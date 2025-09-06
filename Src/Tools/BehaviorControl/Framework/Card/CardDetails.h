@@ -52,7 +52,7 @@ class CardCreatorBase
 public:
   struct Info
   {
-    std::vector<const char*> requires; /**< The names of representations required by this card. */
+    std::vector<const char*> requiredRepresentations; /**< The names of representations required by this card. */
     std::vector<const char*> calls; /**< The names of skills called by this card. */
   };
 
@@ -166,7 +166,7 @@ private:
 #define _CARD_FREE__MODULE_LOADS_PARAMETERS(...)
 
 #define _CARD_INFO(x) _MODULE_JOIN(_CARD_INFO_, x)
-#define _CARD_INFO_REQUIRES(type) _info.requires.push_back(#type);
+#define _CARD_INFO_REQUIRES(type) _info.requiredRepresentations.push_back(#type);
 #define _CARD_INFO_USES(type)
 #define _CARD_INFO_CALLS(type) _info.calls.push_back(#type);
 #define _CARD_INFO__MODULE_DEFINES_PARAMETERS(...)
